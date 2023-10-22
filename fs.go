@@ -1,6 +1,7 @@
 package nb8
 
 import (
+	"database/sql"
 	"errors"
 	"io"
 	"io/fs"
@@ -35,23 +36,30 @@ type FS interface {
 	Rename(oldname, newname string) error
 }
 
-type LocalFS struct {
+// TODO: roll HybridFS into FS and make it a struct instead of an interface.
+// This is because HybridFS (now FS0 will be in charge of how much stuff to
+// keep on the local filesystem and how much stuff to keep in S3. This is
+// generic enough that most people will never need to roll their own FS
+// implementation, hence making HybridFS into the new FS. If people eventually
+// request for a swappable filesystem, we could call the interface VFS instead
+// and make FS implement VFS.
+type HybridFS struct {
 	RootDir string
 	TempDir string
 }
 
-var _ FS = (*LocalFS)(nil)
+var _ FS = (*HybridFS)(nil)
 
-func (localFS *LocalFS) String() string {
+func (localFS *HybridFS) String() string {
 	return localFS.RootDir
 }
 
-func (localFS *LocalFS) Open(name string) (fs.File, error) {
+func (localFS *HybridFS) Open(name string) (fs.File, error) {
 	name = filepath.FromSlash(name)
 	return os.Open(filepath.Join(localFS.RootDir, name))
 }
 
-func (localFS *LocalFS) OpenReaderFrom(name string, perm fs.FileMode) (io.ReaderFrom, error) {
+func (localFS *HybridFS) OpenReaderFrom(name string, perm fs.FileMode) (io.ReaderFrom, error) {
 	return &localFile{
 		localFS: localFS,
 		name:    name,
@@ -59,39 +67,39 @@ func (localFS *LocalFS) OpenReaderFrom(name string, perm fs.FileMode) (io.Reader
 	}, nil
 }
 
-func (localFS *LocalFS) ReadDir(name string) ([]fs.DirEntry, error) {
+func (localFS *HybridFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	name = filepath.FromSlash(name)
 	return os.ReadDir(filepath.Join(localFS.RootDir, name))
 }
 
-func (localFS *LocalFS) Mkdir(name string, perm fs.FileMode) error {
+func (localFS *HybridFS) Mkdir(name string, perm fs.FileMode) error {
 	name = filepath.FromSlash(name)
 	return os.Mkdir(filepath.Join(localFS.RootDir, name), perm)
 }
 
-func (localFS *LocalFS) MkdirAll(name string, perm fs.FileMode) error {
+func (localFS *HybridFS) MkdirAll(name string, perm fs.FileMode) error {
 	name = filepath.FromSlash(name)
 	return os.MkdirAll(filepath.Join(localFS.RootDir, name), perm)
 }
 
-func (localFS *LocalFS) Remove(name string) error {
+func (localFS *HybridFS) Remove(name string) error {
 	name = filepath.FromSlash(name)
 	return os.Remove(filepath.Join(localFS.RootDir, name))
 }
 
-func (localFS *LocalFS) RemoveAll(name string) error {
+func (localFS *HybridFS) RemoveAll(name string) error {
 	name = filepath.FromSlash(name)
 	return os.RemoveAll(filepath.Join(localFS.RootDir, name))
 }
 
-func (localFS *LocalFS) Rename(oldname, newname string) error {
+func (localFS *HybridFS) Rename(oldname, newname string) error {
 	oldname = filepath.FromSlash(oldname)
 	newname = filepath.FromSlash(newname)
 	return os.Rename(filepath.Join(localFS.RootDir, oldname), filepath.Join(localFS.RootDir, newname))
 }
 
 type localFile struct {
-	localFS *LocalFS
+	localFS *HybridFS
 	name    string
 	perm    fs.FileMode
 }
@@ -137,6 +145,12 @@ func (localFile *localFile) ReadFrom(r io.Reader) (n int64, err error) {
 	return n, nil
 }
 
+type S3FS struct {
+	DB        *sql.DB
+	Dialect   string
+	BucketURL string // https://s3.<your-region>.backblazeb2.com/:bucket
+}
+
 // RemoveAll removes the root item from the FS (whether it is a file or a
 // directory).
 func RemoveAll(fsys FS, root string) error {
@@ -144,6 +158,11 @@ func RemoveAll(fsys FS, root string) error {
 		Path             string // relative to root
 		IsFile           bool   // whether item is file or directory
 		MarkedForRemoval bool   // if true, remove item unconditionally
+	}
+	// If the filesystem supports RemoveAll(), we can call that instead and
+	// return.
+	if fsys, ok := fsys.(interface{ RemoveAll(name string) error }); ok {
+		return fsys.RemoveAll(root)
 	}
 	root = filepath.FromSlash(root)
 	fileInfo, err := fs.Stat(fsys, root)
@@ -161,11 +180,6 @@ func RemoveAll(fsys FS, root string) error {
 	dirEntries, err := fsys.ReadDir(root)
 	if len(dirEntries) == 0 {
 		return fsys.Remove(root)
-	}
-	// If the filesystem supports RemoveAll(), we can call that instead and
-	// return.
-	if fsys, ok := fsys.(interface{ RemoveAll(name string) error }); ok {
-		return fsys.RemoveAll(root)
 	}
 	// Otherwise, we need to recursively delete its child items one by one.
 	var item Item
@@ -210,6 +224,13 @@ func RemoveAll(fsys FS, root string) error {
 }
 
 func MkdirAll(fsys FS, dir string, perm fs.FileMode) error {
+	// If the filesystem supports MkdirAll(), we can call that instead and
+	// return.
+	if fsys, ok := fsys.(interface {
+		MkdirAll(dir string, perm fs.FileMode) error
+	}); ok {
+		return fsys.MkdirAll(dir, perm)
+	}
 	fileInfo, err := fs.Stat(fsys, dir)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil

@@ -1,0 +1,14 @@
+cdn.nbrew.io
+
+bokwoon.nbrew.io/admin/
+bokwoon.nbrew.io/themes/
+
+www.nbrew.io nuances
+- only serves stuff in {sitePrefix}/output/themes
+- if requested URL is a HTML page, issue a permanent redirect to that site's URL instead
+- this is to prevent the same page from being available on multiple sources e.g. www.nbrew.io/@bokwoon and bokwoon.nbrew.io
+- cdn.nbrew.io behaves identically to www.nbrew.io except cdn.nbrew.io may use a DNS CNAME record to point it to an actual CDN URL. If no CDN service is set up, cdn.nbrew.io gracefully degrades to serving files identical to www.nbrew.io.
+
+nbrew.io/themes/ => https://cdn.nbrew.io/themes/
+bokwoon.nbrew.io/themes/ => https://cdn.nbrew.io/@bokwoon/themes/
+bokwoon.com/themes/ => https://cdn.nbrew.io/bokwoon.com/themes/
