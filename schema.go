@@ -93,5 +93,5 @@ type FILES struct {
 	PARENT_ID sq.UUIDField    `ddl:"references={files.file_id onupdate=cascade index}"`
 	FILE_PATH sq.StringField  `ddl:"notnull len=500"`
 	IS_DIR    sq.BooleanField `ddl:"notnull"`
-	CONTENT   sq.StringField  `ddl:"mysql:type=MEDIUMTEXT"`
+	DATA      sq.StringField  `ddl:"mysql:type=MEDIUMTEXT"`
 }
