@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -353,6 +354,24 @@ type RemoteFS struct {
 	DB      *sql.DB
 	Dialect string
 	Storage Storage
+}
+
+// fs.File
+// io.ReaderFrom
+// fs.DirEntry
+// fs.FileInfo
+
+type remoteFile struct {
+	fileID [16]byte
+}
+
+type remoteFileInfo struct {
+	parent  string
+	path    string
+	size    int64
+	modTime time.Time
+	isDir   bool
+	data    string
 }
 
 // Open(name string) (fs.File, error)

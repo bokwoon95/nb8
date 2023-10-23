@@ -94,4 +94,5 @@ type FILES struct {
 	FILE_PATH sq.StringField  `ddl:"notnull len=500"`
 	IS_DIR    sq.BooleanField `ddl:"notnull"`
 	DATA      sq.StringField  `ddl:"mysql:type=MEDIUMTEXT"`
+	MOD_TIME  sq.TimeField
 }
