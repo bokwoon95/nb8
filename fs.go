@@ -1,14 +1,22 @@
 package nb8
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"syscall"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 type FS interface {
@@ -285,5 +293,117 @@ func MkdirAll(fsys FS, dir string, perm fs.FileMode) error {
 		}
 		return err
 	}
+	return nil
+}
+
+type Storage interface {
+	Get(ctx context.Context, key string) (io.ReadCloser, error)
+	Put(ctx context.Context, key string, reader io.Reader) error
+	Delete(ctx context.Context, key string) error
+}
+
+type S3Storage struct {
+	client *s3.Client
+	bucket string
+}
+
+type S3StorageConfig struct {
+	EndpointURL     string `json:"endpointURL,omitempty"`
+	Region          string `json:"region,omitempty"`
+	Bucket          string `json:"bucket,omitempty"`
+	AccessKeyID     string `json:"accessKeyID,omitempty"`
+	SecretAccessKey string `json:"secretAccessKey,omitempty"`
+}
+
+func NewS3Storage(ctx context.Context, config S3StorageConfig) (*S3Storage, error) {
+	storage := &S3Storage{
+		client: s3.New(s3.Options{
+			BaseEndpoint: aws.String(config.EndpointURL),
+			Region:       config.Region,
+			Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(config.AccessKeyID, config.SecretAccessKey, "")),
+		}),
+		bucket: config.Bucket,
+	}
+	_, err := storage.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket:  &storage.bucket,
+		MaxKeys: 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return storage, nil
+}
+
+func (storage *S3Storage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	output, err := storage.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &storage.bucket,
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return output.Body, nil
+}
+
+func (storage *S3Storage) Put(ctx context.Context, key string, reader io.Reader) error {
+	_, err := storage.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: &storage.bucket,
+		Key:    aws.String(key),
+		Body:   reader,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (storage *S3Storage) Delete(ctx context.Context, key string) error {
+	_, err := storage.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: &storage.bucket,
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type MemoryStorage struct {
+	mu      sync.RWMutex
+	entries map[string][]byte
+}
+
+func NewMemoryStorage() *MemoryStorage {
+	return &MemoryStorage{
+		mu:      sync.RWMutex{},
+		entries: make(map[string][]byte),
+	}
+}
+
+func (storage *MemoryStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	storage.mu.RLock()
+	entry, ok := storage.entries[key]
+	storage.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("entry does not exist for key %q", key)
+	}
+	return io.NopCloser(bytes.NewReader(entry)), nil
+}
+
+func (storage *MemoryStorage) Put(ctx context.Context, key string, reader io.Reader) error {
+	value, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+	storage.mu.Lock()
+	storage.entries[key] = value
+	storage.mu.Unlock()
+	return nil
+}
+
+func (storage *MemoryStorage) Delete(ctx context.Context, key string) error {
+	storage.mu.Lock()
+	delete(storage.entries, key)
+	storage.mu.Unlock()
 	return nil
 }
