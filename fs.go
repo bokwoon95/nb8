@@ -44,30 +44,30 @@ type FS interface {
 	Rename(oldname, newname string) error
 }
 
-// TODO: roll HybridFS into FS and make it a struct instead of an interface.
-// This is because HybridFS (now FS0 will be in charge of how much stuff to
+// TODO: roll LocalFS into FS and make it a struct instead of an interface.
+// This is because LocalFS (now FS0 will be in charge of how much stuff to
 // keep on the local filesystem and how much stuff to keep in S3. This is
 // generic enough that most people will never need to roll their own FS
-// implementation, hence making HybridFS into the new FS. If people eventually
+// implementation, hence making LocalFS into the new FS. If people eventually
 // request for a swappable filesystem, we could call the interface VFS instead
 // and make FS implement VFS.
-type HybridFS struct {
+type LocalFS struct {
 	RootDir string
 	TempDir string
 }
 
-var _ FS = (*HybridFS)(nil)
+var _ FS = (*LocalFS)(nil)
 
-func (localFS *HybridFS) String() string {
+func (localFS *LocalFS) String() string {
 	return localFS.RootDir
 }
 
-func (localFS *HybridFS) Open(name string) (fs.File, error) {
+func (localFS *LocalFS) Open(name string) (fs.File, error) {
 	name = filepath.FromSlash(name)
 	return os.Open(filepath.Join(localFS.RootDir, name))
 }
 
-func (localFS *HybridFS) OpenReaderFrom(name string, perm fs.FileMode) (io.ReaderFrom, error) {
+func (localFS *LocalFS) OpenReaderFrom(name string, perm fs.FileMode) (io.ReaderFrom, error) {
 	return &localFile{
 		localFS: localFS,
 		name:    name,
@@ -75,39 +75,39 @@ func (localFS *HybridFS) OpenReaderFrom(name string, perm fs.FileMode) (io.Reade
 	}, nil
 }
 
-func (localFS *HybridFS) ReadDir(name string) ([]fs.DirEntry, error) {
+func (localFS *LocalFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	name = filepath.FromSlash(name)
 	return os.ReadDir(filepath.Join(localFS.RootDir, name))
 }
 
-func (localFS *HybridFS) Mkdir(name string, perm fs.FileMode) error {
+func (localFS *LocalFS) Mkdir(name string, perm fs.FileMode) error {
 	name = filepath.FromSlash(name)
 	return os.Mkdir(filepath.Join(localFS.RootDir, name), perm)
 }
 
-func (localFS *HybridFS) MkdirAll(name string, perm fs.FileMode) error {
+func (localFS *LocalFS) MkdirAll(name string, perm fs.FileMode) error {
 	name = filepath.FromSlash(name)
 	return os.MkdirAll(filepath.Join(localFS.RootDir, name), perm)
 }
 
-func (localFS *HybridFS) Remove(name string) error {
+func (localFS *LocalFS) Remove(name string) error {
 	name = filepath.FromSlash(name)
 	return os.Remove(filepath.Join(localFS.RootDir, name))
 }
 
-func (localFS *HybridFS) RemoveAll(name string) error {
+func (localFS *LocalFS) RemoveAll(name string) error {
 	name = filepath.FromSlash(name)
 	return os.RemoveAll(filepath.Join(localFS.RootDir, name))
 }
 
-func (localFS *HybridFS) Rename(oldname, newname string) error {
+func (localFS *LocalFS) Rename(oldname, newname string) error {
 	oldname = filepath.FromSlash(oldname)
 	newname = filepath.FromSlash(newname)
 	return os.Rename(filepath.Join(localFS.RootDir, oldname), filepath.Join(localFS.RootDir, newname))
 }
 
 type localFile struct {
-	localFS *HybridFS
+	localFS *LocalFS
 	name    string
 	perm    fs.FileMode
 }
@@ -151,12 +151,6 @@ func (localFile *localFile) ReadFrom(r io.Reader) (n int64, err error) {
 	}
 	_ = os.Chmod(destFileName, mode)
 	return n, nil
-}
-
-type S3FS struct {
-	DB        *sql.DB
-	Dialect   string
-	BucketURL string // https://s3.<your-region>.backblazeb2.com/:bucket
 }
 
 // RemoveAll removes the root item from the FS (whether it is a file or a
@@ -294,6 +288,12 @@ func MkdirAll(fsys FS, dir string, perm fs.FileMode) error {
 		return err
 	}
 	return nil
+}
+
+type RemoteFS struct {
+	DB      *sql.DB
+	Dialect string
+	Storage Storage
 }
 
 type Storage interface {
