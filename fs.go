@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -406,6 +407,7 @@ func NewS3Storage(ctx context.Context, config S3StorageConfig) (*S3Storage, erro
 }
 
 func (storage *S3Storage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	key = strings.Trim(path.Clean(key), "/")
 	output, err := storage.Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
@@ -417,6 +419,7 @@ func (storage *S3Storage) Get(ctx context.Context, key string) (io.ReadCloser, e
 }
 
 func (storage *S3Storage) Put(ctx context.Context, key string, reader io.Reader) error {
+	key = strings.Trim(path.Clean(key), "/")
 	_, err := storage.Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
@@ -429,6 +432,7 @@ func (storage *S3Storage) Put(ctx context.Context, key string, reader io.Reader)
 }
 
 func (storage *S3Storage) Delete(ctx context.Context, key string) error {
+	key = strings.Trim(path.Clean(key), "/")
 	_, err := storage.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
@@ -454,6 +458,7 @@ func NewInMemoryStorage() *InMemoryStorage {
 }
 
 func (storage *InMemoryStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	key = strings.Trim(path.Clean(key), "/")
 	storage.mu.RLock()
 	entry, ok := storage.entries[key]
 	storage.mu.RUnlock()
@@ -464,6 +469,7 @@ func (storage *InMemoryStorage) Get(ctx context.Context, key string) (io.ReadClo
 }
 
 func (storage *InMemoryStorage) Put(ctx context.Context, key string, reader io.Reader) error {
+	key = strings.Trim(path.Clean(key), "/")
 	value, err := io.ReadAll(reader)
 	if err != nil {
 		return err
@@ -475,6 +481,7 @@ func (storage *InMemoryStorage) Put(ctx context.Context, key string, reader io.R
 }
 
 func (storage *InMemoryStorage) Delete(ctx context.Context, key string) error {
+	key = strings.Trim(path.Clean(key), "/")
 	storage.mu.Lock()
 	delete(storage.entries, key)
 	storage.mu.Unlock()
