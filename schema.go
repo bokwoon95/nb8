@@ -14,9 +14,9 @@ import (
 //go:embed schema.go
 var schemaFS embed.FS
 
-func automigrate(dialect string, db *sql.DB) error {
+func Automigrate(dialect string, db *sql.DB) error {
 	if db == nil {
-		return nil
+		return fmt.Errorf("db is nil")
 	}
 	automigrateCmd := &ddl.AutomigrateCmd{
 		DB:             db,
