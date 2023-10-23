@@ -361,18 +361,146 @@ type RemoteFS struct {
 // fs.DirEntry
 // fs.FileInfo
 
-type remoteFile struct {
-	fileID [16]byte
+type remoteFileInfo struct {
+	fileID   [16]byte
+	parentID [16]byte
+	filePath string
+	isDir    bool
+	data     string
+	size     int64
+	modTime  time.Time
+	mode     fs.FileMode
 }
 
-type remoteFileInfo struct {
-	parent  string
-	path    string
-	size    int64
-	modTime time.Time
-	isDir   bool
-	data    string
+func isStoredInDB(filePath string) bool {
+	ext := path.Ext(filePath)
+	head, tail, _ := strings.Cut(filePath, "/")
+	switch head {
+	case "notes":
+		if ext == ".txt" {
+			return true
+		}
+	case "pages":
+		if ext == ".html" {
+			return true
+		}
+	case "posts":
+		if ext == ".markdown" || ext == ".md" {
+			return true
+		}
+	case "output":
+		next, _, _ := strings.Cut(tail, "/")
+		if next != "themes" {
+			return false
+		}
+		if ext == ".html" || ext == ".css" || ext == ".js" {
+			return true
+		}
+	}
+	return false
 }
+
+func (fileInfo *remoteFileInfo) Name() string {
+	return path.Base(fileInfo.filePath)
+}
+
+func (fileInfo *remoteFileInfo) Size() int64 {
+	if isStoredInDB(fileInfo.filePath) {
+		return int64(len(fileInfo.data))
+	}
+	return fileInfo.size
+}
+
+func (fileInfo *remoteFileInfo) Mode() fs.FileMode {
+	if fileInfo.isDir {
+		return fileInfo.mode | fs.ModeDir
+	}
+	return fileInfo.mode &^ fs.ModeDir
+}
+
+func (fileInfo *remoteFileInfo) ModTime() time.Time { return fileInfo.modTime }
+
+func (fileInfo *remoteFileInfo) IsDir() bool { return fileInfo.isDir }
+
+func (fileInfo *remoteFileInfo) Sys() any { return nil }
+
+func (fileInfo *remoteFileInfo) Type() fs.FileMode { return fileInfo.Mode().Type() }
+
+func (fileInfo *remoteFileInfo) FileInfo() (fs.FileInfo, error) { return fileInfo, nil }
+
+type remoteFile struct {
+	fileInfo   *remoteFileInfo
+	readCloser io.ReadCloser
+}
+
+func (remoteFS *RemoteFS) Open(name string) (fs.File, error) {
+	// TODO: pull remoteFileInfo from the database.
+	fileInfo := &remoteFileInfo{}
+	if isStoredInDB(fileInfo.filePath) {
+		fileReader := &remoteFile{
+			fileInfo:   fileInfo,
+			readCloser: io.NopCloser(strings.NewReader(fileInfo.data)),
+		}
+		return fileReader, nil
+	}
+	readCloser, err := remoteFS.Storage.Get(context.Background(), fileInfo.filePath)
+	if err != nil {
+		return nil, err
+	}
+	fileReader := &remoteFile{
+		fileInfo:   fileInfo,
+		readCloser: readCloser,
+	}
+	return fileReader, nil
+}
+
+func (file *remoteFile) Read(p []byte) (n int, err error) {
+	return file.readCloser.Read(p)
+}
+
+func (file *remoteFile) Close() error {
+	return file.readCloser.Close()
+}
+
+func (file *remoteFile) Stat() (fs.FileInfo, error) {
+	return file.fileInfo, nil
+}
+
+type remoteFileWriter struct {
+	ctx  context.Context
+	file *remoteFileInfo
+
+	db      *sql.DB
+	dialect string
+	storage Storage
+}
+
+// func (fileWriter *remoteFileWriter) ReadFrom(r io.Reader) (n int64, err error) {
+// 	if fileWriter.file.isDir {
+// 		return 0, fmt.Errorf("%s is a directory", fileWriter.file.filePath)
+// 	}
+// 	// TODO: don't update, upsert.
+// 	if isStoredInDB(fileWriter.file.filePath) {
+// 		data, err := io.ReadAll(r)
+// 		if err != nil {
+// 			return int64(len(data)), err
+// 		}
+// 		_, err = sq.ExecContext(fileWriter.ctx, fileWriter.file.db, sq.CustomQuery{
+// 			Dialect: fileWriter.file.dialect,
+// 			Format:  "UPDATE files SET data = {data} WHERE file_id = {fileID}",
+// 			Values: []any{
+// 				sq.BytesParam("data", data),
+// 				sq.UUIDParam("fileID", fileWriter.file.fileID),
+// 			},
+// 		})
+// 		if err != nil {
+// 			return 0, err
+// 		}
+// 		return int64(len(data)), nil
+// 	}
+// 	err = fileWriter.file.storage.Put(fileWriter.ctx, fileWriter.file.filePath, r)
+// 	return 0, nil
+// }
 
 // Open(name string) (fs.File, error)
 // OpenReaderFrom(name string, perm fs.FileMode) (io.ReaderFrom, error)
