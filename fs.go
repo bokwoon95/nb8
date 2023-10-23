@@ -368,7 +368,7 @@ type S3BlobStorage struct {
 var _ BlobStorage = (*S3BlobStorage)(nil)
 
 type S3BlobStorageConfig struct {
-	EndpointURL     string `json:"endpointURL,omitempty"`
+	Endpoint        string `json:"endpoint,omitempty"`
 	Region          string `json:"region,omitempty"`
 	Bucket          string `json:"bucket,omitempty"`
 	AccessKeyID     string `json:"accessKeyID,omitempty"`
@@ -378,7 +378,7 @@ type S3BlobStorageConfig struct {
 func NewS3BlobStorage(ctx context.Context, config S3BlobStorageConfig) (*S3BlobStorage, error) {
 	storage := &S3BlobStorage{
 		Client: s3.New(s3.Options{
-			BaseEndpoint: aws.String(config.EndpointURL),
+			BaseEndpoint: aws.String(config.Endpoint),
 			Region:       config.Region,
 			Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(config.AccessKeyID, config.SecretAccessKey, "")),
 		}),
