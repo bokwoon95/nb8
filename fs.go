@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -288,6 +289,70 @@ func MkdirAll(fsys FS, dir string, perm fs.FileMode) error {
 		return err
 	}
 	return nil
+}
+
+func GetFileSize(fsys fs.FS, root string) (int64, error) {
+	type Item struct {
+		Path     string // relative to root
+		DirEntry fs.DirEntry
+	}
+	fileInfo, err := fs.Stat(fsys, root)
+	if err != nil {
+		return 0, err
+	}
+	if !fileInfo.IsDir() {
+		return fileInfo.Size(), nil
+	}
+	if s, ok := fileInfo.(interface{ GetSize() (int64, error) }); ok {
+		n, err := s.GetSize()
+		if err != nil {
+			return 0, err
+		}
+		return n, nil
+	}
+	var size int64
+	var item Item
+	var items []Item
+	dirEntries, err := fs.ReadDir(fsys, root)
+	if err != nil {
+		return 0, err
+	}
+	for i := len(dirEntries) - 1; i >= 0; i-- {
+		items = append(items, Item{
+			Path:     dirEntries[i].Name(),
+			DirEntry: dirEntries[i],
+		})
+	}
+	for len(items) > 0 {
+		item, items = items[len(items)-1], items[:len(items)-1]
+		if !item.DirEntry.IsDir() {
+			fileInfo, err = item.DirEntry.Info()
+			if err != nil {
+				return 0, fmt.Errorf("%s: %w", path.Join(root, item.Path), err)
+			}
+			size += fileInfo.Size()
+			continue
+		}
+		if s, ok := item.DirEntry.(interface{ GetSize() (int64, error) }); ok {
+			n, err := s.GetSize()
+			if err != nil {
+				return 0, fmt.Errorf("%s: %w", path.Join(root, item.Path), err)
+			}
+			size += n
+			continue
+		}
+		dirEntries, err = fs.ReadDir(fsys, path.Join(root, item.Path))
+		if err != nil {
+			return 0, fmt.Errorf("%s: %w", path.Join(root, item.Path), err)
+		}
+		for i := len(dirEntries) - 1; i >= 0; i-- {
+			items = append(items, Item{
+				Path:     path.Join(item.Path, dirEntries[i].Name()),
+				DirEntry: dirEntries[i],
+			})
+		}
+	}
+	return size, nil
 }
 
 type RemoteFS struct {
