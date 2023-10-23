@@ -349,25 +349,36 @@ func GetFileSize(fsys fs.FS, root string) (int64, error) {
 }
 
 type RemoteFS struct {
-	DB          *sql.DB
-	Dialect     string
-	BlobStorage BlobStorage
+	DB      *sql.DB
+	Dialect string
+	Storage Storage
 }
 
-type BlobStorage interface {
+// Open(name string) (fs.File, error)
+// OpenReaderFrom(name string, perm fs.FileMode) (io.ReaderFrom, error)
+// ReadDir(name string) ([]fs.DirEntry, error)
+// Mkdir(name string, perm fs.FileMode) error
+// Remove(name string) error
+// Rename(oldname, newname string) error
+// RemoveAll
+// MkdirAll
+// (fs.FileInfo).GetSize()
+// (fs.DirEntry).GetSize()
+
+type Storage interface {
 	Get(ctx context.Context, key string) (io.ReadCloser, error)
 	Put(ctx context.Context, key string, reader io.Reader) error
 	Delete(ctx context.Context, key string) error
 }
 
-type S3BlobStorage struct {
+type S3Storage struct {
 	Client *s3.Client
 	Bucket string
 }
 
-var _ BlobStorage = (*S3BlobStorage)(nil)
+var _ Storage = (*S3Storage)(nil)
 
-type S3BlobStorageConfig struct {
+type S3StorageConfig struct {
 	Endpoint        string `json:"endpoint,omitempty"`
 	Region          string `json:"region,omitempty"`
 	Bucket          string `json:"bucket,omitempty"`
@@ -375,8 +386,8 @@ type S3BlobStorageConfig struct {
 	SecretAccessKey string `json:"secretAccessKey,omitempty"`
 }
 
-func NewS3BlobStorage(ctx context.Context, config S3BlobStorageConfig) (*S3BlobStorage, error) {
-	storage := &S3BlobStorage{
+func NewS3Storage(ctx context.Context, config S3StorageConfig) (*S3Storage, error) {
+	storage := &S3Storage{
 		Client: s3.New(s3.Options{
 			BaseEndpoint: aws.String(config.Endpoint),
 			Region:       config.Region,
@@ -394,7 +405,7 @@ func NewS3BlobStorage(ctx context.Context, config S3BlobStorageConfig) (*S3BlobS
 	return storage, nil
 }
 
-func (storage *S3BlobStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+func (storage *S3Storage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	output, err := storage.Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
@@ -405,7 +416,7 @@ func (storage *S3BlobStorage) Get(ctx context.Context, key string) (io.ReadClose
 	return output.Body, nil
 }
 
-func (storage *S3BlobStorage) Put(ctx context.Context, key string, reader io.Reader) error {
+func (storage *S3Storage) Put(ctx context.Context, key string, reader io.Reader) error {
 	_, err := storage.Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
@@ -417,7 +428,7 @@ func (storage *S3BlobStorage) Put(ctx context.Context, key string, reader io.Rea
 	return nil
 }
 
-func (storage *S3BlobStorage) Delete(ctx context.Context, key string) error {
+func (storage *S3Storage) Delete(ctx context.Context, key string) error {
 	_, err := storage.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
@@ -428,21 +439,21 @@ func (storage *S3BlobStorage) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-type InMemoryBlobStorage struct {
+type InMemoryStorage struct {
 	mu      sync.RWMutex
 	entries map[string][]byte
 }
 
-var _ BlobStorage = (*InMemoryBlobStorage)(nil)
+var _ Storage = (*InMemoryStorage)(nil)
 
-func NewInMemoryStorage() *InMemoryBlobStorage {
-	return &InMemoryBlobStorage{
+func NewInMemoryStorage() *InMemoryStorage {
+	return &InMemoryStorage{
 		mu:      sync.RWMutex{},
 		entries: make(map[string][]byte),
 	}
 }
 
-func (storage *InMemoryBlobStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+func (storage *InMemoryStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	storage.mu.RLock()
 	entry, ok := storage.entries[key]
 	storage.mu.RUnlock()
@@ -452,7 +463,7 @@ func (storage *InMemoryBlobStorage) Get(ctx context.Context, key string) (io.Rea
 	return io.NopCloser(bytes.NewReader(entry)), nil
 }
 
-func (storage *InMemoryBlobStorage) Put(ctx context.Context, key string, reader io.Reader) error {
+func (storage *InMemoryStorage) Put(ctx context.Context, key string, reader io.Reader) error {
 	value, err := io.ReadAll(reader)
 	if err != nil {
 		return err
@@ -463,7 +474,7 @@ func (storage *InMemoryBlobStorage) Put(ctx context.Context, key string, reader 
 	return nil
 }
 
-func (storage *InMemoryBlobStorage) Delete(ctx context.Context, key string) error {
+func (storage *InMemoryStorage) Delete(ctx context.Context, key string) error {
 	storage.mu.Lock()
 	delete(storage.entries, key)
 	storage.mu.Unlock()
