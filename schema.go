@@ -86,3 +86,12 @@ type AUTHENTICATION struct {
 	AUTHENTICATION_TOKEN_HASH sq.BinaryField `ddl:"mysql:type=BINARY(40) primarykey"`
 	USER_ID                   sq.UUIDField   `ddl:"notnull references={users onupdate=cascade index}"`
 }
+
+type FILES struct {
+	sq.TableStruct
+	FILE_ID   sq.UUIDField    `ddl:"primarykey"`
+	PARENT_ID sq.UUIDField    `ddl:"references={files.file_id onupdate=cascade index}"`
+	FILE_PATH sq.StringField  `ddl:"notnull len=500"`
+	IS_DIR    sq.BooleanField `ddl:"notnull"`
+	CONTENT   sq.StringField  `ddl:"mysql:type=MEDIUMTEXT"`
+}

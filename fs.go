@@ -45,13 +45,6 @@ type FS interface {
 	Rename(oldname, newname string) error
 }
 
-// TODO: roll LocalFS into FS and make it a struct instead of an interface.
-// This is because LocalFS (now FS0 will be in charge of how much stuff to
-// keep on the local filesystem and how much stuff to keep in S3. This is
-// generic enough that most people will never need to roll their own FS
-// implementation, hence making LocalFS into the new FS. If people eventually
-// request for a swappable filesystem, we could call the interface VFS instead
-// and make FS implement VFS.
 type LocalFS struct {
 	RootDir string
 	TempDir string
@@ -356,23 +349,23 @@ func GetFileSize(fsys fs.FS, root string) (int64, error) {
 }
 
 type RemoteFS struct {
-	DB      *sql.DB
-	Dialect string
-	Storage Storage
+	DB          *sql.DB
+	Dialect     string
+	BlobStorage BlobStorage
 }
 
-type Storage interface {
+type BlobStorage interface {
 	Get(ctx context.Context, key string) (io.ReadCloser, error)
 	Put(ctx context.Context, key string, reader io.Reader) error
 	Delete(ctx context.Context, key string) error
 }
 
-type S3Storage struct {
-	client *s3.Client
-	bucket string
+type S3BlobStorage struct {
+	Client *s3.Client
+	Bucket string
 }
 
-type S3StorageConfig struct {
+type S3BlobStorageConfig struct {
 	EndpointURL     string `json:"endpointURL,omitempty"`
 	Region          string `json:"region,omitempty"`
 	Bucket          string `json:"bucket,omitempty"`
@@ -380,17 +373,17 @@ type S3StorageConfig struct {
 	SecretAccessKey string `json:"secretAccessKey,omitempty"`
 }
 
-func NewS3Storage(ctx context.Context, config S3StorageConfig) (*S3Storage, error) {
-	storage := &S3Storage{
-		client: s3.New(s3.Options{
+func NewS3BlobStorage(ctx context.Context, config S3BlobStorageConfig) (*S3BlobStorage, error) {
+	storage := &S3BlobStorage{
+		Client: s3.New(s3.Options{
 			BaseEndpoint: aws.String(config.EndpointURL),
 			Region:       config.Region,
 			Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(config.AccessKeyID, config.SecretAccessKey, "")),
 		}),
-		bucket: config.Bucket,
+		Bucket: config.Bucket,
 	}
-	_, err := storage.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket:  &storage.bucket,
+	_, err := storage.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket:  &storage.Bucket,
 		MaxKeys: 1,
 	})
 	if err != nil {
@@ -399,9 +392,9 @@ func NewS3Storage(ctx context.Context, config S3StorageConfig) (*S3Storage, erro
 	return storage, nil
 }
 
-func (storage *S3Storage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
-	output, err := storage.client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: &storage.bucket,
+func (storage *S3BlobStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	output, err := storage.Client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
 	})
 	if err != nil {
@@ -410,9 +403,9 @@ func (storage *S3Storage) Get(ctx context.Context, key string) (io.ReadCloser, e
 	return output.Body, nil
 }
 
-func (storage *S3Storage) Put(ctx context.Context, key string, reader io.Reader) error {
-	_, err := storage.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: &storage.bucket,
+func (storage *S3BlobStorage) Put(ctx context.Context, key string, reader io.Reader) error {
+	_, err := storage.Client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
 		Body:   reader,
 	})
@@ -422,9 +415,9 @@ func (storage *S3Storage) Put(ctx context.Context, key string, reader io.Reader)
 	return nil
 }
 
-func (storage *S3Storage) Delete(ctx context.Context, key string) error {
-	_, err := storage.client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: &storage.bucket,
+func (storage *S3BlobStorage) Delete(ctx context.Context, key string) error {
+	_, err := storage.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
 	})
 	if err != nil {
@@ -433,19 +426,19 @@ func (storage *S3Storage) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-type MemoryStorage struct {
+type MemoryBlobStorage struct {
 	mu      sync.RWMutex
 	entries map[string][]byte
 }
 
-func NewMemoryStorage() *MemoryStorage {
-	return &MemoryStorage{
+func NewMemoryStorage() *MemoryBlobStorage {
+	return &MemoryBlobStorage{
 		mu:      sync.RWMutex{},
 		entries: make(map[string][]byte),
 	}
 }
 
-func (storage *MemoryStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+func (storage *MemoryBlobStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	storage.mu.RLock()
 	entry, ok := storage.entries[key]
 	storage.mu.RUnlock()
@@ -455,7 +448,7 @@ func (storage *MemoryStorage) Get(ctx context.Context, key string) (io.ReadClose
 	return io.NopCloser(bytes.NewReader(entry)), nil
 }
 
-func (storage *MemoryStorage) Put(ctx context.Context, key string, reader io.Reader) error {
+func (storage *MemoryBlobStorage) Put(ctx context.Context, key string, reader io.Reader) error {
 	value, err := io.ReadAll(reader)
 	if err != nil {
 		return err
@@ -466,7 +459,7 @@ func (storage *MemoryStorage) Put(ctx context.Context, key string, reader io.Rea
 	return nil
 }
 
-func (storage *MemoryStorage) Delete(ctx context.Context, key string) error {
+func (storage *MemoryBlobStorage) Delete(ctx context.Context, key string) error {
 	storage.mu.Lock()
 	delete(storage.entries, key)
 	storage.mu.Unlock()

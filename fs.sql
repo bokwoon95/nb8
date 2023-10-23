@@ -1,8 +1,8 @@
 CREATE TABLE files (
     file_id UUID
     ,parent_id UUID
-    ,file_name TEXT
     ,file_path TEXT
+    ,is_dir BOOLEAN
 );
 
 -- Open(name string) (fs.File, error)
