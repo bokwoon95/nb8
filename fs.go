@@ -365,6 +365,8 @@ type S3BlobStorage struct {
 	Bucket string
 }
 
+var _ BlobStorage = (*S3BlobStorage)(nil)
+
 type S3BlobStorageConfig struct {
 	EndpointURL     string `json:"endpointURL,omitempty"`
 	Region          string `json:"region,omitempty"`
@@ -426,19 +428,21 @@ func (storage *S3BlobStorage) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-type MemoryBlobStorage struct {
+type InMemoryBlobStorage struct {
 	mu      sync.RWMutex
 	entries map[string][]byte
 }
 
-func NewMemoryStorage() *MemoryBlobStorage {
-	return &MemoryBlobStorage{
+var _ BlobStorage = (*InMemoryBlobStorage)(nil)
+
+func NewInMemoryStorage() *InMemoryBlobStorage {
+	return &InMemoryBlobStorage{
 		mu:      sync.RWMutex{},
 		entries: make(map[string][]byte),
 	}
 }
 
-func (storage *MemoryBlobStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+func (storage *InMemoryBlobStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	storage.mu.RLock()
 	entry, ok := storage.entries[key]
 	storage.mu.RUnlock()
@@ -448,7 +452,7 @@ func (storage *MemoryBlobStorage) Get(ctx context.Context, key string) (io.ReadC
 	return io.NopCloser(bytes.NewReader(entry)), nil
 }
 
-func (storage *MemoryBlobStorage) Put(ctx context.Context, key string, reader io.Reader) error {
+func (storage *InMemoryBlobStorage) Put(ctx context.Context, key string, reader io.Reader) error {
 	value, err := io.ReadAll(reader)
 	if err != nil {
 		return err
@@ -459,7 +463,7 @@ func (storage *MemoryBlobStorage) Put(ctx context.Context, key string, reader io
 	return nil
 }
 
-func (storage *MemoryBlobStorage) Delete(ctx context.Context, key string) error {
+func (storage *InMemoryBlobStorage) Delete(ctx context.Context, key string) error {
 	storage.mu.Lock()
 	delete(storage.entries, key)
 	storage.mu.Unlock()
