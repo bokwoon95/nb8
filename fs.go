@@ -346,6 +346,7 @@ type RemoteFileWriter struct {
 	ctx            context.Context
 	db             *sql.DB
 	dialect        string
+	storage        Storage
 	fileExists     bool
 	fileID         [16]byte
 	parentID       any // either nil or [16]byte
@@ -368,6 +369,7 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 		ctx:      fsys.ctx,
 		db:       fsys.db,
 		dialect:  fsys.dialect,
+		storage:  fsys.storage,
 		filePath: name,
 		perm:     perm,
 	}
@@ -462,7 +464,7 @@ func (file *RemoteFileWriter) Close() error {
 	}
 	modTime := sq.NewTimestamp(time.Now().UTC())
 
-	// if file exists, just have to update the file entry in the database.
+	// file exists, just have to update the file entry in the database.
 	if file.fileExists {
 		if IsStoredInDB(file.filePath) {
 			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
@@ -494,8 +496,7 @@ func (file *RemoteFileWriter) Close() error {
 		return nil
 	}
 
-	// fileID doesn't exist, generate a new one and insert a file entry into
-	// the database.
+	// file doesn't exist, insert a new file entry into the database.
 	if IsStoredInDB(file.filePath) {
 		_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 			Dialect: file.dialect,
@@ -512,6 +513,7 @@ func (file *RemoteFileWriter) Close() error {
 			},
 		})
 		if err != nil {
+			go file.storage.Delete(context.Background(), hex.EncodeToString(file.fileID[:]))
 			return err
 		}
 	} else {
@@ -530,6 +532,7 @@ func (file *RemoteFileWriter) Close() error {
 			},
 		})
 		if err != nil {
+			go file.storage.Delete(context.Background(), hex.EncodeToString(file.fileID[:]))
 			return err
 		}
 	}
