@@ -70,19 +70,19 @@ func NewLocalFS(rootDir, tempDir string) *LocalFS {
 	}
 }
 
-func (localFS *LocalFS) String() string { return localFS.rootDir }
+func (fsys *LocalFS) String() string { return fsys.rootDir }
 
-func (localFS *LocalFS) WithContext(ctx context.Context) FS {
+func (fsys *LocalFS) WithContext(ctx context.Context) FS {
 	return &LocalFS{
 		ctx:     ctx,
-		rootDir: localFS.rootDir,
-		tempDir: localFS.tempDir,
+		rootDir: fsys.rootDir,
+		tempDir: fsys.tempDir,
 	}
 }
 
-func (localFS *LocalFS) Open(name string) (fs.File, error) {
+func (fsys *LocalFS) Open(name string) (fs.File, error) {
 	name = filepath.FromSlash(name)
-	return os.Open(filepath.Join(localFS.rootDir, name))
+	return os.Open(filepath.Join(fsys.rootDir, name))
 }
 
 type LocalFileWriter struct {
@@ -94,50 +94,50 @@ type LocalFileWriter struct {
 	tempFile *os.File
 }
 
-func (localFS *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
-	localFileWriter := &LocalFileWriter{
-		ctx:     localFS.ctx,
-		rootDir: localFS.rootDir,
-		tempDir: localFS.tempDir,
+func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
+	file := &LocalFileWriter{
+		ctx:     fsys.ctx,
+		rootDir: fsys.rootDir,
+		tempDir: fsys.tempDir,
 		name:    filepath.FromSlash(name),
 		perm:    perm,
 	}
-	if localFileWriter.tempDir == "" {
-		localFileWriter.tempDir = os.TempDir()
+	if file.tempDir == "" {
+		file.tempDir = os.TempDir()
 	}
-	tempFile, err := os.CreateTemp(localFileWriter.tempDir, "__notebrewtemp*__")
+	tempFile, err := os.CreateTemp(file.tempDir, "__notebrewtemp*__")
 	if err != nil {
 		return nil, err
 	}
-	localFileWriter.tempFile = tempFile
-	return localFileWriter, nil
+	file.tempFile = tempFile
+	return file, nil
 }
 
-func (localFileWriter *LocalFileWriter) Write(p []byte) (n int, err error) {
-	err = localFileWriter.ctx.Err()
+func (file *LocalFileWriter) Write(p []byte) (n int, err error) {
+	err = file.ctx.Err()
 	if err != nil {
 		return 0, err
 	}
-	return localFileWriter.tempFile.Write(p)
+	return file.tempFile.Write(p)
 }
 
-func (localFileWriter *LocalFileWriter) Close() error {
-	fileInfo, err := localFileWriter.tempFile.Stat()
+func (file *LocalFileWriter) Close() error {
+	fileInfo, err := file.tempFile.Stat()
 	if err != nil {
 		return err
 	}
-	err = localFileWriter.tempFile.Close()
+	err = file.tempFile.Close()
 	if err != nil {
 		return err
 	}
-	tempFilePath := filepath.Join(localFileWriter.tempDir, fileInfo.Name())
-	destFilePath := filepath.Join(localFileWriter.rootDir, localFileWriter.name)
+	tempFilePath := filepath.Join(file.tempDir, fileInfo.Name())
+	destFilePath := filepath.Join(file.rootDir, file.name)
 	fileInfo, err = os.Stat(destFilePath)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
-		defer os.Chmod(destFilePath, localFileWriter.perm)
+		defer os.Chmod(destFilePath, file.perm)
 	}
 	err = os.Rename(tempFilePath, destFilePath)
 	if err != nil {
@@ -267,13 +267,13 @@ func (fileInfo *RemoteFileInfo) Type() fs.FileMode { return fileInfo.Mode().Type
 func (fileInfo *RemoteFileInfo) FileInfo() (fs.FileInfo, error) { return fileInfo, nil }
 
 type RemoteFile struct {
-	remoteFileInfo *RemoteFileInfo
-	readCloser     io.ReadCloser
+	fileInfo   *RemoteFileInfo
+	readCloser io.ReadCloser
 }
 
-func (remoteFS *RemoteFS) Open(name string) (fs.File, error) {
-	remoteFileInfo, err := sq.FetchOneContext(remoteFS.ctx, remoteFS.db, sq.CustomQuery{
-		Dialect: remoteFS.dialect,
+func (fsys *RemoteFS) Open(name string) (fs.File, error) {
+	fileInfo, err := sq.FetchOneContext(fsys.ctx, fsys.db, sq.CustomQuery{
+		Dialect: fsys.dialect,
 		Format:  "SELECT {*} FROM files WHERE file_path = {name}",
 		Values: []any{
 			sq.StringParam("name", name),
@@ -290,20 +290,20 @@ func (remoteFS *RemoteFS) Open(name string) (fs.File, error) {
 		remoteFileInfo.perm = fs.FileMode(row.Int("perm"))
 		return &remoteFileInfo
 	})
-	if IsStoredInDB(remoteFileInfo.filePath) {
+	if IsStoredInDB(fileInfo.filePath) {
 		remoteFile := &RemoteFile{
-			remoteFileInfo: remoteFileInfo,
-			readCloser:     io.NopCloser(strings.NewReader(remoteFileInfo.data)),
+			fileInfo:   fileInfo,
+			readCloser: io.NopCloser(strings.NewReader(fileInfo.data)),
 		}
 		return remoteFile, nil
 	}
-	readCloser, err := remoteFS.storage.Get(context.Background(), remoteFileInfo.filePath)
+	readCloser, err := fsys.storage.Get(context.Background(), fileInfo.filePath)
 	if err != nil {
 		return nil, err
 	}
 	remoteFile := &RemoteFile{
-		remoteFileInfo: remoteFileInfo,
-		readCloser:     readCloser,
+		fileInfo:   fileInfo,
+		readCloser: readCloser,
 	}
 	return remoteFile, nil
 }
@@ -317,7 +317,7 @@ func (file *RemoteFile) Close() error {
 }
 
 func (file *RemoteFile) Stat() (fs.FileInfo, error) {
-	return file.remoteFileInfo, nil
+	return file.fileInfo, nil
 }
 
 type RemoteFileWriter struct {
@@ -325,21 +325,21 @@ type RemoteFileWriter struct {
 	db       *sql.DB
 	dialect  string
 	storage  Storage
-	fileID   any
-	parentID any
+	fileID   any // either nil or [16]byte
+	parentID any // either nil or [16]byte
 	name     string
 	perm     fs.FileMode
 	buf      *bytes.Buffer
 }
 
-func (remoteFS *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
+func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	remoteFileWriter := &RemoteFileWriter{
-		ctx:     remoteFS.ctx,
-		db:      remoteFS.db,
-		dialect: remoteFS.dialect,
-		storage: remoteFS.storage,
+		ctx:     fsys.ctx,
+		db:      fsys.db,
+		dialect: fsys.dialect,
+		storage: fsys.storage,
 		name:    name,
 		perm:    perm,
 		buf:     buf,
@@ -349,8 +349,8 @@ func (remoteFS *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteClo
 	if parentDir != "." {
 		filePaths = append(filePaths, parentDir)
 	}
-	results, err := sq.FetchAllContext(remoteFS.ctx, remoteFS.db, sq.CustomQuery{
-		Dialect: remoteFS.dialect,
+	results, err := sq.FetchAllContext(fsys.ctx, fsys.db, sq.CustomQuery{
+		Dialect: fsys.dialect,
 		Format:  "SELECT {*} FROM files WHERE file_path IN ({filePaths})",
 		Values: []any{
 			sq.Param("filePaths", filePaths),
