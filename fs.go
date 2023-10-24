@@ -67,38 +67,80 @@ func NewLocalFS(rootDir, tempDir string) *LocalFS {
 	}
 }
 
-func (fsys *LocalFS) String() string { return fsys.rootDir }
+func (localFS *LocalFS) String() string { return localFS.rootDir }
 
-func (fsys *LocalFS) WithContext(ctx context.Context) FS {
+func (localFS *LocalFS) WithContext(ctx context.Context) FS {
 	return &LocalFS{
 		ctx:     ctx,
-		rootDir: fsys.rootDir,
-		tempDir: fsys.tempDir,
+		rootDir: localFS.rootDir,
+		tempDir: localFS.tempDir,
 	}
 }
 
-func (fsys *LocalFS) Open(name string) (fs.File, error) {
+func (localFS *LocalFS) Open(name string) (fs.File, error) {
 	name = filepath.FromSlash(name)
-	return os.Open(filepath.Join(fsys.rootDir, name))
+	return os.Open(filepath.Join(localFS.rootDir, name))
 }
 
-func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
-	file := &LocalFile{
-		ctx:     fsys.ctx,
-		rootDir: fsys.rootDir,
-		tempDir: fsys.tempDir,
+type LocalFileWriter struct {
+	ctx      context.Context
+	rootDir  string
+	tempDir  string
+	name     string
+	perm     fs.FileMode
+	tempFile *os.File
+}
+
+func (localFS *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
+	localFileWriter := &LocalFileWriter{
+		ctx:     localFS.ctx,
+		rootDir: localFS.rootDir,
+		tempDir: localFS.tempDir,
 		name:    name,
 		perm:    perm,
 	}
-	if file.tempDir == "" {
-		file.tempDir = os.TempDir()
+	if localFileWriter.tempDir == "" {
+		localFileWriter.tempDir = os.TempDir()
 	}
-	tempFile, err := os.CreateTemp(file.tempDir, "__notebrewtemp*__")
+	tempFile, err := os.CreateTemp(localFileWriter.tempDir, "__notebrewtemp*__")
 	if err != nil {
 		return nil, err
 	}
-	file.tempFile = tempFile
-	return file, nil
+	localFileWriter.tempFile = tempFile
+	return localFileWriter, nil
+}
+
+func (localFileWriter *LocalFileWriter) Write(p []byte) (n int, err error) {
+	err = localFileWriter.ctx.Err()
+	if err != nil {
+		return 0, err
+	}
+	return localFileWriter.tempFile.Write(p)
+}
+
+func (localFileWriter *LocalFileWriter) Close() error {
+	fileInfo, err := localFileWriter.tempFile.Stat()
+	if err != nil {
+		return err
+	}
+	err = localFileWriter.tempFile.Close()
+	if err != nil {
+		return err
+	}
+	tempFilePath := filepath.Join(localFileWriter.tempDir, fileInfo.Name())
+	destFilePath := filepath.Join(localFileWriter.rootDir, localFileWriter.name)
+	fileInfo, err = os.Stat(destFilePath)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		defer os.Chmod(destFilePath, localFileWriter.perm)
+	}
+	err = os.Rename(tempFilePath, destFilePath)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (fsys *LocalFS) ReadDir(name string) ([]fs.DirEntry, error) {
@@ -130,48 +172,6 @@ func (fsys *LocalFS) Rename(oldname, newname string) error {
 	oldname = filepath.FromSlash(oldname)
 	newname = filepath.FromSlash(newname)
 	return os.Rename(filepath.Join(fsys.rootDir, oldname), filepath.Join(fsys.rootDir, newname))
-}
-
-type LocalFile struct {
-	ctx      context.Context
-	rootDir  string
-	tempDir  string
-	name     string
-	perm     fs.FileMode
-	tempFile *os.File
-}
-
-func (localFile *LocalFile) Write(p []byte) (n int, err error) {
-	err = localFile.ctx.Err()
-	if err != nil {
-		return 0, err
-	}
-	return localFile.tempFile.Write(p)
-}
-
-func (localFile *LocalFile) Close() error {
-	fileInfo, err := localFile.tempFile.Stat()
-	if err != nil {
-		return err
-	}
-	err = localFile.tempFile.Close()
-	if err != nil {
-		return err
-	}
-	tempFilePath := filepath.Join(localFile.tempDir, fileInfo.Name())
-	destFilePath := filepath.Join(localFile.rootDir, localFile.name)
-	fileInfo, err = os.Stat(destFilePath)
-	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return err
-		}
-		defer os.Chmod(destFilePath, localFile.perm)
-	}
-	err = os.Rename(tempFilePath, destFilePath)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func IsStoredInDB(filePath string) bool {
@@ -224,43 +224,6 @@ func NewRemoteFS(dialect string, db *sql.DB, storage Storage) *RemoteFS {
 // 	}
 // }
 
-func (remoteFS *RemoteFS) Open(name string) (fs.File, error) {
-	remoteFileInfo, err := sq.FetchOneContext(remoteFS.ctx, remoteFS.db, sq.CustomQuery{
-		Dialect: remoteFS.dialect,
-		Format:  "SELECT {*} FROM files WHERE file_path = {name}",
-		Values: []any{
-			sq.StringParam("name", name),
-		},
-	}, func(row *sq.Row) *RemoteFileInfo {
-		var fileInfo RemoteFileInfo
-		row.UUID(&fileInfo.fileID, "file_id")
-		row.UUID(&fileInfo.parentID, "parent_id")
-		fileInfo.filePath = row.String("file_path")
-		fileInfo.isDir = row.Bool("is_dir")
-		fileInfo.data = row.String("data")
-		fileInfo.size = row.Int64("size")
-		fileInfo.modTime = row.Time("mod_time")
-		fileInfo.mode = fs.FileMode(row.Int("mode"))
-		return &fileInfo
-	})
-	if IsStoredInDB(remoteFileInfo.filePath) {
-		remoteFile := &RemoteFile{
-			remoteFileInfo: remoteFileInfo,
-			readCloser:     io.NopCloser(strings.NewReader(remoteFileInfo.data)),
-		}
-		return remoteFile, nil
-	}
-	readCloser, err := remoteFS.storage.Get(context.Background(), remoteFileInfo.filePath)
-	if err != nil {
-		return nil, err
-	}
-	remoteFile := &RemoteFile{
-		remoteFileInfo: remoteFileInfo,
-		readCloser:     readCloser,
-	}
-	return remoteFile, nil
-}
-
 type RemoteFileInfo struct {
 	fileID   [16]byte
 	parentID [16]byte
@@ -303,6 +266,43 @@ func (fileInfo *RemoteFileInfo) FileInfo() (fs.FileInfo, error) { return fileInf
 type RemoteFile struct {
 	remoteFileInfo *RemoteFileInfo
 	readCloser     io.ReadCloser
+}
+
+func (remoteFS *RemoteFS) Open(name string) (fs.File, error) {
+	remoteFileInfo, err := sq.FetchOneContext(remoteFS.ctx, remoteFS.db, sq.CustomQuery{
+		Dialect: remoteFS.dialect,
+		Format:  "SELECT {*} FROM files WHERE file_path = {name}",
+		Values: []any{
+			sq.StringParam("name", name),
+		},
+	}, func(row *sq.Row) *RemoteFileInfo {
+		var remoteFileInfo RemoteFileInfo
+		row.UUID(&remoteFileInfo.fileID, "file_id")
+		row.UUID(&remoteFileInfo.parentID, "parent_id")
+		remoteFileInfo.filePath = row.String("file_path")
+		remoteFileInfo.isDir = row.Bool("is_dir")
+		remoteFileInfo.data = row.String("data")
+		remoteFileInfo.size = row.Int64("size")
+		remoteFileInfo.modTime = row.Time("mod_time")
+		remoteFileInfo.mode = fs.FileMode(row.Int("mode"))
+		return &remoteFileInfo
+	})
+	if IsStoredInDB(remoteFileInfo.filePath) {
+		remoteFile := &RemoteFile{
+			remoteFileInfo: remoteFileInfo,
+			readCloser:     io.NopCloser(strings.NewReader(remoteFileInfo.data)),
+		}
+		return remoteFile, nil
+	}
+	readCloser, err := remoteFS.storage.Get(context.Background(), remoteFileInfo.filePath)
+	if err != nil {
+		return nil, err
+	}
+	remoteFile := &RemoteFile{
+		remoteFileInfo: remoteFileInfo,
+		readCloser:     readCloser,
+	}
+	return remoteFile, nil
 }
 
 func (file *RemoteFile) Read(p []byte) (n int, err error) {
