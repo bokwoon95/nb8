@@ -349,7 +349,7 @@ type RemoteFileWriter struct {
 	parentID any // either nil or [16]byte
 	name     string
 	perm     fs.FileMode
-	buf      *bytes.Buffer
+	buf      *bytes.Buffer // TODO: buffering in-memory is problematic :/
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
@@ -678,12 +678,12 @@ func NewInMemoryStorage() *InMemoryStorage {
 
 func (storage *InMemoryStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	storage.mu.RLock()
-	entry, ok := storage.entries[key]
+	value, ok := storage.entries[key]
 	storage.mu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("entry does not exist for key %q", key)
 	}
-	return io.NopCloser(bytes.NewReader(entry)), nil
+	return io.NopCloser(bytes.NewReader(value)), nil
 }
 
 func (storage *InMemoryStorage) Put(ctx context.Context, key string, reader io.Reader) error {
