@@ -523,7 +523,7 @@ func (file *RemoteFileWriter) Close() error {
 				sq.UUIDParam("parentID", file.parentID),
 				sq.StringParam("filePath", file.filePath),
 				sq.BoolParam("isDir", true),
-				sq.IntParam("size", file.buf.Len()),
+				sq.IntParam("size", file.storageWritten),
 				sq.Param("modTime", modTime),
 				sq.Param("perm", file.perm),
 			},
