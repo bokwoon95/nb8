@@ -443,10 +443,11 @@ func (file *RemoteFileWriter) Write(p []byte) (n int, err error) {
 	}
 	if IsStoredInDB(file.filePath) {
 		return file.buf.Write(p)
+	} else {
+		n, err = file.storageWriter.Write(p)
+		file.storageWritten += n
+		return n, err
 	}
-	n, err = file.storageWriter.Write(p)
-	file.storageWritten += n
-	return n, err
 }
 
 func (file *RemoteFileWriter) Close() error {
