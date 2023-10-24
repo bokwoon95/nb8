@@ -264,7 +264,7 @@ func (fileInfo *RemoteFileInfo) Sys() any { return nil }
 
 func (fileInfo *RemoteFileInfo) Type() fs.FileMode { return fileInfo.Mode().Type() }
 
-func (fileInfo *RemoteFileInfo) FileInfo() (fs.FileInfo, error) { return fileInfo, nil }
+func (fileInfo *RemoteFileInfo) Info() (fs.FileInfo, error) { return fileInfo, nil }
 
 type RemoteFile struct {
 	fileInfo   *RemoteFileInfo
@@ -279,16 +279,16 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 			sq.StringParam("name", name),
 		},
 	}, func(row *sq.Row) *RemoteFileInfo {
-		var remoteFileInfo RemoteFileInfo
-		row.UUID(&remoteFileInfo.fileID, "file_id")
-		row.UUID(&remoteFileInfo.parentID, "parent_id")
-		remoteFileInfo.filePath = row.String("file_path")
-		remoteFileInfo.isDir = row.Bool("is_dir")
-		remoteFileInfo.data = row.String("data")
-		remoteFileInfo.size = row.Int64("size")
-		remoteFileInfo.modTime = row.Time("mod_time")
-		remoteFileInfo.perm = fs.FileMode(row.Int("perm"))
-		return &remoteFileInfo
+		var fileInfo RemoteFileInfo
+		row.UUID(&fileInfo.fileID, "file_id")
+		row.UUID(&fileInfo.parentID, "parent_id")
+		fileInfo.filePath = row.String("file_path")
+		fileInfo.isDir = row.Bool("is_dir")
+		fileInfo.data = row.String("data")
+		fileInfo.size = row.Int64("size")
+		fileInfo.modTime = row.Time("mod_time")
+		fileInfo.perm = fs.FileMode(row.Int("perm"))
+		return &fileInfo
 	})
 	if IsStoredInDB(fileInfo.filePath) {
 		remoteFile := &RemoteFile{
@@ -488,6 +488,47 @@ func (file *RemoteFileWriter) Close() error {
 		}
 	}
 	return nil
+}
+
+func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	cursor, err := sq.FetchCursorContext(fsys.ctx, fsys.db, sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format: "SELECT {*}" +
+			" FROM files" +
+			" JOIN files AS parents ON parents.file_id = files.parent_id" +
+			" WHERE parents.file_path = {name}",
+		Values: []any{
+			sq.StringParam("name", name),
+		},
+	}, func(row *sq.Row) (result struct {
+		RemoteFileInfo
+		ParentIsDir bool
+	}) {
+		row.UUID(&result.fileID, "files.file_id")
+		row.UUID(&result.parentID, "files.parent_id")
+		result.filePath = row.String("files.file_path")
+		result.isDir = row.Bool("files.is_dir")
+		result.size = row.Int64("files.size")
+		result.modTime = row.Time("files.mod_time")
+		result.perm = fs.FileMode(row.Int("files.perm"))
+		result.ParentIsDir = row.Bool("parents.is_dir")
+		return result
+	})
+	if err != nil {
+		return nil, err
+	}
+	var dirEntries []fs.DirEntry
+	for cursor.Next() {
+		result, err := cursor.Result()
+		if err != nil {
+			return nil, err
+		}
+		if !result.ParentIsDir {
+			return nil, fmt.Errorf("%q is not a directory", name)
+		}
+		dirEntries = append(dirEntries, &result.RemoteFileInfo)
+	}
+	return dirEntries, cursor.Close()
 }
 
 // Open(name string) (fs.File, error)
