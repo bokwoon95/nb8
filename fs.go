@@ -301,6 +301,12 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		result.data = row.String("data")
 		return result
 	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fs.ErrNotExist
+		}
+		return nil, err
+	}
 	file := &RemoteFile{
 		fileInfo: &result.RemoteFileInfo,
 	}
