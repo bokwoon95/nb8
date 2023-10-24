@@ -3,7 +3,9 @@ package nb8
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/bokwoon95/sq"
 )
 
 type FS interface {
@@ -56,10 +59,6 @@ type LocalFS struct {
 
 var _ FS = (*LocalFS)(nil)
 
-func (fsys *LocalFS) String() string {
-	return fsys.rootDir
-}
-
 func NewLocalFS(rootDir, tempDir string) *LocalFS {
 	return &LocalFS{
 		ctx:     context.Background(),
@@ -67,6 +66,8 @@ func NewLocalFS(rootDir, tempDir string) *LocalFS {
 		tempDir: tempDir,
 	}
 }
+
+func (fsys *LocalFS) String() string { return fsys.rootDir }
 
 func (fsys *LocalFS) WithContext(ctx context.Context) FS {
 	return &LocalFS{
@@ -140,39 +141,36 @@ type LocalFile struct {
 	tempFile *os.File
 }
 
-func (file *LocalFile) Write(p []byte) (n int, err error) {
-	err = file.ctx.Err()
+func (localFile *LocalFile) Write(p []byte) (n int, err error) {
+	err = localFile.ctx.Err()
 	if err != nil {
 		return 0, err
 	}
-	return file.tempFile.Write(p)
+	return localFile.tempFile.Write(p)
 }
 
-func (file *LocalFile) Close() error {
-	fileInfo, err := file.tempFile.Stat()
+func (localFile *LocalFile) Close() error {
+	fileInfo, err := localFile.tempFile.Stat()
 	if err != nil {
 		return err
 	}
-	err = file.tempFile.Close()
+	err = localFile.tempFile.Close()
 	if err != nil {
 		return err
 	}
-	tempFilePath := filepath.Join(file.tempDir, fileInfo.Name())
-	destFilePath := filepath.Join(file.rootDir, file.name)
-	mode := file.perm
+	tempFilePath := filepath.Join(localFile.tempDir, fileInfo.Name())
+	destFilePath := filepath.Join(localFile.rootDir, localFile.name)
 	fileInfo, err = os.Stat(destFilePath)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
-	} else {
-		mode = fileInfo.Mode()
+		defer os.Chmod(destFilePath, localFile.perm)
 	}
 	err = os.Rename(tempFilePath, destFilePath)
 	if err != nil {
 		return err
 	}
-	_ = os.Chmod(destFilePath, mode)
 	return nil
 }
 
@@ -226,6 +224,43 @@ func NewRemoteFS(dialect string, db *sql.DB, storage Storage) *RemoteFS {
 // 	}
 // }
 
+func (remoteFS *RemoteFS) Open(name string) (fs.File, error) {
+	remoteFileInfo, err := sq.FetchOneContext(remoteFS.ctx, remoteFS.db, sq.CustomQuery{
+		Dialect: remoteFS.dialect,
+		Format:  "SELECT {*} FROM files WHERE file_path = {name}",
+		Values: []any{
+			sq.StringParam("name", name),
+		},
+	}, func(row *sq.Row) *RemoteFileInfo {
+		var fileInfo RemoteFileInfo
+		row.UUID(&fileInfo.fileID, "file_id")
+		row.UUID(&fileInfo.parentID, "parent_id")
+		fileInfo.filePath = row.String("file_path")
+		fileInfo.isDir = row.Bool("is_dir")
+		fileInfo.data = row.String("data")
+		fileInfo.size = row.Int64("size")
+		fileInfo.modTime = row.Time("mod_time")
+		fileInfo.mode = fs.FileMode(row.Int("mode"))
+		return &fileInfo
+	})
+	if IsStoredInDB(remoteFileInfo.filePath) {
+		remoteFile := &RemoteFile{
+			remoteFileInfo: remoteFileInfo,
+			readCloser:     io.NopCloser(strings.NewReader(remoteFileInfo.data)),
+		}
+		return remoteFile, nil
+	}
+	readCloser, err := remoteFS.storage.Get(context.Background(), remoteFileInfo.filePath)
+	if err != nil {
+		return nil, err
+	}
+	remoteFile := &RemoteFile{
+		remoteFileInfo: remoteFileInfo,
+		readCloser:     readCloser,
+	}
+	return remoteFile, nil
+}
+
 type RemoteFileInfo struct {
 	fileID   [16]byte
 	parentID [16]byte
@@ -265,52 +300,61 @@ func (fileInfo *RemoteFileInfo) Type() fs.FileMode { return fileInfo.Mode().Type
 
 func (fileInfo *RemoteFileInfo) FileInfo() (fs.FileInfo, error) { return fileInfo, nil }
 
-type remoteFile struct {
-	fileInfo   *RemoteFileInfo
-	readCloser io.ReadCloser
+type RemoteFile struct {
+	remoteFileInfo *RemoteFileInfo
+	readCloser     io.ReadCloser
 }
 
-func (remoteFS *RemoteFS) Open(name string) (fs.File, error) {
-	// TODO: pull remoteFileInfo from the database.
-	fileInfo := &RemoteFileInfo{}
-	if IsStoredInDB(fileInfo.filePath) {
-		fileReader := &remoteFile{
-			fileInfo:   fileInfo,
-			readCloser: io.NopCloser(strings.NewReader(fileInfo.data)),
-		}
-		return fileReader, nil
-	}
-	readCloser, err := remoteFS.storage.Get(context.Background(), fileInfo.filePath)
-	if err != nil {
-		return nil, err
-	}
-	fileReader := &remoteFile{
-		fileInfo:   fileInfo,
-		readCloser: readCloser,
-	}
-	return fileReader, nil
-}
-
-func (file *remoteFile) Read(p []byte) (n int, err error) {
+func (file *RemoteFile) Read(p []byte) (n int, err error) {
 	return file.readCloser.Read(p)
 }
 
-func (file *remoteFile) Close() error {
+func (file *RemoteFile) Close() error {
 	return file.readCloser.Close()
 }
 
-func (file *remoteFile) Stat() (fs.FileInfo, error) {
-	return file.fileInfo, nil
+func (file *RemoteFile) Stat() (fs.FileInfo, error) {
+	return file.remoteFileInfo, nil
 }
 
-type remoteFileWriter struct {
-	ctx  context.Context
-	file *RemoteFileInfo
-
+type RemoteFileWriter struct {
+	ctx     context.Context
 	db      *sql.DB
 	dialect string
 	storage Storage
+	name    string
+	perm    fs.FileMode
+	buf     *bytes.Buffer
 }
+
+func (remoteFileWriter *RemoteFileWriter) Write(p []byte) (n int, err error) {
+	err = remoteFileWriter.ctx.Err()
+	if err != nil {
+		return 0, err
+	}
+	return remoteFileWriter.buf.Write(p)
+}
+
+func (remoteFileWriter *RemoteFileWriter) Close() error {
+	// NOTE: sanity check: before opening the remoteFileWriter, make sure the parentID exists.
+	if IsStoredInDB(remoteFileWriter.name) {
+		var fileID [16]byte
+		var timestamp [8]byte
+		binary.BigEndian.PutUint64(timestamp[:], uint64(time.Now().Unix()))
+		copy(fileID[:5], timestamp[len(timestamp)-5:])
+		_, err := rand.Read(fileID[5:])
+		if err != nil {
+			return err
+		}
+		// insert into files (file_id, parent_id
+		// switch sqlite, postgres, mysql, default
+		return nil
+	}
+	return nil
+}
+
+// Write
+// Close
 
 // func (fileWriter *remoteFileWriter) ReadFrom(r io.Reader) (n int64, err error) {
 // 	if fileWriter.file.isDir {
