@@ -56,8 +56,8 @@ type LocalFS struct {
 
 var _ FS = (*LocalFS)(nil)
 
-func (localFS *LocalFS) String() string {
-	return localFS.rootDir
+func (fsys *LocalFS) String() string {
+	return fsys.rootDir
 }
 
 func NewLocalFS(rootDir, tempDir string) *LocalFS {
@@ -68,24 +68,24 @@ func NewLocalFS(rootDir, tempDir string) *LocalFS {
 	}
 }
 
-func (localFS *LocalFS) WithContext(ctx context.Context) FS {
+func (fsys *LocalFS) WithContext(ctx context.Context) FS {
 	return &LocalFS{
 		ctx:     ctx,
-		rootDir: localFS.rootDir,
-		tempDir: localFS.tempDir,
+		rootDir: fsys.rootDir,
+		tempDir: fsys.tempDir,
 	}
 }
 
-func (localFS *LocalFS) Open(name string) (fs.File, error) {
+func (fsys *LocalFS) Open(name string) (fs.File, error) {
 	name = filepath.FromSlash(name)
-	return os.Open(filepath.Join(localFS.rootDir, name))
+	return os.Open(filepath.Join(fsys.rootDir, name))
 }
 
-func (localFS *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
+func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
 	file := &LocalFile{
-		ctx:     localFS.ctx,
-		rootDir: localFS.rootDir,
-		tempDir: localFS.tempDir,
+		ctx:     fsys.ctx,
+		rootDir: fsys.rootDir,
+		tempDir: fsys.tempDir,
 		name:    name,
 		perm:    perm,
 	}
@@ -100,35 +100,35 @@ func (localFS *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteClose
 	return file, nil
 }
 
-func (localFS *LocalFS) ReadDir(name string) ([]fs.DirEntry, error) {
+func (fsys *LocalFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	name = filepath.FromSlash(name)
-	return os.ReadDir(filepath.Join(localFS.rootDir, name))
+	return os.ReadDir(filepath.Join(fsys.rootDir, name))
 }
 
-func (localFS *LocalFS) Mkdir(name string, perm fs.FileMode) error {
+func (fsys *LocalFS) Mkdir(name string, perm fs.FileMode) error {
 	name = filepath.FromSlash(name)
-	return os.Mkdir(filepath.Join(localFS.rootDir, name), perm)
+	return os.Mkdir(filepath.Join(fsys.rootDir, name), perm)
 }
 
-func (localFS *LocalFS) MkdirAll(name string, perm fs.FileMode) error {
+func (fsys *LocalFS) MkdirAll(name string, perm fs.FileMode) error {
 	name = filepath.FromSlash(name)
-	return os.MkdirAll(filepath.Join(localFS.rootDir, name), perm)
+	return os.MkdirAll(filepath.Join(fsys.rootDir, name), perm)
 }
 
-func (localFS *LocalFS) Remove(name string) error {
+func (fsys *LocalFS) Remove(name string) error {
 	name = filepath.FromSlash(name)
-	return os.Remove(filepath.Join(localFS.rootDir, name))
+	return os.Remove(filepath.Join(fsys.rootDir, name))
 }
 
-func (localFS *LocalFS) RemoveAll(name string) error {
+func (fsys *LocalFS) RemoveAll(name string) error {
 	name = filepath.FromSlash(name)
-	return os.RemoveAll(filepath.Join(localFS.rootDir, name))
+	return os.RemoveAll(filepath.Join(fsys.rootDir, name))
 }
 
-func (localFS *LocalFS) Rename(oldname, newname string) error {
+func (fsys *LocalFS) Rename(oldname, newname string) error {
 	oldname = filepath.FromSlash(oldname)
 	newname = filepath.FromSlash(newname)
-	return os.Rename(filepath.Join(localFS.rootDir, oldname), filepath.Join(localFS.rootDir, newname))
+	return os.Rename(filepath.Join(fsys.rootDir, oldname), filepath.Join(fsys.rootDir, newname))
 }
 
 type LocalFile struct {
@@ -140,26 +140,26 @@ type LocalFile struct {
 	tempFile *os.File
 }
 
-func (localFile *LocalFile) Write(p []byte) (n int, err error) {
-	err = localFile.ctx.Err()
+func (file *LocalFile) Write(p []byte) (n int, err error) {
+	err = file.ctx.Err()
 	if err != nil {
 		return 0, err
 	}
-	return localFile.tempFile.Write(p)
+	return file.tempFile.Write(p)
 }
 
-func (localFile *LocalFile) Close() error {
-	fileInfo, err := localFile.tempFile.Stat()
+func (file *LocalFile) Close() error {
+	fileInfo, err := file.tempFile.Stat()
 	if err != nil {
 		return err
 	}
-	err = localFile.tempFile.Close()
+	err = file.tempFile.Close()
 	if err != nil {
 		return err
 	}
-	tempFilePath := filepath.Join(localFile.tempDir, fileInfo.Name())
-	destFilePath := filepath.Join(localFile.rootDir, localFile.name)
-	mode := localFile.perm
+	tempFilePath := filepath.Join(file.tempDir, fileInfo.Name())
+	destFilePath := filepath.Join(file.rootDir, file.name)
+	mode := file.perm
 	fileInfo, err = os.Stat(destFilePath)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
@@ -217,12 +217,16 @@ func NewRemoteFS(dialect string, db *sql.DB, storage Storage) *RemoteFS {
 	}
 }
 
-// fs.File
-// io.ReaderFrom
-// fs.DirEntry
-// fs.FileInfo
+// func (fsys *RemoteFS) WithContext(ctx context.Context) FS {
+// 	return &RemoteFS{
+// 		ctx:     ctx,
+// 		db:      fsys.db,
+// 		dialect: fsys.dialect,
+// 		storage: fsys.storage,
+// 	}
+// }
 
-type remoteFileInfo struct {
+type RemoteFileInfo struct {
 	fileID   [16]byte
 	parentID [16]byte
 	filePath string
@@ -233,42 +237,42 @@ type remoteFileInfo struct {
 	mode     fs.FileMode
 }
 
-func (fileInfo *remoteFileInfo) Name() string {
+func (fileInfo *RemoteFileInfo) Name() string {
 	return path.Base(fileInfo.filePath)
 }
 
-func (fileInfo *remoteFileInfo) Size() int64 {
+func (fileInfo *RemoteFileInfo) Size() int64 {
 	if IsStoredInDB(fileInfo.filePath) {
 		return int64(len(fileInfo.data))
 	}
 	return fileInfo.size
 }
 
-func (fileInfo *remoteFileInfo) Mode() fs.FileMode {
+func (fileInfo *RemoteFileInfo) Mode() fs.FileMode {
 	if fileInfo.isDir {
 		return fileInfo.mode | fs.ModeDir
 	}
 	return fileInfo.mode &^ fs.ModeDir
 }
 
-func (fileInfo *remoteFileInfo) ModTime() time.Time { return fileInfo.modTime }
+func (fileInfo *RemoteFileInfo) ModTime() time.Time { return fileInfo.modTime }
 
-func (fileInfo *remoteFileInfo) IsDir() bool { return fileInfo.isDir }
+func (fileInfo *RemoteFileInfo) IsDir() bool { return fileInfo.isDir }
 
-func (fileInfo *remoteFileInfo) Sys() any { return nil }
+func (fileInfo *RemoteFileInfo) Sys() any { return nil }
 
-func (fileInfo *remoteFileInfo) Type() fs.FileMode { return fileInfo.Mode().Type() }
+func (fileInfo *RemoteFileInfo) Type() fs.FileMode { return fileInfo.Mode().Type() }
 
-func (fileInfo *remoteFileInfo) FileInfo() (fs.FileInfo, error) { return fileInfo, nil }
+func (fileInfo *RemoteFileInfo) FileInfo() (fs.FileInfo, error) { return fileInfo, nil }
 
 type remoteFile struct {
-	fileInfo   *remoteFileInfo
+	fileInfo   *RemoteFileInfo
 	readCloser io.ReadCloser
 }
 
 func (remoteFS *RemoteFS) Open(name string) (fs.File, error) {
 	// TODO: pull remoteFileInfo from the database.
-	fileInfo := &remoteFileInfo{}
+	fileInfo := &RemoteFileInfo{}
 	if IsStoredInDB(fileInfo.filePath) {
 		fileReader := &remoteFile{
 			fileInfo:   fileInfo,
@@ -301,7 +305,7 @@ func (file *remoteFile) Stat() (fs.FileInfo, error) {
 
 type remoteFileWriter struct {
 	ctx  context.Context
-	file *remoteFileInfo
+	file *RemoteFileInfo
 
 	db      *sql.DB
 	dialect string
