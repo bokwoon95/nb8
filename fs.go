@@ -62,8 +62,8 @@ var _ FS = (*LocalFS)(nil)
 func NewLocalFS(rootDir, tempDir string) *LocalFS {
 	return &LocalFS{
 		ctx:     context.Background(),
-		rootDir: rootDir,
-		tempDir: tempDir,
+		rootDir: filepath.FromSlash(rootDir),
+		tempDir: filepath.FromSlash(tempDir),
 	}
 }
 
@@ -96,7 +96,7 @@ func (localFS *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteClose
 		ctx:     localFS.ctx,
 		rootDir: localFS.rootDir,
 		tempDir: localFS.tempDir,
-		name:    name,
+		name:    filepath.FromSlash(name),
 		perm:    perm,
 	}
 	if localFileWriter.tempDir == "" {
@@ -352,36 +352,6 @@ func (remoteFileWriter *RemoteFileWriter) Close() error {
 	}
 	return nil
 }
-
-// Write
-// Close
-
-// func (fileWriter *remoteFileWriter) ReadFrom(r io.Reader) (n int64, err error) {
-// 	if fileWriter.file.isDir {
-// 		return 0, fmt.Errorf("%s is a directory", fileWriter.file.filePath)
-// 	}
-// 	// TODO: don't update, upsert.
-// 	if isStoredInDB(fileWriter.file.filePath) {
-// 		data, err := io.ReadAll(r)
-// 		if err != nil {
-// 			return int64(len(data)), err
-// 		}
-// 		_, err = sq.ExecContext(fileWriter.ctx, fileWriter.file.db, sq.CustomQuery{
-// 			Dialect: fileWriter.file.dialect,
-// 			Format:  "UPDATE files SET data = {data} WHERE file_id = {fileID}",
-// 			Values: []any{
-// 				sq.BytesParam("data", data),
-// 				sq.UUIDParam("fileID", fileWriter.file.fileID),
-// 			},
-// 		})
-// 		if err != nil {
-// 			return 0, err
-// 		}
-// 		return int64(len(data)), nil
-// 	}
-// 	err = fileWriter.file.storage.Put(fileWriter.ctx, fileWriter.file.filePath, r)
-// 	return 0, nil
-// }
 
 // Open(name string) (fs.File, error)
 // OpenReaderFrom(name string, perm fs.FileMode) (io.ReaderFrom, error)
