@@ -294,7 +294,9 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		result.filePath = row.String("file_path")
 		result.isDir = row.Bool("is_dir")
 		result.size = row.Int64("size")
-		result.modTime = row.Time("mod_time")
+		var modTime sq.Timestamp
+		row.Scan(&modTime, "mod_time")
+		result.modTime = modTime.Time
 		result.perm = fs.FileMode(row.Int("perm"))
 		result.data = row.String("data")
 		return result
@@ -539,11 +541,14 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 		result.filePath = row.String("files.file_path")
 		result.isDir = row.Bool("files.is_dir")
 		result.size = row.Int64("files.size")
-		result.modTime = row.Time("files.mod_time")
+		var modTime sq.Timestamp
+		row.Scan(&modTime, "files.mod_time")
+		result.modTime = modTime.Time
 		result.perm = fs.FileMode(row.Int("files.perm"))
 		result.ParentIsDir = row.Bool("parents.is_dir")
 		return result
 	})
+	// sort=name,updated order=asc,desc limit=1000 after=
 	if err != nil {
 		return nil, err
 	}
@@ -565,7 +570,15 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 	return nil
 }
 
+func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
+	return nil
+}
+
 func (fsys *RemoteFS) Remove(name string) error {
+	return nil
+}
+
+func (fsys *RemoteFS) RemoveAll(name string) error {
 	return nil
 }
 

@@ -95,6 +95,6 @@ type FILES struct {
 	IS_DIR    sq.BooleanField `ddl:"notnull"`
 	DATA      sq.StringField  `ddl:"mysql:type=MEDIUMTEXT"`
 	SIZE      sq.NumberField
-	MOD_TIME  sq.TimeField
+	MOD_TIME  sq.TimeField `ddl:"index"`
 	PERM      sq.NumberField
 }
