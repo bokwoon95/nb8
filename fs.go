@@ -197,7 +197,7 @@ func IsStoredInDB(filePath string) bool {
 			return true
 		}
 	case "posts":
-		if ext == ".markdown" || ext == ".md" {
+		if ext == ".md" {
 			return true
 		}
 	case "output":
