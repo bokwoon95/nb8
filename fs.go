@@ -272,6 +272,7 @@ type RemoteFile struct {
 }
 
 func (fsys *RemoteFS) Open(name string) (fs.File, error) {
+	// TODO: handle name == "."
 	fileInfo, err := sq.FetchOneContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "SELECT {*} FROM files WHERE file_path = {name}",
@@ -290,29 +291,35 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		fileInfo.perm = fs.FileMode(row.Int("perm"))
 		return &fileInfo
 	})
-	if IsStoredInDB(fileInfo.filePath) {
-		remoteFile := &RemoteFile{
-			fileInfo:   fileInfo,
-			readCloser: io.NopCloser(strings.NewReader(fileInfo.data)),
+	var readCloser io.ReadCloser
+	if !fileInfo.isDir {
+		if IsStoredInDB(fileInfo.filePath) {
+			readCloser = io.NopCloser(strings.NewReader(fileInfo.data))
+		} else {
+			readCloser, err = fsys.storage.Get(context.Background(), fileInfo.filePath)
+			if err != nil {
+				return nil, err
+			}
 		}
-		return remoteFile, nil
 	}
-	readCloser, err := fsys.storage.Get(context.Background(), fileInfo.filePath)
-	if err != nil {
-		return nil, err
-	}
-	remoteFile := &RemoteFile{
+	file := &RemoteFile{
 		fileInfo:   fileInfo,
 		readCloser: readCloser,
 	}
-	return remoteFile, nil
+	return file, nil
 }
 
 func (file *RemoteFile) Read(p []byte) (n int, err error) {
+	if file.readCloser == nil {
+		return 0, fmt.Errorf("%q is a directory", file.fileInfo.filePath)
+	}
 	return file.readCloser.Read(p)
 }
 
 func (file *RemoteFile) Close() error {
+	if file.readCloser == nil {
+		return nil
+	}
 	return file.readCloser.Close()
 }
 
@@ -333,6 +340,7 @@ type RemoteFileWriter struct {
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
+	// TODO: handle name == "."
 	file := &RemoteFileWriter{
 		ctx:     fsys.ctx,
 		db:      fsys.db,
@@ -490,12 +498,17 @@ func (file *RemoteFileWriter) Close() error {
 }
 
 func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	// TODO: handle name == "."
+	// TODO: SELECT * FROM files LEFT JOIN files AS child instead, so that no
+	// rows signals no such dir, and one row with null child.file_id signals no
+	// children.
 	cursor, err := sq.FetchCursorContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format: "SELECT {*}" +
 			" FROM files" +
 			" JOIN files AS parents ON parents.file_id = files.parent_id" +
-			" WHERE parents.file_path = {name}",
+			" WHERE parents.file_path = {name}" +
+			" ORDER BY files.file_path",
 		Values: []any{
 			sq.StringParam("name", name),
 		},
@@ -530,6 +543,16 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	return dirEntries, cursor.Close()
 }
 
+func (fsys *RemoteFS) Mkdir(name string) error {
+	return nil
+}
+
+func (fsys *RemoteFS) Remove(name string) error {
+	return nil
+}
+
+// TODO: what would a directory pagination interface look like?
+
 // Open(name string) (fs.File, error)
 // OpenReaderFrom(name string, perm fs.FileMode) (io.ReaderFrom, error)
 // ReadDir(name string) ([]fs.DirEntry, error)
@@ -538,6 +561,7 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 // Rename(oldname, newname string) error
 // RemoveAll
 // MkdirAll
+// WalkDir
 // (fs.FileInfo).GetSize()
 // (fs.DirEntry).GetSize()
 
