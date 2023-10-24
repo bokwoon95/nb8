@@ -264,22 +264,20 @@ func (fileInfo *RemoteFileInfo) Info() (fs.FileInfo, error) { return fileInfo, n
 
 type RemoteFile struct {
 	fileInfo   *RemoteFileInfo
-	data       string
 	readCloser io.ReadCloser
 }
 
 func (fsys *RemoteFS) Open(name string) (fs.File, error) {
-	if name == "" {
+	switch name {
+	case "":
 		return nil, fs.ErrNotExist
-	}
-	if name == "." {
-		file := &RemoteFile{
+	case ".":
+		return &RemoteFile{
 			fileInfo: &RemoteFileInfo{
 				filePath: ".",
 				isDir:    true,
 			},
-		}
-		return file, nil
+		}, nil
 	}
 	result, err := sq.FetchOneContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
@@ -312,7 +310,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 	}
 	if !result.isDir {
 		if IsStoredInDB(result.filePath) {
-			file.data = result.data
+			file.readCloser = io.NopCloser(strings.NewReader(result.data))
 			file.fileInfo.size = int64(len(result.data))
 		} else {
 			file.readCloser, err = fsys.storage.Get(context.Background(), file.fileInfo.filePath)
@@ -325,7 +323,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 }
 
 func (file *RemoteFile) Read(p []byte) (n int, err error) {
-	if file.readCloser == nil {
+	if file.fileInfo.isDir {
 		return 0, fmt.Errorf("%q is a directory", file.fileInfo.filePath)
 	}
 	return file.readCloser.Read(p)
@@ -355,7 +353,12 @@ type RemoteFileWriter struct {
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
-	// TODO: handle name == "."
+	switch name {
+	case "":
+		return nil, fs.ErrNotExist
+	case ".":
+		return nil, fmt.Errorf("file is a directory")
+	}
 	file := &RemoteFileWriter{
 		ctx:     fsys.ctx,
 		db:      fsys.db,
@@ -614,6 +617,7 @@ func NewS3Storage(ctx context.Context, config S3StorageConfig) (*S3Storage, erro
 		}),
 		Bucket: config.Bucket,
 	}
+	// Ping the bucket and see if we have access.
 	_, err := storage.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket:  &storage.Bucket,
 		MaxKeys: 1,
@@ -625,7 +629,6 @@ func NewS3Storage(ctx context.Context, config S3StorageConfig) (*S3Storage, erro
 }
 
 func (storage *S3Storage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
-	key = strings.Trim(path.Clean(key), "/")
 	output, err := storage.Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
@@ -637,7 +640,6 @@ func (storage *S3Storage) Get(ctx context.Context, key string) (io.ReadCloser, e
 }
 
 func (storage *S3Storage) Put(ctx context.Context, key string, reader io.Reader) error {
-	key = strings.Trim(path.Clean(key), "/")
 	_, err := storage.Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
@@ -650,7 +652,6 @@ func (storage *S3Storage) Put(ctx context.Context, key string, reader io.Reader)
 }
 
 func (storage *S3Storage) Delete(ctx context.Context, key string) error {
-	key = strings.Trim(path.Clean(key), "/")
 	_, err := storage.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: &storage.Bucket,
 		Key:    aws.String(key),
@@ -676,7 +677,6 @@ func NewInMemoryStorage() *InMemoryStorage {
 }
 
 func (storage *InMemoryStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
-	key = strings.Trim(path.Clean(key), "/")
 	storage.mu.RLock()
 	entry, ok := storage.entries[key]
 	storage.mu.RUnlock()
@@ -687,7 +687,6 @@ func (storage *InMemoryStorage) Get(ctx context.Context, key string) (io.ReadClo
 }
 
 func (storage *InMemoryStorage) Put(ctx context.Context, key string, reader io.Reader) error {
-	key = strings.Trim(path.Clean(key), "/")
 	value, err := io.ReadAll(reader)
 	if err != nil {
 		return err
@@ -699,7 +698,6 @@ func (storage *InMemoryStorage) Put(ctx context.Context, key string, reader io.R
 }
 
 func (storage *InMemoryStorage) Delete(ctx context.Context, key string) error {
-	key = strings.Trim(path.Clean(key), "/")
 	storage.mu.Lock()
 	delete(storage.entries, key)
 	storage.mu.Unlock()
