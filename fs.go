@@ -613,6 +613,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 // NOTE: sort=name|created|updated order=asc|desc limit=1000 v=value
 // NOTE: for each batch size, we'll unconditionally sort it such that directories always rise to the top. no exceptions. this will be done in folder.go, not by PaginateDir itself. The filesystem never has to concern itself with whether or not it has to sort directories to the top.
 // No pages I'm afraid. Only keyset pagination, which means you can just to the start or jump to the end very quickly (by ordering asc or desc) but not in the middle.
+// for sort=name, v is just the base name (not full path). then on the server side we just assemble the full path using join(sitePrefix, parentDir, v)
 
 // Open(name string) (fs.File, error)
 // OpenReaderFrom(name string, perm fs.FileMode) (io.ReaderFrom, error)
