@@ -333,8 +333,6 @@ type RemoteFileWriter struct {
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
 	file := &RemoteFileWriter{
 		ctx:     fsys.ctx,
 		db:      fsys.db,
@@ -342,8 +340,9 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 		storage: fsys.storage,
 		name:    name,
 		perm:    perm,
-		buf:     buf,
+		buf:     bufPool.Get().(*bytes.Buffer),
 	}
+	file.buf.Reset()
 	filePaths := []string{name}
 	parentDir := path.Dir(name)
 	if parentDir != "." {
@@ -388,12 +387,12 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 	return file, nil
 }
 
-func (remoteFileWriter *RemoteFileWriter) Write(p []byte) (n int, err error) {
-	err = remoteFileWriter.ctx.Err()
+func (file *RemoteFileWriter) Write(p []byte) (n int, err error) {
+	err = file.ctx.Err()
 	if err != nil {
 		return 0, err
 	}
-	return remoteFileWriter.buf.Write(p)
+	return file.buf.Write(p)
 }
 
 func (file *RemoteFileWriter) Close() error {
