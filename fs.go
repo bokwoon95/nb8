@@ -346,13 +346,12 @@ type RemoteFileWriter struct {
 	ctx            context.Context
 	db             *sql.DB
 	dialect        string
-	storage        Storage
 	fileExists     bool
 	fileID         [16]byte
 	parentID       any // either nil or [16]byte
 	filePath       string
 	perm           fs.FileMode
-	buf            *bytes.Buffer // TODO: buffering in-memory is problematic :/
+	buf            *bytes.Buffer
 	storageWriter  *io.PipeWriter
 	storageWritten int
 	storageResult  chan error
@@ -369,7 +368,6 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 		ctx:      fsys.ctx,
 		db:       fsys.db,
 		dialect:  fsys.dialect,
-		storage:  fsys.storage,
 		filePath: name,
 		perm:     perm,
 	}
@@ -452,7 +450,15 @@ func (file *RemoteFileWriter) Write(p []byte) (n int, err error) {
 }
 
 func (file *RemoteFileWriter) Close() error {
-	defer bufPool.Put(file.buf)
+	if IsStoredInDB(file.filePath) {
+		defer bufPool.Put(file.buf)
+	} else {
+		file.storageWriter.Close()
+		err := <-file.storageResult
+		if err != nil {
+			return err
+		}
+	}
 	modTime := sq.NewTimestamp(time.Now().UTC())
 
 	// if file exists, just have to update the file entry in the database.
@@ -480,12 +486,6 @@ func (file *RemoteFileWriter) Close() error {
 					sq.UUIDParam("fileID", file.fileID),
 				},
 			})
-			if err != nil {
-				file.storageWriter.CloseWithError(err)
-				go file.storage.Delete(context.Background(), hex.EncodeToString(file.fileID[:]))
-				return err
-			}
-			err = <-file.storageResult
 			if err != nil {
 				return err
 			}
@@ -530,7 +530,6 @@ func (file *RemoteFileWriter) Close() error {
 		})
 		if err != nil {
 			file.storageWriter.CloseWithError(err)
-			go file.storage.Delete(context.Background(), hex.EncodeToString(file.fileID[:]))
 			return err
 		}
 		err = <-file.storageResult
