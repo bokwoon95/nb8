@@ -218,14 +218,14 @@ func NewRemoteFS(dialect string, db *sql.DB, storage Storage) *RemoteFS {
 	}
 }
 
-// func (fsys *RemoteFS) WithContext(ctx context.Context) FS {
-// 	return &RemoteFS{
-// 		ctx:     ctx,
-// 		db:      fsys.db,
-// 		dialect: fsys.dialect,
-// 		storage: fsys.storage,
-// 	}
-// }
+func (fsys *RemoteFS) WithContext(ctx context.Context) FS {
+	return &RemoteFS{
+		ctx:     ctx,
+		db:      fsys.db,
+		dialect: fsys.dialect,
+		storage: fsys.storage,
+	}
+}
 
 type RemoteFileInfo struct {
 	fileID   [16]byte
@@ -543,11 +543,15 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	return dirEntries, cursor.Close()
 }
 
-func (fsys *RemoteFS) Mkdir(name string) error {
+func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 	return nil
 }
 
 func (fsys *RemoteFS) Remove(name string) error {
+	return nil
+}
+
+func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	return nil
 }
 
