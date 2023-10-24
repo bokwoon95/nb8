@@ -232,7 +232,6 @@ type RemoteFileInfo struct {
 	parentID [16]byte
 	filePath string
 	isDir    bool
-	data     string
 	size     int64
 	modTime  time.Time
 	perm     fs.FileMode
@@ -243,9 +242,6 @@ func (fileInfo *RemoteFileInfo) Name() string {
 }
 
 func (fileInfo *RemoteFileInfo) Size() int64 {
-	if IsStoredInDB(fileInfo.filePath) {
-		return int64(len(fileInfo.data))
-	}
 	return fileInfo.size
 }
 
@@ -268,43 +264,56 @@ func (fileInfo *RemoteFileInfo) Info() (fs.FileInfo, error) { return fileInfo, n
 
 type RemoteFile struct {
 	fileInfo   *RemoteFileInfo
+	data       string
 	readCloser io.ReadCloser
 }
 
 func (fsys *RemoteFS) Open(name string) (fs.File, error) {
-	// TODO: handle name == "."
-	fileInfo, err := sq.FetchOneContext(fsys.ctx, fsys.db, sq.CustomQuery{
+	if name == "" {
+		return nil, fs.ErrNotExist
+	}
+	if name == "." {
+		file := &RemoteFile{
+			fileInfo: &RemoteFileInfo{
+				filePath: ".",
+				isDir:    true,
+			},
+		}
+		return file, nil
+	}
+	result, err := sq.FetchOneContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "SELECT {*} FROM files WHERE file_path = {name}",
 		Values: []any{
 			sq.StringParam("name", name),
 		},
-	}, func(row *sq.Row) *RemoteFileInfo {
-		var fileInfo RemoteFileInfo
-		row.UUID(&fileInfo.fileID, "file_id")
-		row.UUID(&fileInfo.parentID, "parent_id")
-		fileInfo.filePath = row.String("file_path")
-		fileInfo.isDir = row.Bool("is_dir")
-		fileInfo.data = row.String("data")
-		fileInfo.size = row.Int64("size")
-		fileInfo.modTime = row.Time("mod_time")
-		fileInfo.perm = fs.FileMode(row.Int("perm"))
-		return &fileInfo
+	}, func(row *sq.Row) (result struct {
+		RemoteFileInfo
+		data string
+	}) {
+		row.UUID(&result.fileID, "file_id")
+		row.UUID(&result.parentID, "parent_id")
+		result.filePath = row.String("file_path")
+		result.isDir = row.Bool("is_dir")
+		result.size = row.Int64("size")
+		result.modTime = row.Time("mod_time")
+		result.perm = fs.FileMode(row.Int("perm"))
+		result.data = row.String("data")
+		return result
 	})
-	var readCloser io.ReadCloser
-	if !fileInfo.isDir {
-		if IsStoredInDB(fileInfo.filePath) {
-			readCloser = io.NopCloser(strings.NewReader(fileInfo.data))
+	file := &RemoteFile{
+		fileInfo: &result.RemoteFileInfo,
+	}
+	if !result.isDir {
+		if IsStoredInDB(result.filePath) {
+			file.data = result.data
+			file.fileInfo.size = int64(len(result.data))
 		} else {
-			readCloser, err = fsys.storage.Get(context.Background(), fileInfo.filePath)
+			file.readCloser, err = fsys.storage.Get(context.Background(), file.fileInfo.filePath)
 			if err != nil {
 				return nil, err
 			}
 		}
-	}
-	file := &RemoteFile{
-		fileInfo:   fileInfo,
-		readCloser: readCloser,
 	}
 	return file, nil
 }
