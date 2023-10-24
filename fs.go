@@ -343,15 +343,19 @@ func (file *RemoteFile) Stat() (fs.FileInfo, error) {
 }
 
 type RemoteFileWriter struct {
-	ctx      context.Context
-	db       *sql.DB
-	dialect  string
-	storage  Storage
-	fileID   any // either nil or [16]byte
-	parentID any // either nil or [16]byte
-	name     string
-	perm     fs.FileMode
-	buf      *bytes.Buffer // TODO: buffering in-memory is problematic :/
+	ctx            context.Context
+	db             *sql.DB
+	dialect        string
+	storage        Storage
+	fileExists     bool
+	fileID         [16]byte
+	parentID       any // either nil or [16]byte
+	filePath       string
+	perm           fs.FileMode
+	buf            *bytes.Buffer // TODO: buffering in-memory is problematic :/
+	storageWriter  *io.PipeWriter
+	storageWritten int
+	storageResult  chan error
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
@@ -362,17 +366,15 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 		return nil, fmt.Errorf("file is a directory")
 	}
 	file := &RemoteFileWriter{
-		ctx:     fsys.ctx,
-		db:      fsys.db,
-		dialect: fsys.dialect,
-		storage: fsys.storage,
-		name:    name,
-		perm:    perm,
-		buf:     bufPool.Get().(*bytes.Buffer),
+		ctx:      fsys.ctx,
+		db:       fsys.db,
+		dialect:  fsys.dialect,
+		storage:  fsys.storage,
+		filePath: name,
+		perm:     perm,
 	}
-	file.buf.Reset()
-	filePaths := []string{name}
-	parentDir := path.Dir(name)
+	filePaths := []string{file.filePath}
+	parentDir := path.Dir(file.filePath)
 	if parentDir != "." {
 		filePaths = append(filePaths, parentDir)
 	}
@@ -401,6 +403,7 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 			if result.isDir {
 				return nil, fmt.Errorf("%q exists and is a directory", name)
 			}
+			file.fileExists = true
 			file.fileID = result.fileID
 		case parentDir:
 			if !result.isDir {
@@ -412,6 +415,26 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 	if parentDir != "." && file.parentID == nil {
 		return nil, fmt.Errorf("parent dir %q does not exist", parentDir)
 	}
+	if !file.fileExists {
+		var timestamp [8]byte
+		binary.BigEndian.PutUint64(timestamp[:], uint64(time.Now().Unix()))
+		copy(file.fileID[:5], timestamp[len(timestamp)-5:])
+		_, err := rand.Read(file.fileID[5:])
+		if err != nil {
+			return nil, err
+		}
+	}
+	if IsStoredInDB(file.filePath) {
+		file.buf = bufPool.Get().(*bytes.Buffer)
+		file.buf.Reset()
+	} else {
+		pipeReader, pipeWriter := io.Pipe()
+		file.storageWriter = pipeWriter
+		file.storageResult = make(chan error, 1)
+		go func() {
+			file.storageResult <- fsys.storage.Put(file.ctx, hex.EncodeToString(file.fileID[:]), pipeReader)
+		}()
+	}
 	return file, nil
 }
 
@@ -420,24 +443,28 @@ func (file *RemoteFileWriter) Write(p []byte) (n int, err error) {
 	if err != nil {
 		return 0, err
 	}
-	return file.buf.Write(p)
+	if IsStoredInDB(file.filePath) {
+		return file.buf.Write(p)
+	}
+	n, err = file.storageWriter.Write(p)
+	file.storageWritten += n
+	return n, err
 }
 
 func (file *RemoteFileWriter) Close() error {
 	defer bufPool.Put(file.buf)
 	modTime := sq.NewTimestamp(time.Now().UTC())
-	fileID, _ := file.fileID.([16]byte)
 
-	// fileID exists, just have to update the file entry in the database.
-	if fileID != [16]byte{} {
-		if IsStoredInDB(file.name) {
+	// if file exists, just have to update the file entry in the database.
+	if file.fileExists {
+		if IsStoredInDB(file.filePath) {
 			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 				Dialect: file.dialect,
 				Format:  "UPDATE files SET data = {data}, mod_time = {modTime} WHERE file_id = {fileID}",
 				Values: []any{
 					sq.BytesParam("data", file.buf.Bytes()),
 					sq.Param("modTime", modTime),
-					sq.UUIDParam("fileID", fileID),
+					sq.UUIDParam("fileID", file.fileID),
 				},
 			})
 			if err != nil {
@@ -448,15 +475,17 @@ func (file *RemoteFileWriter) Close() error {
 				Dialect: file.dialect,
 				Format:  "UPDATE files SET size = {size}, mod_time = {modTime} WHERE file_id = {fileID}",
 				Values: []any{
-					sq.IntParam("size", file.buf.Len()),
+					sq.IntParam("size", file.storageWritten),
 					sq.Param("modTime", modTime),
-					sq.UUIDParam("fileID", fileID),
+					sq.UUIDParam("fileID", file.fileID),
 				},
 			})
 			if err != nil {
+				file.storageWriter.CloseWithError(err)
+				go file.storage.Delete(context.Background(), hex.EncodeToString(file.fileID[:]))
 				return err
 			}
-			err = file.storage.Put(file.ctx, hex.EncodeToString(fileID[:]), file.buf)
+			err = <-file.storageResult
 			if err != nil {
 				return err
 			}
@@ -466,22 +495,15 @@ func (file *RemoteFileWriter) Close() error {
 
 	// fileID doesn't exist, generate a new one and insert a file entry into
 	// the database.
-	var timestamp [8]byte
-	binary.BigEndian.PutUint64(timestamp[:], uint64(time.Now().Unix()))
-	copy(fileID[:5], timestamp[len(timestamp)-5:])
-	_, err := rand.Read(fileID[5:])
-	if err != nil {
-		return err
-	}
-	if IsStoredInDB(file.name) {
-		_, err = sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
+	if IsStoredInDB(file.filePath) {
+		_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 			Dialect: file.dialect,
 			Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, data, mod_time, perm)" +
-				" VALUES ({fileID}, {parentID}, {name}, {isDir}, {data}, {modTime}, {perm})",
+				" VALUES ({fileID}, {parentID}, {filePath}, {isDir}, {data}, {modTime}, {perm})",
 			Values: []any{
-				sq.UUIDParam("fileID", fileID),
+				sq.UUIDParam("fileID", file.fileID),
 				sq.UUIDParam("parentID", file.parentID),
-				sq.StringParam("name", file.name),
+				sq.StringParam("filePath", file.filePath),
 				sq.BoolParam("isDir", true),
 				sq.BytesParam("data", file.buf.Bytes()),
 				sq.Param("modTime", modTime),
@@ -492,14 +514,14 @@ func (file *RemoteFileWriter) Close() error {
 			return err
 		}
 	} else {
-		_, err = sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
+		_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 			Dialect: file.dialect,
 			Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, size, mod_time, perm)" +
-				" VALUES ({fileID}, {parentID}, {name}, {isDir}, {size}, {modTime}, {perm})",
+				" VALUES ({fileID}, {parentID}, {filePath}, {isDir}, {size}, {modTime}, {perm})",
 			Values: []any{
-				sq.UUIDParam("fileID", fileID),
+				sq.UUIDParam("fileID", file.fileID),
 				sq.UUIDParam("parentID", file.parentID),
-				sq.StringParam("name", file.name),
+				sq.StringParam("filePath", file.filePath),
 				sq.BoolParam("isDir", true),
 				sq.IntParam("size", file.buf.Len()),
 				sq.Param("modTime", modTime),
@@ -507,9 +529,11 @@ func (file *RemoteFileWriter) Close() error {
 			},
 		})
 		if err != nil {
+			file.storageWriter.CloseWithError(err)
+			go file.storage.Delete(context.Background(), hex.EncodeToString(file.fileID[:]))
 			return err
 		}
-		err = file.storage.Put(file.ctx, hex.EncodeToString(fileID[:]), file.buf)
+		err = <-file.storageResult
 		if err != nil {
 			return err
 		}
