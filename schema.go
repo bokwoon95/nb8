@@ -91,10 +91,10 @@ type FILES struct {
 	sq.TableStruct
 	FILE_ID   sq.UUIDField    `ddl:"primarykey"`
 	PARENT_ID sq.UUIDField    `ddl:"references={files.file_id onupdate=cascade index}"`
-	FILE_PATH sq.StringField  `ddl:"notnull len=500"`
+	FILE_PATH sq.StringField  `ddl:"notnull len=500 unique"`
 	IS_DIR    sq.BooleanField `ddl:"notnull"`
 	DATA      sq.StringField  `ddl:"mysql:type=MEDIUMTEXT"`
 	SIZE      sq.NumberField
 	MOD_TIME  sq.TimeField
-	MODE      sq.NumberField
+	PERM      sq.NumberField
 }

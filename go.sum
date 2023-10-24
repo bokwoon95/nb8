@@ -26,8 +26,8 @@ github.com/aws/aws-sdk-go-v2/service/ssooidc v1.17.3/go.mod h1:a7bHA82fyUXOm+ZSW
 github.com/aws/aws-sdk-go-v2/service/sts v1.23.2/go.mod h1:Eows6e1uQEsc4ZaHANmsPRzAKcVDrcmjjWiih2+HUUQ=
 github.com/aws/smithy-go v1.15.0 h1:PS/durmlzvAFpQHDs4wi4sNNP9ExsqZh6IlfdHXgKK8=
 github.com/aws/smithy-go v1.15.0/go.mod h1:Tg+OJXh4MB2R/uN61Ko2f6hTZwB/ZYGOtib8J3gBHzA=
-github.com/bokwoon95/sq v0.4.3 h1:p4QXouKlKyhS8qtdgnbedTo62Ri1dh/qMMqqQhPsh/U=
-github.com/bokwoon95/sq v0.4.3/go.mod h1:E3X8ARaXQ77XGMvjS0sQrcA1F5BZvq4Ck/91dPsMKR4=
+github.com/bokwoon95/sq v0.4.4 h1:acamwojQCmtJOFR8V9P9Srd8xepoG1aDAO2VBx6jrGc=
+github.com/bokwoon95/sq v0.4.4/go.mod h1:E3X8ARaXQ77XGMvjS0sQrcA1F5BZvq4Ck/91dPsMKR4=
 github.com/bokwoon95/sqddl v0.4.6 h1:E8wbTNf0650nuaZtIzagunYyzLq0aSXvk06/K5SoUso=
 github.com/bokwoon95/sqddl v0.4.6/go.mod h1:gdCZ/YncGycaXDhmr2toCSfk7EHS3WcmFOCgkuAsp5E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

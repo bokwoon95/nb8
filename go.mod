@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.21.2
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.43
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.40.2
-	github.com/bokwoon95/sq v0.4.3
+	github.com/bokwoon95/sq v0.4.4
 	github.com/bokwoon95/sqddl v0.4.6
 )
 
