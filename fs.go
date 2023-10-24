@@ -335,7 +335,7 @@ type RemoteFileWriter struct {
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	remoteFileWriter := &RemoteFileWriter{
+	file := &RemoteFileWriter{
 		ctx:     fsys.ctx,
 		db:      fsys.db,
 		dialect: fsys.dialect,
@@ -374,18 +374,18 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 			if result.isDir {
 				return nil, fmt.Errorf("%q exists and is a directory", name)
 			}
-			remoteFileWriter.fileID = result.fileID
+			file.fileID = result.fileID
 		case parentDir:
 			if !result.isDir {
 				return nil, fmt.Errorf("parent %q exists but is not a directory", parentDir)
 			}
-			remoteFileWriter.parentID = result.fileID
+			file.parentID = result.fileID
 		}
 	}
-	if parentDir != "." && remoteFileWriter.parentID == nil {
+	if parentDir != "." && file.parentID == nil {
 		return nil, fmt.Errorf("parent dir %q does not exist", parentDir)
 	}
-	return remoteFileWriter, nil
+	return file, nil
 }
 
 func (remoteFileWriter *RemoteFileWriter) Write(p []byte) (n int, err error) {
