@@ -529,11 +529,6 @@ func (file *RemoteFileWriter) Close() error {
 			},
 		})
 		if err != nil {
-			file.storageWriter.CloseWithError(err)
-			return err
-		}
-		err = <-file.storageResult
-		if err != nil {
 			return err
 		}
 	}
