@@ -82,12 +82,12 @@ func (localFS *LocalFS) Open(name string) (fs.File, error) {
 }
 
 func (localFS *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
-	file := &localFile{
+	file := &LocalFile{
 		ctx:     localFS.ctx,
-		name:    name,
-		perm:    perm,
 		rootDir: localFS.rootDir,
 		tempDir: localFS.tempDir,
+		name:    name,
+		perm:    perm,
 	}
 	if file.tempDir == "" {
 		file.tempDir = os.TempDir()
@@ -131,7 +131,7 @@ func (localFS *LocalFS) Rename(oldname, newname string) error {
 	return os.Rename(filepath.Join(localFS.rootDir, oldname), filepath.Join(localFS.rootDir, newname))
 }
 
-type localFile struct {
+type LocalFile struct {
 	ctx      context.Context
 	rootDir  string
 	tempDir  string
@@ -140,26 +140,26 @@ type localFile struct {
 	tempFile *os.File
 }
 
-func (file *localFile) Write(p []byte) (n int, err error) {
-	err = file.ctx.Err()
+func (localFile *LocalFile) Write(p []byte) (n int, err error) {
+	err = localFile.ctx.Err()
 	if err != nil {
 		return 0, err
 	}
-	return file.tempFile.Write(p)
+	return localFile.tempFile.Write(p)
 }
 
-func (file *localFile) Close() error {
-	fileInfo, err := file.tempFile.Stat()
+func (localFile *LocalFile) Close() error {
+	fileInfo, err := localFile.tempFile.Stat()
 	if err != nil {
 		return err
 	}
-	err = file.tempFile.Close()
+	err = localFile.tempFile.Close()
 	if err != nil {
 		return err
 	}
-	tempFilePath := filepath.Join(file.tempDir, fileInfo.Name())
-	destFilePath := filepath.Join(file.rootDir, file.name)
-	mode := file.perm
+	tempFilePath := filepath.Join(localFile.tempDir, fileInfo.Name())
+	destFilePath := filepath.Join(localFile.rootDir, localFile.name)
+	mode := localFile.perm
 	fileInfo, err = os.Stat(destFilePath)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
