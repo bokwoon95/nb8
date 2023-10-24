@@ -174,6 +174,13 @@ func (fsys *LocalFS) Rename(oldname, newname string) error {
 	return os.Rename(filepath.Join(fsys.rootDir, oldname), filepath.Join(fsys.rootDir, newname))
 }
 
+type RemoteFS struct {
+	ctx     context.Context
+	db      *sql.DB
+	dialect string
+	storage Storage
+}
+
 func IsStoredInDB(filePath string) bool {
 	ext := path.Ext(filePath)
 	head, tail, _ := strings.Cut(filePath, "/")
@@ -197,13 +204,6 @@ func IsStoredInDB(filePath string) bool {
 		}
 	}
 	return false
-}
-
-type RemoteFS struct {
-	ctx     context.Context
-	db      *sql.DB
-	dialect string
-	storage Storage
 }
 
 func NewRemoteFS(dialect string, db *sql.DB, storage Storage) *RemoteFS {
