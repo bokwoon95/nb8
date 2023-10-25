@@ -892,15 +892,15 @@ func MkdirAll(fsys FS, dir string, perm fs.FileMode) error {
 	return nil
 }
 
-func GetFileSize(fsys fs.FS, root string) (int64, error) {
+func GetSize(fsys fs.FS, filePath string) (int64, error) {
 	type Item struct {
-		Path     string // relative to root
+		Path     string // relative to filePath
 		DirEntry fs.DirEntry
 	}
-	if fsys, ok := fsys.(interface{ GetSize(root string) (int64, error) }); ok {
-		return fsys.GetSize(root)
+	if fsys, ok := fsys.(interface{ GetSize(filePath string) (int64, error) }); ok {
+		return fsys.GetSize(filePath)
 	}
-	fileInfo, err := fs.Stat(fsys, root)
+	fileInfo, err := fs.Stat(fsys, filePath)
 	if err != nil {
 		return 0, err
 	}
@@ -910,7 +910,7 @@ func GetFileSize(fsys fs.FS, root string) (int64, error) {
 	var size int64
 	var item Item
 	var items []Item
-	dirEntries, err := fs.ReadDir(fsys, root)
+	dirEntries, err := fs.ReadDir(fsys, filePath)
 	if err != nil {
 		return 0, err
 	}
@@ -925,14 +925,14 @@ func GetFileSize(fsys fs.FS, root string) (int64, error) {
 		if !item.DirEntry.IsDir() {
 			fileInfo, err = item.DirEntry.Info()
 			if err != nil {
-				return 0, fmt.Errorf("%s: %w", path.Join(root, item.Path), err)
+				return 0, fmt.Errorf("%s: %w", path.Join(filePath, item.Path), err)
 			}
 			size += fileInfo.Size()
 			continue
 		}
-		dirEntries, err = fs.ReadDir(fsys, path.Join(root, item.Path))
+		dirEntries, err = fs.ReadDir(fsys, path.Join(filePath, item.Path))
 		if err != nil {
-			return 0, fmt.Errorf("%s: %w", path.Join(root, item.Path), err)
+			return 0, fmt.Errorf("%s: %w", path.Join(filePath, item.Path), err)
 		}
 		for i := len(dirEntries) - 1; i >= 0; i-- {
 			items = append(items, Item{
