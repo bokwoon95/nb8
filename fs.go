@@ -930,7 +930,7 @@ func GetSize(fsys fs.FS, filePath string) (int64, error) {
 // TODO: what would a directory pagination interface look like?
 // NOTE: rachelbythebay who has been writing since 2011 only has 1153 posts, which comfortably fits within one page. we'll do fine with a batch size of 1000.
 // NOTE: sort=name|created|updated order=asc|desc limit=1000 v=value
-// NOTE: for each batch size, we'll unconditionally sort it such that directories always rise to the top. no exceptions. this will be done in folder.go, not by PaginateDir itself. The filesystem never has to concern itself with whether or not it has to sort directories to the top.
+// NOTE: for each batch size, we'll unconditionally sort it such that directories always rise to the top. no exceptions. and directories are always sorted in alphabetical order because the name is the only thing we can count on being accurate (created, updated and size require additional computation which I'm not willing to spare). this will be done in folder.go, not by PaginateDir itself. The filesystem never has to concern itself with whether or not it has to sort directories to the top.
 // No pages I'm afraid. Only keyset pagination, which means you can just to the start or jump to the end very quickly (by ordering asc or desc) but not in the middle.
 // for sort=name, v is just the base name (not full path). then on the server side we just assemble the full path using join(sitePrefix, parentDir, v)
 // v is matched using greater or equal >=. Whenever we show 1000 items, we always fetch 1000+1 items. The +1 item is not show on the page, but its presence indicates that there is a next page (the template uses this to display the next button conditionally) and the item's name is used as v for the next button.
