@@ -82,6 +82,9 @@ func (fsys *LocalFS) WithContext(ctx context.Context) FS {
 }
 
 func (fsys *LocalFS) Open(name string) (fs.File, error) {
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
+	}
 	name = filepath.FromSlash(name)
 	return os.Open(filepath.Join(fsys.rootDir, name))
 }
@@ -96,6 +99,9 @@ type LocalFileWriter struct {
 }
 
 func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrInvalid}
+	}
 	file := &LocalFileWriter{
 		rootDir: fsys.rootDir,
 		tempDir: fsys.tempDir,
@@ -147,31 +153,52 @@ func (file *LocalFileWriter) Close() error {
 }
 
 func (fsys *LocalFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
+	}
 	name = filepath.FromSlash(name)
 	return os.ReadDir(filepath.Join(fsys.rootDir, name))
 }
 
 func (fsys *LocalFS) Mkdir(name string, perm fs.FileMode) error {
+	if !fs.ValidPath(name) {
+		return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrInvalid}
+	}
 	name = filepath.FromSlash(name)
 	return os.Mkdir(filepath.Join(fsys.rootDir, name), perm)
 }
 
 func (fsys *LocalFS) MkdirAll(name string, perm fs.FileMode) error {
+	if !fs.ValidPath(name) {
+		return &fs.PathError{Op: "mkdirall", Path: name, Err: fs.ErrInvalid}
+	}
 	name = filepath.FromSlash(name)
 	return os.MkdirAll(filepath.Join(fsys.rootDir, name), perm)
 }
 
 func (fsys *LocalFS) Remove(name string) error {
+	if !fs.ValidPath(name) {
+		return &fs.PathError{Op: "remove", Path: name, Err: fs.ErrInvalid}
+	}
 	name = filepath.FromSlash(name)
 	return os.Remove(filepath.Join(fsys.rootDir, name))
 }
 
 func (fsys *LocalFS) RemoveAll(name string) error {
+	if !fs.ValidPath(name) {
+		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
+	}
 	name = filepath.FromSlash(name)
 	return os.RemoveAll(filepath.Join(fsys.rootDir, name))
 }
 
 func (fsys *LocalFS) Rename(oldname, newname string) error {
+	if !fs.ValidPath(oldname) {
+		return &fs.PathError{Op: "rename", Path: oldname, Err: fs.ErrInvalid}
+	}
+	if !fs.ValidPath(newname) {
+		return &fs.PathError{Op: "rename", Path: newname, Err: fs.ErrInvalid}
+	}
 	oldname = filepath.FromSlash(oldname)
 	newname = filepath.FromSlash(newname)
 	return os.Rename(filepath.Join(fsys.rootDir, oldname), filepath.Join(fsys.rootDir, newname))
@@ -268,10 +295,10 @@ type RemoteFile struct {
 }
 
 func (fsys *RemoteFS) Open(name string) (fs.File, error) {
-	switch name {
-	case "":
-		return nil, fs.ErrNotExist
-	case ".":
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
+	}
+	if name == "." {
 		return &RemoteFile{
 			fileInfo: &RemoteFileInfo{
 				filePath: ".",
@@ -359,10 +386,10 @@ type RemoteFileWriter struct {
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
-	switch name {
-	case "":
-		return nil, fs.ErrNotExist
-	case ".":
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrInvalid}
+	}
+	if name == "." {
 		return nil, fmt.Errorf("file is a directory")
 	}
 	file := &RemoteFileWriter{
@@ -539,17 +566,42 @@ func (file *RemoteFileWriter) Close() error {
 }
 
 func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
-	// TODO: handle name == "."
-	// TODO: SELECT * FROM files LEFT JOIN files AS child instead, so that no
-	// rows signals no such dir, and one row with null child.file_id signals no
-	// children.
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
+	}
+	if name == "." {
+		// Special case: if name is ".", ReadDir returns all top-level files in
+		// the root directory (identified by a NULL parent_id).
+		dirEntries, err := sq.FetchAllContext(fsys.ctx, fsys.db, sq.CustomQuery{
+			Dialect: fsys.dialect,
+			Format:  "SELECT {*} FROM files WHERE parent_id IS NULL ORDER BY file_path",
+			Values: []any{
+				sq.StringParam("name", name),
+			},
+		}, func(row *sq.Row) fs.DirEntry {
+			var fileInfo RemoteFileInfo
+			row.UUID(&fileInfo.fileID, "file_id")
+			fileInfo.filePath = row.String("file_path")
+			fileInfo.isDir = row.Bool("is_dir")
+			fileInfo.size = row.Int64("size")
+			var modTime sq.Timestamp
+			row.Scan(&modTime, "mod_time")
+			fileInfo.modTime = modTime.Time
+			fileInfo.perm = fs.FileMode(row.Int("perm"))
+			return &fileInfo
+		})
+		if err != nil {
+			return nil, err
+		}
+		return dirEntries, nil
+	}
 	cursor, err := sq.FetchCursorContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format: "SELECT {*}" +
-			" FROM files" +
-			" JOIN files AS parents ON parents.file_id = files.parent_id" +
-			" WHERE parents.file_path = {name}" +
-			" ORDER BY files.file_path",
+			" FROM files AS parent" +
+			" LEFT JOIN files AS child ON child.parent_id = parent.file_id" +
+			" WHERE parent.file_path = {name}" +
+			" ORDER BY child.file_path",
 		Values: []any{
 			sq.StringParam("name", name),
 		},
@@ -557,21 +609,22 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 		RemoteFileInfo
 		ParentIsDir bool
 	}) {
-		row.UUID(&result.fileID, "files.file_id")
-		row.UUID(&result.parentID, "files.parent_id")
-		result.filePath = row.String("files.file_path")
-		result.isDir = row.Bool("files.is_dir")
-		result.size = row.Int64("files.size")
+		row.UUID(&result.fileID, "child.file_id")
+		row.UUID(&result.parentID, "child.parent_id")
+		result.filePath = row.String("child.file_path")
+		result.isDir = row.Bool("child.is_dir")
+		result.size = row.Int64("child.size")
 		var modTime sq.Timestamp
-		row.Scan(&modTime, "files.mod_time")
+		row.Scan(&modTime, "child.mod_time")
 		result.modTime = modTime.Time
-		result.perm = fs.FileMode(row.Int("files.perm"))
-		result.ParentIsDir = row.Bool("parents.is_dir")
+		result.perm = fs.FileMode(row.Int("child.perm"))
+		result.ParentIsDir = row.Bool("parent.is_dir")
 		return result
 	})
 	if err != nil {
 		return nil, err
 	}
+	defer cursor.Close()
 	var dirEntries []fs.DirEntry
 	for cursor.Next() {
 		result, err := cursor.Result()
@@ -581,7 +634,16 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 		if !result.ParentIsDir {
 			return nil, fmt.Errorf("%q is not a directory", name)
 		}
+		// file_id is a primary key, it must always exist. If it doesn't exist,
+		// it means the left join failed to match any child entries i.e. the
+		// directory is empty so we return an empty slice here.
+		if result.fileID == [16]byte{} {
+			return nil, cursor.Close()
+		}
 		dirEntries = append(dirEntries, &result.RemoteFileInfo)
+	}
+	if len(dirEntries) == 0 {
+		return nil, fs.ErrNotExist
 	}
 	return dirEntries, cursor.Close()
 }
