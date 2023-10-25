@@ -42,10 +42,8 @@ func Automigrate(dialect string, db *sql.DB) error {
 
 type SITE struct {
 	sq.TableStruct
-	SITE_ID       sq.UUIDField   `ddl:"primarykey"`
-	SITE_NAME     sq.StringField `ddl:"notnull len=500 unique"` // only lowercase letters, digits and hyphen
-	STORAGE_LIMIT sq.NumberField
-	STORAGE_USED  sq.NumberField
+	SITE_ID   sq.UUIDField   `ddl:"primarykey"`
+	SITE_NAME sq.StringField `ddl:"notnull len=500 unique"` // only lowercase letters, digits and hyphen
 }
 
 type USERS struct {
@@ -56,12 +54,20 @@ type USERS struct {
 	PASSWORD_HASH    sq.StringField `ddl:"len=500"`
 	RESET_TOKEN_HASH sq.BinaryField `ddl:"mysql:type=BINARY(40) unique"`
 	FAILED_LOGINS    sq.NumberField
+	STORAGE_LIMIT    sq.NumberField
+	STORAGE_USED     sq.NumberField
 }
 
 type IP_LOGIN struct {
 	sq.TableStruct
 	IP            sq.StringField `ddl:"primarykey len=500"`
 	FAILED_LOGINS sq.NumberField
+}
+
+type SITE_OWNER struct {
+	sq.TableStruct
+	SITE_ID sq.UUIDField `ddl:"primarykey references={site onupdate=cascade}"`
+	USER_ID sq.UUIDField `ddl:"references={users onupdate=cascade index}"`
 }
 
 type SITE_USER struct {

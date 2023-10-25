@@ -332,7 +332,7 @@ func (file *RemoteFile) Read(p []byte) (n int, err error) {
 }
 
 func (file *RemoteFile) Close() error {
-	if file.readCloser == nil {
+	if file.fileInfo.isDir {
 		return nil
 	}
 	return file.readCloser.Close()
@@ -569,7 +569,6 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 		result.ParentIsDir = row.Bool("parents.is_dir")
 		return result
 	})
-	// sort=name,updated order=asc,desc limit=1000 after=
 	if err != nil {
 		return nil, err
 	}
@@ -608,7 +607,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 }
 
 // sort=name|updated|created|size
-// start=<timestamp>|<string>
+// start=<timestamp>|<name>
 func (fsys *RemoteFS) PaginateDir(name string, sort string, descending bool, start string, limit int) ([]fs.DirEntry, error) {
 	// what's the most generic way of representing some field to sort by, as well as the possible start value for it?
 	// ascending bool
@@ -897,7 +896,9 @@ func GetSize(fsys fs.FS, filePath string) (int64, error) {
 		Path     string // relative to filePath
 		DirEntry fs.DirEntry
 	}
-	if fsys, ok := fsys.(interface{ GetSize(filePath string) (int64, error) }); ok {
+	if fsys, ok := fsys.(interface {
+		GetSize(filePath string) (int64, error)
+	}); ok {
 		return fsys.GetSize(filePath)
 	}
 	fileInfo, err := fs.Stat(fsys, filePath)
