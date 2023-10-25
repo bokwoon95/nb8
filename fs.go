@@ -377,7 +377,6 @@ type RemoteFileWriter struct {
 	db             *sql.DB
 	dialect        string
 	storage        Storage
-	fileExists     bool
 	fileID         [16]byte
 	parentID       any // either nil or [16]byte
 	filePath       string
@@ -386,6 +385,18 @@ type RemoteFileWriter struct {
 	storageWriter  *io.PipeWriter
 	storageWritten int
 	storageResult  chan error
+}
+
+func NewID() [16]byte {
+	var timestamp [8]byte
+	binary.BigEndian.PutUint64(timestamp[:], uint64(time.Now().Unix()))
+	var id [16]byte
+	copy(id[:5], timestamp[len(timestamp)-5:])
+	_, err := rand.Read(id[5:])
+	if err != nil {
+		panic(err)
+	}
+	return id
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
@@ -433,7 +444,6 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 			if result.isDir {
 				return nil, fmt.Errorf("%q exists and is a directory", name)
 			}
-			file.fileExists = true
 			file.fileID = result.fileID
 		case parentDir:
 			if !result.isDir {
@@ -444,15 +454,6 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 	}
 	if parentDir != "." && file.parentID == nil {
 		return nil, fmt.Errorf("parent dir %q does not exist", parentDir)
-	}
-	if !file.fileExists {
-		var timestamp [8]byte
-		binary.BigEndian.PutUint64(timestamp[:], uint64(time.Now().Unix()))
-		copy(file.fileID[:5], timestamp[len(timestamp)-5:])
-		_, err := rand.Read(file.fileID[5:])
-		if err != nil {
-			return nil, err
-		}
 	}
 	if IsStoredInDB(file.filePath) {
 		file.buf = bufPool.Get().(*bytes.Buffer)
@@ -493,8 +494,8 @@ func (file *RemoteFileWriter) Close() error {
 		}
 	}
 
-	// file exists, just have to update the file entry in the database.
-	if file.fileExists {
+	// if file exists, just have to update the file entry in the database.
+	if file.fileID != [16]byte{} {
 		if IsStoredInDB(file.filePath) {
 			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 				Dialect: file.dialect,
@@ -532,7 +533,7 @@ func (file *RemoteFileWriter) Close() error {
 			Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, data, mod_time, perm)" +
 				" VALUES ({fileID}, {parentID}, {filePath}, {isDir}, {data}, {modTime}, {perm})",
 			Values: []any{
-				sq.UUIDParam("fileID", file.fileID),
+				sq.UUIDParam("fileID", NewID()),
 				sq.UUIDParam("parentID", file.parentID),
 				sq.StringParam("filePath", file.filePath),
 				sq.BoolParam("isDir", false),
@@ -550,7 +551,7 @@ func (file *RemoteFileWriter) Close() error {
 			Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, size, mod_time, perm)" +
 				" VALUES ({fileID}, {parentID}, {filePath}, {isDir}, {size}, {modTime}, {perm})",
 			Values: []any{
-				sq.UUIDParam("fileID", file.fileID),
+				sq.UUIDParam("fileID", NewID()),
 				sq.UUIDParam("parentID", file.parentID),
 				sq.StringParam("filePath", file.filePath),
 				sq.BoolParam("isDir", false),
@@ -650,64 +651,154 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	return dirEntries, cursor.Close()
 }
 
+func (fsys *RemoteFS) isKeyConflict(err error) bool {
+	if fsys.errorcode == nil {
+		return false
+	}
+	errcode := fsys.errorcode(err)
+	if errcode == "" {
+		return false
+	}
+	if (fsys.dialect == "sqlite" && (errcode == "1555" /* SQLITE_CONSTRAINT_PRIMARYKEY */ || errcode == "2067" /* SQLITE_CONSTRAINT_UNIQUE */)) ||
+		(fsys.dialect == "postgres" && errcode == "23505" /* unique_violation */) ||
+		(fsys.dialect == "mysql" && errcode == "1062" /* ER_DUP_ENTRY */) {
+		return true
+	}
+	return false
+}
+
 func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 	if !fs.ValidPath(name) {
 		return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrInvalid}
 	}
-	var fileID [16]byte
-	var timestamp [8]byte
-	binary.BigEndian.PutUint64(timestamp[:], uint64(time.Now().Unix()))
-	copy(fileID[:5], timestamp[len(timestamp)-5:])
-	_, err := rand.Read(fileID[5:])
-	if err != nil {
-		return err
+	if name == "." {
+		return nil
 	}
 	parentDir := path.Dir(name)
-	query := sq.CustomQuery{
-		Dialect: fsys.dialect,
-	}
 	if parentDir == "." {
-		query.Format = "INSERT INTO files (file_id, parent_id, file_path, is_dir, mod_time, perm)" +
-			" VALUES ({fileID}, NULL, {filePath}, {isDir}, {modTime}, {perm})"
-		query.Values = []any{
-			sq.UUIDParam("fileID", fileID),
-			sq.StringParam("filePath", name),
-			sq.BoolParam("isDir", true),
-			sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
-			sq.Param("perm", perm),
+		_, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
+			Dialect: fsys.dialect,
+			Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, mod_time, perm)" +
+				" VALUES ({fileID}, NULL, {filePath}, {isDir}, {modTime}, {perm})",
+			Values: []any{
+				sq.UUIDParam("fileID", NewID()),
+				sq.StringParam("filePath", name),
+				sq.BoolParam("isDir", true),
+				sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+				sq.Param("perm", perm),
+			},
+		})
+		if err != nil {
+			if fsys.isKeyConflict(err) {
+				return fs.ErrExist
+			}
+			return err
 		}
 	} else {
-		query.Format = "INSERT INTO files (file_id, parent_id, file_path, is_dir, mod_time, perm)" +
-			" VALUES ({fileID}, (select file_id FROM files WHERE file_path = {parentDir}), {filePath}, {isDir}, {modTime}, {perm})"
-		query.Values = []any{
-			sq.UUIDParam("fileID", fileID),
-			sq.StringParam("parentDir", parentDir),
-			sq.StringParam("filePath", name),
-			sq.BoolParam("isDir", true),
-			sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
-			sq.Param("perm", perm),
-		}
-	}
-	_, err = sq.ExecContext(fsys.ctx, fsys.db, query)
-	if err != nil {
-		if fsys.errorcode == nil {
+		_, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
+			Dialect: fsys.dialect,
+			Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, mod_time, perm)" +
+				" VALUES ({fileID}, (select file_id FROM files WHERE file_path = {parentDir}), {filePath}, {isDir}, {modTime}, {perm})",
+			Values: []any{
+				sq.UUIDParam("fileID", NewID()),
+				sq.StringParam("parentDir", parentDir),
+				sq.StringParam("filePath", name),
+				sq.BoolParam("isDir", true),
+				sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+				sq.Param("perm", perm),
+			},
+		})
+		if err != nil {
+			if fsys.isKeyConflict(err) {
+				return fs.ErrExist
+			}
 			return err
 		}
-		errcode := fsys.errorcode(err)
-		if errcode == "" {
-			return err
-		}
-		if (fsys.dialect == "sqlite" && (errcode == "1555" /* SQLITE_CONSTRAINT_PRIMARYKEY */ || errcode == "2067" /* SQLITE_CONSTRAINT_UNIQUE */)) ||
-			(fsys.dialect == "postgres" && errcode == "23505" /* unique_violation */) ||
-			(fsys.dialect == "mysql" && errcode == "1062" /* ER_DUP_ENTRY */) {
-			return fs.ErrExist
-		}
-		return err
 	}
 	return nil
 }
 
 func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
+	if !fs.ValidPath(name) {
+		return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrInvalid}
+	}
+	if name == "." {
+		return nil
+	}
+	tx, err := fsys.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	segments := strings.Split(name, "/")
+	query := sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, mod_time, perm)" +
+			" VALUES ({fileID}, NULL, {filePath}, {isDir}, {modTime}, {perm})",
+		Values: []any{
+			sq.UUIDParam("fileID", NewID()),
+			sq.StringParam("filePath", segments[0]),
+			sq.BoolParam("isDir", true),
+			sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+			sq.Param("perm", perm),
+		},
+	}
+	switch fsys.dialect {
+	case "sqlite", "postgres":
+		query = query.Append("ON CONFLICT DO NOTHING")
+	case "mysql":
+		query = query.Append("ON DUPLICATE KEY UPDATE file_id = file_id")
+	}
+	_, err = sq.ExecContext(fsys.ctx, tx, query)
+	if err != nil {
+		return err
+	}
+
+	if len(segments) > 1 {
+		query := sq.CustomQuery{
+			Dialect: fsys.dialect,
+			Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, mod_time, perm)" +
+				" VALUES ({fileID}, (select file_id FROM files WHERE file_path = {parentDir}), {filePath}, {isDir}, {modTime}, {perm})",
+			Values: []any{
+				sq.Param("fileID", nil),
+				sq.Param("parentDir", nil),
+				sq.Param("filePath", nil),
+				sq.Param("isDir", nil),
+				sq.Param("modTime", nil),
+				sq.Param("perm", nil),
+			},
+		}
+		switch fsys.dialect {
+		case "sqlite", "postgres":
+			query = query.Append("ON CONFLICT DO NOTHING")
+		case "mysql":
+			query = query.Append("ON DUPLICATE KEY UPDATE file_id = file_id")
+		}
+		preparedExec, err := sq.PrepareExecContext(fsys.ctx, tx, query)
+		if err != nil {
+			return err
+		}
+		defer preparedExec.Close()
+		for i := 1; i < len(segments); i++ {
+			_, err = preparedExec.ExecContext(fsys.ctx, map[string]any{
+				"fileID":    NewID(),
+				"parentDir": path.Join(segments[:i]...),
+				"filePath":  path.Join(segments[:i+1]...),
+				"isDir":     true,
+				"modTime":   sq.NewTimestamp(time.Now().UTC()),
+				"perm":      perm,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
