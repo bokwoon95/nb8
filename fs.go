@@ -31,6 +31,7 @@ var bufPool = sync.Pool{
 }
 
 type FS interface {
+	// WithContext returns a new FS with the given context.
 	WithContext(context.Context) FS
 
 	// Open opens the named file.
