@@ -226,7 +226,7 @@ func IsStoredInDB(filePath string) bool {
 			return true
 		}
 	case "posts":
-		if ext == ".md" {
+		if ext == ".txt" || ext == ".md" {
 			return true
 		}
 	case "output":
