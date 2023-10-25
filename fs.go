@@ -513,7 +513,6 @@ func (file *RemoteFileWriter) Close() error {
 			},
 		})
 		if err != nil {
-			go file.storage.Delete(context.Background(), hex.EncodeToString(file.fileID[:]))
 			return err
 		}
 	} else {
