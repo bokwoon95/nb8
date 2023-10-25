@@ -720,7 +720,7 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 
 func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 	if !fs.ValidPath(name) {
-		return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrInvalid}
+		return &fs.PathError{Op: "mkdirall", Path: name, Err: fs.ErrInvalid}
 	}
 	if name == "." {
 		return nil
@@ -804,10 +804,53 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 }
 
 func (fsys *RemoteFS) Remove(name string) error {
+	if !fs.ValidPath(name) || name == "." {
+		return &fs.PathError{Op: "remove", Path: name, Err: fs.ErrInvalid}
+	}
+	exists, err := sq.FetchExistsContext(fsys.ctx, fsys.db, sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format:  "SELECT 1 FROM files WHERE file_path LIKE {pattern}",
+		Values: []any{
+			sq.StringParam("pattern", strings.ReplaceAll(name, "%", "")+"/%"),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("directory is not empty")
+	}
+	result, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format:  "DELETE FROM files WHERE file_path = {name}",
+		Values: []any{
+			sq.StringParam("name", name),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected == 0 {
+		return fs.ErrNotExist
+	}
 	return nil
 }
 
 func (fsys *RemoteFS) RemoveAll(name string) error {
+	if !fs.ValidPath(name) || name == "." {
+		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
+	}
+	_, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format:  "DELETE FROM files WHERE file_path = {name} OR file_path LIKE {pattern}",
+		Values: []any{
+			sq.StringParam("name", name),
+			sq.StringParam("pattern", strings.ReplaceAll(name, "%", "")+"/%"),
+		},
+	})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
