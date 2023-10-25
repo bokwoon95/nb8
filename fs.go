@@ -888,6 +888,17 @@ func (fsys *RemoteFS) PaginateDir(name string, sort string, descending bool, sta
 	return nil, nil
 }
 
+// If PaginateDir() method exists, then call it
+// Else, call ReadDir() as usual
+// For both cases, preallocate a separate slice of identical capacity (with len 0) and accumulate all folders into it
+// Sort the folders slice in alphabetical ascending order (unconditionally)
+// Then do an in-place filter on the old slice removing all folders leaving behind only files
+// If we called ReadDir() just now, do the file sorting now using sort and order params
+// Then append the files behind the folders in the folders slice and return that slice (files always trail folders)
+// If we called PaginateDir, lop off the last item and set it as the next item id
+// Build the query string for the [next] link
+// TODO: but what about the [previous] link? What's the value of from? 🤔
+
 func (fsys *RemoteFS) GetSize(name string) (int64, error) {
 	if !fs.ValidPath(name) {
 		return 0, &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
