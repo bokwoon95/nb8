@@ -57,14 +57,12 @@ type FS interface {
 }
 
 type LocalFS struct {
-	ctx     context.Context // NOTE: not used for now.
 	rootDir string
 	tempDir string
 }
 
 func NewLocalFS(rootDir, tempDir string) *LocalFS {
 	return &LocalFS{
-		ctx:     context.Background(),
 		rootDir: filepath.FromSlash(rootDir),
 		tempDir: filepath.FromSlash(tempDir),
 	}
@@ -73,8 +71,11 @@ func NewLocalFS(rootDir, tempDir string) *LocalFS {
 func (fsys *LocalFS) String() string { return fsys.rootDir }
 
 func (fsys *LocalFS) WithContext(ctx context.Context) FS {
+	// NOTE: LocalFS does not yet respect context. For the local filesystem I
+	// think it's fine to ignore context since that's what the default *os.File
+	// does, but if it proves necessary we can add the file wrappers around
+	// *os.File that respect context (only if it proves necessary).
 	return &LocalFS{
-		ctx:     ctx,
 		rootDir: fsys.rootDir,
 		tempDir: fsys.tempDir,
 	}
@@ -96,7 +97,6 @@ type LocalFileWriter struct {
 
 func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
 	file := &LocalFileWriter{
-		ctx:     fsys.ctx,
 		rootDir: fsys.rootDir,
 		tempDir: fsys.tempDir,
 		name:    filepath.FromSlash(name),
