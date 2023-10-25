@@ -725,12 +725,13 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 	if name == "." {
 		return nil
 	}
+	// Begin transaction.
 	tx, err := fsys.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-
+	// Insert the top level directory (no parent), ignoring duplicates.
 	segments := strings.Split(name, "/")
 	query := sq.CustomQuery{
 		Dialect: fsys.dialect,
@@ -754,7 +755,7 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 	if err != nil {
 		return err
 	}
-
+	// Insert the rest of the directories, ignoring duplicates.
 	if len(segments) > 1 {
 		query := sq.CustomQuery{
 			Dialect: fsys.dialect,
@@ -794,7 +795,7 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 			}
 		}
 	}
-
+	// Commit transaction.
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -825,7 +826,9 @@ func (fsys *RemoteFS) PaginateDir(name string, sort string, descending bool, sta
 	return nil, nil
 }
 
-func (fsys *RemoteFS) GetSize()
+func (fsys *RemoteFS) GetSize(name string) (int64, error) {
+	return 0, nil
+}
 
 func MkdirAll(fsys FS, dir string, perm fs.FileMode) error {
 	// If the filesystem supports MkdirAll(), we can call that instead and
