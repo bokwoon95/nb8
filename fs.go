@@ -607,9 +607,9 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	return nil
 }
 
-// sort=name|updated|created
+// sort=name|updated|created|size
 // start=<timestamp>|<string>
-func (fsys *RemoteFS) ReadSeekDir(name string, sort string, descending bool, start any, limit int) ([]fs.DirEntry, error) {
+func (fsys *RemoteFS) PaginateDir(name string, sort string, descending bool, start string, limit int) ([]fs.DirEntry, error) {
 	// what's the most generic way of representing some field to sort by, as well as the possible start value for it?
 	// ascending bool
 	// sort=name,updated,created&order=asc,desc&from=2023&limit=1000
@@ -897,19 +897,15 @@ func GetFileSize(fsys fs.FS, root string) (int64, error) {
 		Path     string // relative to root
 		DirEntry fs.DirEntry
 	}
+	if fsys, ok := fsys.(interface{ GetSize(root string) (int64, error) }); ok {
+		return fsys.GetSize(root)
+	}
 	fileInfo, err := fs.Stat(fsys, root)
 	if err != nil {
 		return 0, err
 	}
 	if !fileInfo.IsDir() {
 		return fileInfo.Size(), nil
-	}
-	if s, ok := fileInfo.(interface{ GetSize() (int64, error) }); ok {
-		n, err := s.GetSize()
-		if err != nil {
-			return 0, err
-		}
-		return n, nil
 	}
 	var size int64
 	var item Item
@@ -932,14 +928,6 @@ func GetFileSize(fsys fs.FS, root string) (int64, error) {
 				return 0, fmt.Errorf("%s: %w", path.Join(root, item.Path), err)
 			}
 			size += fileInfo.Size()
-			continue
-		}
-		if s, ok := item.DirEntry.(interface{ GetSize() (int64, error) }); ok {
-			n, err := s.GetSize()
-			if err != nil {
-				return 0, fmt.Errorf("%s: %w", path.Join(root, item.Path), err)
-			}
-			size += n
 			continue
 		}
 		dirEntries, err = fs.ReadDir(fsys, path.Join(root, item.Path))
