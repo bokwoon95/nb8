@@ -607,6 +607,17 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	return nil
 }
 
+// sort=name|updated|created
+// start=<timestamp>|<string>
+func (fsys *RemoteFS) ReadSeekDir(name string, sort string, descending bool, start any, limit int) ([]fs.DirEntry, error) {
+	// what's the most generic way of representing some field to sort by, as well as the possible start value for it?
+	// ascending bool
+	// sort=name,updated,created&order=asc,desc&from=2023&limit=1000
+	// SELECT * FROM files WHERE parent_id = {parentID} AND file_path >= abc ORDER BY file_path ASC LIMIT 1000
+	// SELECT * FROM files WHERE parent_id = {parentID} AND file_path <= abc ORDER BY file_path DESC LIMIT 1000
+	return nil, nil
+}
+
 // TODO: what would a directory pagination interface look like?
 // NOTE: rachelbythebay who has been writing since 2011 only has 1153 posts, which comfortably fits within one page. we'll do fine with a batch size of 1000.
 // NOTE: sort=name|created|updated order=asc|desc limit=1000 v=value
