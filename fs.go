@@ -236,6 +236,9 @@ type RemoteFS struct {
 }
 
 func IsStoredInDB(filePath string) bool {
+	// TODO: where (and how) to store the configuration for controlling how the
+	// pagination limit for the filesystem, the pagination limit of the
+	// generated posts.html and the rss feed limit?
 	ext := path.Ext(filePath)
 	head, tail, _ := strings.Cut(filePath, "/")
 	switch head {
@@ -957,7 +960,8 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		},
 	})
 	if err != nil {
-		// We weren't able to delete {newname} earlier, which means it is a directory.
+		// We weren't able to delete {newname} earlier, which means it is a
+		// directory.
 		if fsys.isKeyConflict(err) {
 			return fmt.Errorf("%q exists and is a directory", newname)
 		}
