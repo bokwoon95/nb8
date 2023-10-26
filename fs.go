@@ -876,7 +876,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	if err != nil {
 		return err
 	}
-	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
+	result, err := sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "UPDATE files SET file_path = {newname} WHERE file_path = {oldname}",
 		Values: []any{
@@ -890,12 +890,15 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		}
 		return err
 	}
+	if result.RowsAffected == 0 {
+		return fs.ErrNotExist
+	}
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "UPDATE files SET file_path = {newname} || SUBSTR(file_path, {n}) WHERE file_path LIKE {pattern} ESCAPE '\\'",
 		Values: []any{
 			sq.StringParam("newname", newname),
-			sq.IntParam("n", len(strings.ReplaceAll(oldname, "%", ""))+1),
+			sq.IntParam("n", len(oldname)+1),
 			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(oldname)+"/%"),
 		},
 	})
