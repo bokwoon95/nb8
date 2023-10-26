@@ -889,7 +889,7 @@ func (fsys *RemoteFS) RemoveAll(name string) error {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
 	}
-	pattern := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"
+	pattern := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name) + "/%"
 	fileIDs, err := sq.FetchAllContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "SELECT {*} FROM files WHERE file_path = {name} OR file_path LIKE {pattern} ESCAPE '\\' AND data IS NULL",
@@ -1083,7 +1083,7 @@ func MkdirAll(fsys FS, name string, perm fs.FileMode) error {
 		if fileInfo.IsDir() {
 			return nil
 		}
-		return &fs.PathError{Op: "mkdir", Path: name, Err: syscall.ENOTDIR}
+		return &fs.PathError{Op: "mkdirall", Path: name, Err: syscall.ENOTDIR}
 	}
 
 	isPathSeparator := func(char byte) bool {
@@ -1204,17 +1204,17 @@ func RemoveAll(fsys FS, root string) error {
 	return nil
 }
 
-func GetSize(fsys fs.FS, filePath string) (int64, error) {
+func GetSize(fsys fs.FS, root string) (int64, error) {
 	type Item struct {
-		Path     string // relative to filePath
+		Path     string // relative to root
 		DirEntry fs.DirEntry
 	}
 	if fsys, ok := fsys.(interface {
 		GetSize(filePath string) (int64, error)
 	}); ok {
-		return fsys.GetSize(filePath)
+		return fsys.GetSize(root)
 	}
-	fileInfo, err := fs.Stat(fsys, filePath)
+	fileInfo, err := fs.Stat(fsys, root)
 	if err != nil {
 		return 0, err
 	}
@@ -1224,7 +1224,7 @@ func GetSize(fsys fs.FS, filePath string) (int64, error) {
 	var size int64
 	var item Item
 	var items []Item
-	dirEntries, err := fs.ReadDir(fsys, filePath)
+	dirEntries, err := fs.ReadDir(fsys, root)
 	if err != nil {
 		return 0, err
 	}
@@ -1239,14 +1239,14 @@ func GetSize(fsys fs.FS, filePath string) (int64, error) {
 		if !item.DirEntry.IsDir() {
 			fileInfo, err = item.DirEntry.Info()
 			if err != nil {
-				return 0, fmt.Errorf("%s: %w", path.Join(filePath, item.Path), err)
+				return 0, fmt.Errorf("%s: %w", path.Join(root, item.Path), err)
 			}
 			size += fileInfo.Size()
 			continue
 		}
-		dirEntries, err = fs.ReadDir(fsys, path.Join(filePath, item.Path))
+		dirEntries, err = fs.ReadDir(fsys, path.Join(root, item.Path))
 		if err != nil {
-			return 0, fmt.Errorf("%s: %w", path.Join(filePath, item.Path), err)
+			return 0, fmt.Errorf("%s: %w", path.Join(root, item.Path), err)
 		}
 		for i := len(dirEntries) - 1; i >= 0; i-- {
 			items = append(items, Item{
