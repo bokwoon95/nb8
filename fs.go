@@ -886,6 +886,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	// TODO: If {oldname} is a file, refuse renaming if newname and oldname use different modes of storage!!
 	// TODO: DELETE {newname} + UPDATE {oldname} to {newname}, if conflict means {newname} exists and is a directory
 	// TODO: If {oldname} is a dir, also rename all child objects to use the {newname} prefix instead.
+	// TODO: also make sure to update the mod_time of every file touched in the database
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "DELETE FROM files WHERE file_path = {newname} AND NOT is_dir",
