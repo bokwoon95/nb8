@@ -499,7 +499,7 @@ func (file *RemoteFileWriter) Close() error {
 		if IsStoredInDB(file.filePath) {
 			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 				Dialect: file.dialect,
-				Format:  "UPDATE files SET data = {data}, mod_time = {modTime} WHERE file_id = {fileID}",
+				Format:  "UPDATE files SET data = {data}, size = NULL, mod_time = {modTime} WHERE file_id = {fileID}",
 				Values: []any{
 					sq.BytesParam("data", file.buf.Bytes()),
 					sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
@@ -512,7 +512,7 @@ func (file *RemoteFileWriter) Close() error {
 		} else {
 			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 				Dialect: file.dialect,
-				Format:  "UPDATE files SET size = {size}, mod_time = {modTime} WHERE file_id = {fileID}",
+				Format:  "UPDATE files SET data = NULL, size = {size}, mod_time = {modTime} WHERE file_id = {fileID}",
 				Values: []any{
 					sq.IntParam("size", file.storageWritten),
 					sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
@@ -807,21 +807,32 @@ func (fsys *RemoteFS) Remove(name string) error {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "remove", Path: name, Err: fs.ErrInvalid}
 	}
-	// TODO: Handle deletion from object storage!!
-	exists, err := sq.FetchExistsContext(fsys.ctx, fsys.db, sq.CustomQuery{
+	file, err := sq.FetchOneContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
-		Format:  "SELECT 1 FROM files WHERE file_path LIKE {pattern} ESCAPE '\\'",
+		Format:  "SELECT {*} FROM files WHERE file_path = {name}",
 		Values: []any{
-			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"),
+			sq.StringParam("name", name),
 		},
+	}, func(row *sq.Row) (file struct {
+		fileID       [16]byte
+		hasChildren  bool
+		isStoredInDB bool
+	}) {
+		row.UUID(&file.fileID, "file_id")
+		file.hasChildren = row.Bool("is_dir AND EXISTS (SELECT 1 FROM files WHERE file_path LIKE {pattern} ESCAPE '\\')", sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"))
+		file.isStoredInDB = row.Bool("data IS NOT NULL")
+		return file
 	})
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fs.ErrNotExist
+		}
 		return err
 	}
-	if exists {
+	if file.hasChildren {
 		return fmt.Errorf("directory is not empty")
 	}
-	result, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
+	_, err = sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "DELETE FROM files WHERE file_path = {name}",
 		Values: []any{
@@ -831,8 +842,12 @@ func (fsys *RemoteFS) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-	if result.RowsAffected == 0 {
-		return fs.ErrNotExist
+	if file.isStoredInDB {
+		return nil
+	}
+	err = fsys.storage.Delete(fsys.ctx, hex.EncodeToString(file.fileID[:]))
+	if err != nil {
+		return err
 	}
 	return nil
 }
