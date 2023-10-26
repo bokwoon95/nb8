@@ -83,7 +83,7 @@ func (fsys *LocalFS) WithContext(ctx context.Context) FS {
 }
 
 func (fsys *LocalFS) Open(name string) (fs.File, error) {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
 	}
 	name = filepath.FromSlash(name)
@@ -100,7 +100,7 @@ type LocalFileWriter struct {
 }
 
 func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrInvalid}
 	}
 	file := &LocalFileWriter{
@@ -154,7 +154,7 @@ func (file *LocalFileWriter) Close() error {
 }
 
 func (fsys *LocalFS) ReadDir(name string) ([]fs.DirEntry, error) {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
 	}
 	name = filepath.FromSlash(name)
@@ -162,7 +162,7 @@ func (fsys *LocalFS) ReadDir(name string) ([]fs.DirEntry, error) {
 }
 
 func (fsys *LocalFS) Mkdir(name string, perm fs.FileMode) error {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrInvalid}
 	}
 	name = filepath.FromSlash(name)
@@ -170,7 +170,7 @@ func (fsys *LocalFS) Mkdir(name string, perm fs.FileMode) error {
 }
 
 func (fsys *LocalFS) MkdirAll(name string, perm fs.FileMode) error {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "mkdirall", Path: name, Err: fs.ErrInvalid}
 	}
 	name = filepath.FromSlash(name)
@@ -178,7 +178,7 @@ func (fsys *LocalFS) MkdirAll(name string, perm fs.FileMode) error {
 }
 
 func (fsys *LocalFS) Remove(name string) error {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "remove", Path: name, Err: fs.ErrInvalid}
 	}
 	name = filepath.FromSlash(name)
@@ -186,7 +186,7 @@ func (fsys *LocalFS) Remove(name string) error {
 }
 
 func (fsys *LocalFS) RemoveAll(name string) error {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
 	}
 	name = filepath.FromSlash(name)
@@ -194,10 +194,10 @@ func (fsys *LocalFS) RemoveAll(name string) error {
 }
 
 func (fsys *LocalFS) Rename(oldname, newname string) error {
-	if !fs.ValidPath(oldname) {
+	if !fs.ValidPath(oldname) || strings.Contains(oldname, "\\") {
 		return &fs.PathError{Op: "rename", Path: oldname, Err: fs.ErrInvalid}
 	}
-	if !fs.ValidPath(newname) {
+	if !fs.ValidPath(newname) || strings.Contains(newname, "\\") {
 		return &fs.PathError{Op: "rename", Path: newname, Err: fs.ErrInvalid}
 	}
 	oldname = filepath.FromSlash(oldname)
@@ -298,7 +298,7 @@ type RemoteFile struct {
 }
 
 func (fsys *RemoteFS) Open(name string) (fs.File, error) {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
 	}
 	if name == "." {
@@ -400,7 +400,7 @@ func NewID() [16]byte {
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrInvalid}
 	}
 	if name == "." {
@@ -569,7 +569,7 @@ func (file *RemoteFileWriter) Close() error {
 }
 
 func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
 	}
 	// Special case: if name is ".", ReadDir returns all top-level files in
@@ -668,7 +668,7 @@ func (fsys *RemoteFS) isKeyConflict(err error) bool {
 }
 
 func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrInvalid}
 	}
 	if name == "." {
@@ -719,7 +719,7 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 }
 
 func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
-	if !fs.ValidPath(name) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "mkdirall", Path: name, Err: fs.ErrInvalid}
 	}
 	if name == "." {
@@ -804,7 +804,7 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 }
 
 func (fsys *RemoteFS) Remove(name string) error {
-	if !fs.ValidPath(name) || name == "." {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "remove", Path: name, Err: fs.ErrInvalid}
 	}
 	exists, err := sq.FetchExistsContext(fsys.ctx, fsys.db, sq.CustomQuery{
@@ -837,7 +837,7 @@ func (fsys *RemoteFS) Remove(name string) error {
 }
 
 func (fsys *RemoteFS) RemoveAll(name string) error {
-	if !fs.ValidPath(name) || name == "." {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
 	}
 	_, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
@@ -855,10 +855,10 @@ func (fsys *RemoteFS) RemoveAll(name string) error {
 }
 
 func (fsys *RemoteFS) Rename(oldname, newname string) error {
-	if !fs.ValidPath(oldname) {
+	if !fs.ValidPath(oldname) || strings.Contains(oldname, "\\") {
 		return &fs.PathError{Op: "rename", Path: oldname, Err: fs.ErrInvalid}
 	}
-	if !fs.ValidPath(newname) {
+	if !fs.ValidPath(newname) || strings.Contains(newname, "\\") {
 		return &fs.PathError{Op: "rename", Path: newname, Err: fs.ErrInvalid}
 	}
 	tx, err := fsys.db.Begin()
@@ -866,6 +866,39 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		return err
 	}
 	defer tx.Rollback()
+	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format:  "DELETE FROM files WHERE file_path = {newname} AND NOT is_dir",
+		Values: []any{
+			sq.StringParam("newname", newname),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format:  "UPDATE files SET file_path = {newname} WHERE file_path = {oldname}",
+		Values: []any{
+			sq.StringParam("newname", newname),
+			sq.StringParam("oldname", oldname),
+		},
+	})
+	if err != nil {
+		if fsys.isKeyConflict(err) {
+			return fmt.Errorf("%q exists and is a directory", newname)
+		}
+		return err
+	}
+	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format:  "UPDATE files SET file_path = {newname} || SUBSTR(file_path, {n}) WHERE file_path LIKE {pattern}",
+		Values: []any{
+			sq.StringParam("newname", newname),
+			sq.IntParam("n", len(strings.ReplaceAll(oldname, "%", ""))+1),
+			sq.StringParam("pattern", strings.ReplaceAll(oldname, "%", "")+"/%"),
+		},
+	})
 	// 1. delete from files where file_path = {newname} and is_dir = {false}
 	// 2. update files SET file_path = {newname} WHERE file_path = {oldname}
 	// 2a. if key conflict, means we didn't delete it successfully and newname exists and is a dir (inform the user)
@@ -900,8 +933,8 @@ func (fsys *RemoteFS) PaginateDir(name string, sort string, descending bool, sta
 // TODO: but what about the [previous] link? What's the value of from? 🤔
 
 func (fsys *RemoteFS) GetSize(name string) (int64, error) {
-	if !fs.ValidPath(name) {
-		return 0, &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
+		return 0, &fs.PathError{Op: "getsize", Path: name, Err: fs.ErrInvalid}
 	}
 	if name == "." {
 		size, err := sq.FetchOneContext(fsys.ctx, fsys.db, sq.CustomQuery{
@@ -931,15 +964,15 @@ func (fsys *RemoteFS) GetSize(name string) (int64, error) {
 	return size, nil
 }
 
-func MkdirAll(fsys FS, dir string, perm fs.FileMode) error {
+func MkdirAll(fsys FS, name string, perm fs.FileMode) error {
 	// If the filesystem supports MkdirAll(), we can call that instead and
 	// return.
 	if fsys, ok := fsys.(interface {
-		MkdirAll(dir string, perm fs.FileMode) error
+		MkdirAll(name string, perm fs.FileMode) error
 	}); ok {
-		return fsys.MkdirAll(dir, perm)
+		return fsys.MkdirAll(name, perm)
 	}
-	fileInfo, err := fs.Stat(fsys, dir)
+	fileInfo, err := fs.Stat(fsys, name)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
@@ -947,7 +980,7 @@ func MkdirAll(fsys FS, dir string, perm fs.FileMode) error {
 		if fileInfo.IsDir() {
 			return nil
 		}
-		return &fs.PathError{Op: "mkdir", Path: dir, Err: syscall.ENOTDIR}
+		return &fs.PathError{Op: "mkdir", Path: name, Err: syscall.ENOTDIR}
 	}
 
 	isPathSeparator := func(char byte) bool {
@@ -967,25 +1000,25 @@ func MkdirAll(fsys FS, dir string, perm fs.FileMode) error {
 	}
 
 	// Slow path: make sure parent exists and then call Mkdir for path.
-	i := len(dir)
-	for i > 0 && isPathSeparator(dir[i-1]) { // Skip trailing path separator.
+	i := len(name)
+	for i > 0 && isPathSeparator(name[i-1]) { // Skip trailing path separator.
 		i--
 	}
 	j := i
-	for j > 0 && !isPathSeparator(dir[j-1]) { // Scan backward over element.
+	for j > 0 && !isPathSeparator(name[j-1]) { // Scan backward over element.
 		j--
 	}
 
 	if j > 1 {
 		// Create parent.
-		err = MkdirAll(fsys, fixRootDirectory(dir[:j-1]), perm)
+		err = MkdirAll(fsys, fixRootDirectory(name[:j-1]), perm)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Parent now exists; invoke Mkdir and use its result.
-	err = fsys.Mkdir(dir, perm)
+	err = fsys.Mkdir(name, perm)
 	if err != nil {
 		// I don't know why this is sometimes needed, but it is.
 		if errors.Is(err, fs.ErrExist) {
