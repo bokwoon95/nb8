@@ -1210,7 +1210,7 @@ func GetSize(fsys fs.FS, root string) (int64, error) {
 		DirEntry fs.DirEntry
 	}
 	if fsys, ok := fsys.(interface {
-		GetSize(filePath string) (int64, error)
+		GetSize(root string) (int64, error)
 	}); ok {
 		return fsys.GetSize(root)
 	}
