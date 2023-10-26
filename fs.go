@@ -902,10 +902,6 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(oldname)+"/%"),
 		},
 	})
-	// 1. delete from files where file_path = {newname} and is_dir = {false}
-	// 2. update files SET file_path = {newname} WHERE file_path = {oldname}
-	// 2a. if key conflict, means we didn't delete it successfully and newname exists and is a dir (inform the user)
-	// 3. update files SET file_path = {newname} || TRIMPREFIX(file_path, {oldname}) WHERE file_path LIKE '{oldname}/%'
 	err = tx.Commit()
 	if err != nil {
 		return err
