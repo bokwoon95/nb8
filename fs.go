@@ -819,7 +819,7 @@ func (fsys *RemoteFS) Remove(name string) error {
 		isStoredInDB bool
 	}) {
 		row.UUID(&file.fileID, "file_id")
-		file.hasChildren = row.Bool("is_dir AND EXISTS (SELECT 1 FROM files WHERE file_path LIKE {pattern} ESCAPE '\\')", sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"))
+		file.hasChildren = row.Bool("EXISTS (SELECT 1 FROM files WHERE file_path LIKE {pattern} ESCAPE '\\')", sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"))
 		file.isStoredInDB = row.Bool("data IS NOT NULL")
 		return file
 	})
