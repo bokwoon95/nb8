@@ -238,10 +238,10 @@ type RemoteFS struct {
 }
 
 func IsStoredInDB(filePath string) bool {
-	// TODO: where (and how) to store the configuration for controlling how the
-	// pagination limit for the filesystem, the pagination limit of the
-	// generated posts.html and the rss feed limit? Should it be stored in the
-	// DB, where it would end up getting full-text indexed?
+	// TODO: refactor this massively. Now we need to decide if some data is
+	// stored in files.text (fulltext indexed), files.data (not fulltext
+	// indexed) or in S3 (too large to store in the database). How to best
+	// express this as a function, and how to consume it?
 	ext := path.Ext(filePath)
 	head, tail, _ := strings.Cut(filePath, "/")
 	switch head {
@@ -1012,9 +1012,9 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	return nil
 }
 
-// sort=name|updated|created|size
+// attribute=name|updated|created|size
 // start=<timestamp>|<name>
-func (fsys *RemoteFS) PaginateDir(name string, sort string, descending bool, start string, limit int) ([]fs.DirEntry, error) {
+func (fsys *RemoteFS) PaginateDir(name string, attribute, before, after string, limit int) ([]fs.DirEntry, error) {
 	// what's the most generic way of representing some field to sort by, as well as the possible start value for it?
 	// ascending bool
 	// sort=name,updated,created&order=asc,desc&from=2023&limit=1000

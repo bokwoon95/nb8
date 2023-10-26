@@ -1,6 +1,8 @@
 cdn.nbrew.io
 
 TODO: come up with a good set of utility functions that seamlessly represent file operations so that you can queue them up effortlessly to use for testing ("first create this file, then create this folder, then..." etc). We need to do a lot of file operations to replicate the use cases we are testing, so better make this painless (and readable!)
+TODO: mailer.json instead of mailer.txt, that way users don't have to urlencode their password to put it in the smtp URL.
+TODO: what may a user want to display in a posts.html? A daily comic series, photography showcase, full blown posts, etc? We provide the bare minimum, just the raw []fs.DirEntry. Then for each direntry's filepath, the user can pass it as arguments to various data-retrieving template functions to retrieve the featured imaged, the title and preview, the full post body, etc. And they get to cap how many posts are displayed per page via config.json (ugh) in the category folder, which unfortunately will most likely be stored in S3 despite it being plaintext.
 
 www.nbrew.io nuances
 - only serves stuff in {sitePrefix}/output/themes
