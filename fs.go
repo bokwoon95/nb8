@@ -238,7 +238,8 @@ type RemoteFS struct {
 func IsStoredInDB(filePath string) bool {
 	// TODO: where (and how) to store the configuration for controlling how the
 	// pagination limit for the filesystem, the pagination limit of the
-	// generated posts.html and the rss feed limit?
+	// generated posts.html and the rss feed limit? Should it be stored in the
+	// DB, where it would end up getting full-text indexed?
 	ext := path.Ext(filePath)
 	head, tail, _ := strings.Cut(filePath, "/")
 	switch head {
