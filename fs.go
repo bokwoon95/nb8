@@ -39,34 +39,41 @@ type FS interface {
 	Open(name string) (fs.File, error)
 	// Common error cases:
 	// - open name: fs.ErrNotExist
+	// - read name: syscall.EISDIR
 
 	// OpenWriter opens an io.WriteCloser that represents an instance of a
 	// file. The parent directory must exist. If the file doesn't exist, it
 	// should be created. If the file exists, its should be truncated.
 	OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error)
 	// Common error cases:
-	// - open parent: fs.ErrNotExist
-	// - open name: syscall.EISDIR
+	// - openwriter parent: fs.ErrNotExist
+	// - openwriter name: syscall.EISDIR
 
 	// ReadDir reads the named directory and returns a list of directory
 	// entries sorted by filename.
 	ReadDir(name string) ([]fs.DirEntry, error)
 	// Common error cases:
-	// - open name: fs.ErrNotExist
-	// - file is not a directory
+	// - readdir name: fs.ErrNotExist
+	// - readdir name: syscall.ENOTDIR
 
 	// Mkdir creates a new directory with the specified name.
 	Mkdir(name string, perm fs.FileMode) error
 	// Common error cases:
-	// - fs.ErrExist
-	// - file is not a directory
+	// - mkdir name: fs.ErrExist
+	// - mkdir name: fs.ErrNotExist (parent)
 
 	// Remove removes the named file or directory.
 	Remove(name string) error
+	// Common error cases:
+	// - remove name: fs.ErrNotExist
+	// - remove name: syscall.ENOTEMPTY
 
 	// Rename renames (moves) oldname to newname. If newname already exists and
 	// is not a directory, Rename replaces it.
 	Rename(oldname, newname string) error
+	// Common error cases:
+	// - rename oldname: fs.ErrNotExist
+	// - rename newname: syscall.EISDIR
 }
 
 type LocalFS struct {
@@ -90,6 +97,7 @@ func (fsys *LocalFS) WithContext(ctx context.Context) FS {
 	// *os.File that respect context (only if it proves necessary).
 	_ = os.WriteFile
 	_ = os.ReadDir
+	_ = os.Mkdir
 	return &LocalFS{
 		rootDir: fsys.rootDir,
 		tempDir: fsys.tempDir,
@@ -926,7 +934,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		return err
 	}
 	if !oldnameIsDir && IsStoredInDB(oldname) != IsStoredInDB(newname) {
-		return fmt.Errorf("cannot rename %q to %q because they use different types of storage", oldname, newname)
+		return fmt.Errorf("cannot rename %q to %q because they are not compatible types", oldname, newname)
 	}
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
