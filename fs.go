@@ -929,6 +929,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		},
 	})
 	if err != nil {
+		// We weren't able to delete {newname} earlier, which means it is a directory.
 		if fsys.isKeyConflict(err) {
 			return fmt.Errorf("%q exists and is a directory", newname)
 		}
