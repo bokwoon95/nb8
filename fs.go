@@ -807,12 +807,11 @@ func (fsys *RemoteFS) Remove(name string) error {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "remove", Path: name, Err: fs.ErrInvalid}
 	}
-	replacer := strings.NewReplacer("%", "\\%", "_", "\\_")
 	exists, err := sq.FetchExistsContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "SELECT 1 FROM files WHERE file_path LIKE {pattern} ESCAPE '\\'",
 		Values: []any{
-			sq.StringParam("pattern", replacer.Replace(name)+"/%"),
+			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"),
 		},
 	})
 	if err != nil {
@@ -841,13 +840,12 @@ func (fsys *RemoteFS) RemoveAll(name string) error {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
 	}
-	replacer := strings.NewReplacer("%", "\\%", "_", "\\_")
 	_, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "DELETE FROM files WHERE file_path = {name} OR file_path LIKE {pattern} ESCAPE '\\'",
 		Values: []any{
 			sq.StringParam("name", name),
-			sq.StringParam("pattern", replacer.Replace(name)+"/%"),
+			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"),
 		},
 	})
 	if err != nil {
@@ -892,14 +890,13 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		}
 		return err
 	}
-	replacer := strings.NewReplacer("%", "\\%", "_", "\\_")
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "UPDATE files SET file_path = {newname} || SUBSTR(file_path, {n}) WHERE file_path LIKE {pattern} ESCAPE '\\'",
 		Values: []any{
 			sq.StringParam("newname", newname),
 			sq.IntParam("n", len(strings.ReplaceAll(oldname, "%", ""))+1),
-			sq.StringParam("pattern", replacer.Replace(oldname)+"/%"),
+			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(oldname)+"/%"),
 		},
 	})
 	// 1. delete from files where file_path = {newname} and is_dir = {false}
@@ -951,13 +948,12 @@ func (fsys *RemoteFS) GetSize(name string) (int64, error) {
 		}
 		return size, nil
 	}
-	replacer := strings.NewReplacer("%", "\\%", "_", "\\_")
 	size, err := sq.FetchOneContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "SELECT {*} FROM files WHERE file_path = {name} OR file_path LIKE {pattern} ESCAPE '\\'",
 		Values: []any{
 			sq.StringParam("name", name),
-			sq.StringParam("pattern", replacer.Replace(name)+"/%"),
+			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"),
 		},
 	}, func(row *sq.Row) int64 {
 		return row.Int64("SUM(COALESCE(LENGTH(data), size, 0))")
