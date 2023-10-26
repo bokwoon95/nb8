@@ -807,6 +807,7 @@ func (fsys *RemoteFS) Remove(name string) error {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "remove", Path: name, Err: fs.ErrInvalid}
 	}
+	// TODO: Handle deletion from object storage!!
 	exists, err := sq.FetchExistsContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "SELECT 1 FROM files WHERE file_path LIKE {pattern} ESCAPE '\\'",
@@ -840,6 +841,7 @@ func (fsys *RemoteFS) RemoveAll(name string) error {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
 	}
+	// TODO: Handle deletion from object storage!!
 	_, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "DELETE FROM files WHERE file_path = {name} OR file_path LIKE {pattern} ESCAPE '\\'",
@@ -866,6 +868,10 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		return err
 	}
 	defer tx.Rollback()
+	// TODO: stat oldname, noting if it's a dir or a file. If it's a dir, return error.
+	// TODO: If {oldname} is a file, refuse renaming if newname and oldname use different modes of storage!!
+	// TODO: DELETE {newname} + UPDATE {oldname} to {newname}, if conflict means {newname} exists and is a directory
+	// TODO: If {oldname} is a dir, also rename all child objects to use the {newname} prefix instead.
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "DELETE FROM files WHERE file_path = {newname} AND NOT is_dir",
