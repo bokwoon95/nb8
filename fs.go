@@ -856,10 +856,9 @@ func (fsys *RemoteFS) RemoveAll(name string) error {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
 	}
-	// TODO: Handle deletion from object storage!!
 	_, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
-		Format:  "DELETE FROM files WHERE file_path = {name} OR file_path LIKE {pattern} ESCAPE '\\'",
+		Format:  "DELETE FROM files WHERE file_path = {name} OR file_path LIKE {pattern} ESCAPE '\\' AND data IS NOT NULL",
 		Values: []any{
 			sq.StringParam("name", name),
 			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"),

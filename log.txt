@@ -1,10 +1,6 @@
 cdn.nbrew.io
 
-TODO: change FS signature to OpenContext and OpenWriterContext
-ReadDir, Mkdir, Remove and Rename don't need context because we can justify that they never touch data, only metadata, so in theory it should be a fast process. But OpenContext and OpenWriterContext may potentially deal with huge amounts of data streaming in and out so that's why we can justify being able to timeout them and cancel them.
-This also means we don't need to add context to MkdirAll and RemoveAll, thank god.
-Same with fs.Stat, which only calls Open for the sole purpose of Stat and not reading from the file so again no data is transferred.
-if there is a request context present, don't use fs.ReadFile. Always use OpenContext if context is available.
+TODO: come up with a good set of utility functions that seamlessly represent file operations so that you can queue them up effortlessly to use for testing ("first create this file, then create this folder, then..." etc). We need to do a lot of file operations to replicate the use cases we are testing, so better make this painless (and readable!)
 
 www.nbrew.io nuances
 - only serves stuff in {sitePrefix}/output/themes
