@@ -842,12 +842,11 @@ func (fsys *RemoteFS) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-	if file.isStoredInDB {
-		return nil
-	}
-	err = fsys.storage.Delete(fsys.ctx, hex.EncodeToString(file.fileID[:]))
-	if err != nil {
-		return err
+	if !file.isStoredInDB {
+		err = fsys.storage.Delete(fsys.ctx, hex.EncodeToString(file.fileID[:]))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
