@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go"
 	"github.com/bokwoon95/sq"
 )
 
@@ -347,6 +348,12 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		} else {
 			file.readCloser, err = fsys.storage.Get(context.Background(), file.fileInfo.filePath)
 			if err != nil {
+				var apiErr smithy.APIError
+				if errors.As(err, &apiErr) {
+					if apiErr.ErrorCode() == "NoSuchKey" {
+						return nil, fs.ErrNotExist
+					}
+				}
 				return nil, err
 			}
 		}
