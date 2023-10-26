@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
 	"github.com/bokwoon95/sq"
+	"golang.org/x/sync/errgroup"
 )
 
 var bufPool = sync.Pool{
@@ -37,43 +38,44 @@ type FS interface {
 
 	// Open opens the named file.
 	Open(name string) (fs.File, error)
-	// Common error cases:
-	// - open name: fs.ErrNotExist
-	// - read name: syscall.EISDIR
+	// - fs.ErrInvalid
+	// - fs.ErrNotExist
+	// - syscall.EISDIR (read file)
 
 	// OpenWriter opens an io.WriteCloser that represents an instance of a
 	// file. The parent directory must exist. If the file doesn't exist, it
 	// should be created. If the file exists, its should be truncated.
 	OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error)
-	// Common error cases:
-	// - openwriter parent: fs.ErrNotExist
-	// - openwriter name: syscall.EISDIR
+	// - fs.ErrInvalid
+	// - syscall.EISDIR
+	// - syscall.ENOTDIR (parent)
+	// - fs.ErrNotExist (parent)
 
 	// ReadDir reads the named directory and returns a list of directory
 	// entries sorted by filename.
 	ReadDir(name string) ([]fs.DirEntry, error)
-	// Common error cases:
-	// - readdir name: fs.ErrNotExist
-	// - readdir name: syscall.ENOTDIR
+	// - fs.ErrInvalid
+	// - fs.ErrNotExist
+	// - syscall.ENOTDIR
 
 	// Mkdir creates a new directory with the specified name.
 	Mkdir(name string, perm fs.FileMode) error
-	// Common error cases:
-	// - mkdir name: fs.ErrExist
-	// - mkdir name: fs.ErrNotExist (parent)
+	// - fs.ErrInvalid
+	// - fs.ErrNotExist (parent)
+	// - fs.ErrExist
 
 	// Remove removes the named file or directory.
 	Remove(name string) error
-	// Common error cases:
-	// - remove name: fs.ErrNotExist
-	// - remove name: syscall.ENOTEMPTY
+	// - fs.ErrInvalid
+	// - fs.ErrNotExist (parent)
+	// - syscall.ENOTEMPTY
 
 	// Rename renames (moves) oldname to newname. If newname already exists and
 	// is not a directory, Rename replaces it.
 	Rename(oldname, newname string) error
-	// Common error cases:
-	// - rename oldname: fs.ErrNotExist
-	// - rename newname: syscall.EISDIR
+	// - fs.ErrInvalid
+	// - fs.ErrNotExist (oldname)
+	// - syscall.EISDIR (newname)
 }
 
 type LocalFS struct {
@@ -359,7 +361,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fs.ErrNotExist
+			return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
 		}
 		return nil, err
 	}
@@ -376,7 +378,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 				var apiErr smithy.APIError
 				if errors.As(err, &apiErr) {
 					if apiErr.ErrorCode() == "NoSuchKey" {
-						return nil, fs.ErrNotExist
+						return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
 					}
 				}
 				return nil, err
@@ -388,7 +390,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 
 func (file *RemoteFile) Read(p []byte) (n int, err error) {
 	if file.fileInfo.isDir {
-		return 0, fmt.Errorf("%q is a directory", file.fileInfo.filePath)
+		return 0, &fs.PathError{Op: "read", Path: file.fileInfo.filePath, Err: syscall.EISDIR}
 	}
 	return file.readCloser.Read(p)
 }
@@ -436,7 +438,7 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrInvalid}
 	}
 	if name == "." {
-		return nil, fmt.Errorf("file is a directory")
+		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: syscall.EISDIR}
 	}
 	file := &RemoteFileWriter{
 		ctx:      fsys.ctx,
@@ -474,18 +476,18 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 		switch result.filePath {
 		case name:
 			if result.isDir {
-				return nil, fmt.Errorf("%q exists and is a directory", name)
+				return nil, &fs.PathError{Op: "openwriter", Path: name, Err: syscall.EISDIR}
 			}
 			file.fileID = result.fileID
 		case parentDir:
 			if !result.isDir {
-				return nil, fmt.Errorf("parent %q exists but is not a directory", parentDir)
+				return nil, &fs.PathError{Op: "openwriter", Path: name, Err: syscall.ENOTDIR}
 			}
 			file.parentID = result.fileID
 		}
 	}
 	if parentDir != "." && file.parentID == nil {
-		return nil, fmt.Errorf("parent dir %q does not exist", parentDir)
+		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrNotExist}
 	}
 	if IsStoredInDB(file.filePath) {
 		file.buf = bufPool.Get().(*bytes.Buffer)
@@ -667,7 +669,7 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 			return nil, err
 		}
 		if !result.ParentIsDir {
-			return nil, fmt.Errorf("%q is not a directory", name)
+			return nil, &fs.PathError{Op: "readdir", Path: name, Err: syscall.ENOTDIR}
 		}
 		// file_id is a primary key, it must always exist. If it doesn't exist,
 		// it means the left join failed to match any child entries i.e. the
@@ -678,7 +680,7 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 		dirEntries = append(dirEntries, &result.RemoteFileInfo)
 	}
 	if len(dirEntries) == 0 {
-		return nil, fs.ErrNotExist
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrNotExist}
 	}
 	return dirEntries, cursor.Close()
 }
@@ -722,7 +724,7 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 		})
 		if err != nil {
 			if fsys.isKeyConflict(err) {
-				return fs.ErrExist
+				return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrNotExist}
 			}
 			return err
 		}
@@ -742,7 +744,7 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 		})
 		if err != nil {
 			if fsys.isKeyConflict(err) {
-				return fs.ErrExist
+				return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrNotExist}
 			}
 			return err
 		}
@@ -857,12 +859,18 @@ func (fsys *RemoteFS) Remove(name string) error {
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return fs.ErrNotExist
+			return &fs.PathError{Op: "remove", Path: name, Err: fs.ErrNotExist}
 		}
 		return err
 	}
 	if file.hasChildren {
-		return fmt.Errorf("directory is not empty")
+		return &fs.PathError{Op: "remove", Path: name, Err: syscall.ENOTEMPTY}
+	}
+	if !file.isStoredInDB {
+		err = fsys.storage.Delete(fsys.ctx, hex.EncodeToString(file.fileID[:]))
+		if err != nil {
+			return err
+		}
 	}
 	_, err = sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
@@ -874,12 +882,6 @@ func (fsys *RemoteFS) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-	if !file.isStoredInDB {
-		err = fsys.storage.Delete(fsys.ctx, hex.EncodeToString(file.fileID[:]))
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -887,23 +889,38 @@ func (fsys *RemoteFS) RemoveAll(name string) error {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
 	}
-	tx, err := fsys.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
+	pattern := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"
+	fileIDs, err := sq.FetchAllContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
-		Format:  "DELETE FROM files WHERE file_path = {name} OR file_path LIKE {pattern} ESCAPE '\\' AND data IS NOT NULL",
+		Format:  "SELECT {*} FROM files WHERE file_path = {name} OR file_path LIKE {pattern} ESCAPE '\\' AND data IS NULL",
 		Values: []any{
 			sq.StringParam("name", name),
-			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"),
+			sq.StringParam("pattern", pattern),
 		},
+	}, func(row *sq.Row) [16]byte {
+		var fileID [16]byte
+		row.UUID(&fileID, "file_id")
+		return fileID
 	})
+	g, ctx := errgroup.WithContext(fsys.ctx)
+	for _, fileID := range fileIDs {
+		fileID := fileID
+		g.Go(func() error {
+			return fsys.storage.Delete(ctx, hex.EncodeToString(fileID[:]))
+		})
+	}
+	err = g.Wait()
 	if err != nil {
 		return err
 	}
-	err = tx.Commit()
+	_, err = sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format:  "DELETE FROM files WHERE file_path = {name} OR file_path LIKE {pattern} ESCAPE '\\'",
+		Values: []any{
+			sq.StringParam("name", name),
+			sq.StringParam("pattern", pattern),
+		},
+	})
 	if err != nil {
 		return err
 	}
@@ -933,12 +950,12 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return fs.ErrNotExist
+			return &fs.PathError{Op: "rename", Path: oldname, Err: fs.ErrNotExist}
 		}
 		return err
 	}
 	if !oldnameIsDir && IsStoredInDB(oldname) != IsStoredInDB(newname) {
-		return fmt.Errorf("cannot rename %q to %q because they are not compatible types", oldname, newname)
+		return fmt.Errorf("cannot rename %q to %q because they are stored in different locations", oldname, newname)
 	}
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
@@ -964,7 +981,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		// We weren't able to delete {newname} earlier, which means it is a
 		// directory.
 		if fsys.isKeyConflict(err) {
-			return fmt.Errorf("%q exists and is a directory", newname)
+			return &fs.PathError{Op: "rename", Path: newname, Err: syscall.EISDIR}
 		}
 		return err
 	}
