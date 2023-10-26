@@ -37,18 +37,29 @@ type FS interface {
 
 	// Open opens the named file.
 	Open(name string) (fs.File, error)
+	// Common error cases:
+	// - open name: fs.ErrNotExist
 
 	// OpenWriter opens an io.WriteCloser that represents an instance of a
 	// file. The parent directory must exist. If the file doesn't exist, it
 	// should be created. If the file exists, its should be truncated.
 	OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error)
+	// Common error cases:
+	// - open parent: fs.ErrNotExist
+	// - open name: syscall.EISDIR
 
 	// ReadDir reads the named directory and returns a list of directory
 	// entries sorted by filename.
 	ReadDir(name string) ([]fs.DirEntry, error)
+	// Common error cases:
+	// - open name: fs.ErrNotExist
+	// - file is not a directory
 
 	// Mkdir creates a new directory with the specified name.
 	Mkdir(name string, perm fs.FileMode) error
+	// Common error cases:
+	// - fs.ErrExist
+	// - file is not a directory
 
 	// Remove removes the named file or directory.
 	Remove(name string) error
@@ -77,6 +88,8 @@ func (fsys *LocalFS) WithContext(ctx context.Context) FS {
 	// think it's fine to ignore context since that's what the default *os.File
 	// does, but if it proves necessary we can add the file wrappers around
 	// *os.File that respect context (only if it proves necessary).
+	_ = os.WriteFile
+	_ = os.ReadDir
 	return &LocalFS{
 		rootDir: fsys.rootDir,
 		tempDir: fsys.tempDir,
