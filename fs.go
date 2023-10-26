@@ -983,6 +983,7 @@ func (fsys *RemoteFS) PaginateDir(name string, sort string, descending bool, sta
 // If we called PaginateDir, lop off the last item and set it as the next item id
 // Build the query string for the [next] link
 // TODO: but what about the [previous] link? What's the value of from? 🤔
+// "from" change to "after", also add "before"
 
 func (fsys *RemoteFS) GetSize(name string) (int64, error) {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
