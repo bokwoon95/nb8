@@ -890,11 +890,24 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		return err
 	}
 	defer tx.Rollback()
-	// TODO: stat oldname, noting if it's a dir or a file. If it's a dir, return error.
-	// TODO: If {oldname} is a file, refuse renaming if newname and oldname use different modes of storage!!
-	// TODO: DELETE {newname} + UPDATE {oldname} to {newname}, if conflict means {newname} exists and is a directory
-	// TODO: If {oldname} is a dir, also rename all child objects to use the {newname} prefix instead.
-	// TODO: also make sure to update the mod_time of every file touched in the database
+	oldnameIsDir, err := sq.FetchOneContext(fsys.ctx, tx, sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format:  "SELECT {*} FROM files WHERE file_path = {oldname}",
+		Values: []any{
+			sq.StringParam("oldname", oldname),
+		},
+	}, func(row *sq.Row) bool {
+		return row.Bool("is_dir")
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fs.ErrNotExist
+		}
+		return err
+	}
+	if !oldnameIsDir && IsStoredInDB(oldname) != IsStoredInDB(newname) {
+		return fmt.Errorf("cannot rename %q to %q because they use different types of storage", oldname, newname)
+	}
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "DELETE FROM files WHERE file_path = {newname} AND NOT is_dir",
@@ -905,11 +918,13 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	if err != nil {
 		return err
 	}
-	result, err := sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
+	modTime := sq.NewTimestamp(time.Now().UTC())
+	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
-		Format:  "UPDATE files SET file_path = {newname} WHERE file_path = {oldname}",
+		Format:  "UPDATE files SET file_path = {newname}, mod_time = {modTime} WHERE file_path = {oldname}",
 		Values: []any{
 			sq.StringParam("newname", newname),
+			sq.Param("modTime", modTime),
 			sq.StringParam("oldname", oldname),
 		},
 	})
@@ -919,18 +934,26 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		}
 		return err
 	}
-	if result.RowsAffected == 0 {
-		return fs.ErrNotExist
+	if oldnameIsDir {
+		_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
+			Dialect: fsys.dialect,
+			Format:  "UPDATE files SET file_path = {newFilePath}, mod_time = {modTime} WHERE file_path LIKE {pattern} ESCAPE '\\'",
+			Values: []any{
+				sq.Param("newFilePath", sq.DialectExpression{
+					Default: sq.Expr("{} || SUBSTR(file_path, {})", newname, len(oldname)+1),
+					Cases: []sq.DialectCase{{
+						Dialect: "mysql",
+						Result:  sq.Expr("CONCAT({}, SUBSTR(file_path, {}))", newname, len(oldname)+1),
+					}},
+				}),
+				sq.Param("modTime", modTime),
+				sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(oldname)+"/%"),
+			},
+		})
+		if err != nil {
+			return err
+		}
 	}
-	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
-		Dialect: fsys.dialect,
-		Format:  "UPDATE files SET file_path = {newname} || SUBSTR(file_path, {n}) WHERE file_path LIKE {pattern} ESCAPE '\\'",
-		Values: []any{
-			sq.StringParam("newname", newname),
-			sq.IntParam("n", len(oldname)+1),
-			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(oldname)+"/%"),
-		},
-	})
 	err = tx.Commit()
 	if err != nil {
 		return err
