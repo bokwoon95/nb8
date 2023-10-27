@@ -1514,7 +1514,10 @@ func (storage *InMemoryStorage) Delete(ctx context.Context, key string) error {
 
 // TODO: how do we multiplex? First two significant digits or last 2 digits? Or
 // last 3 digits? Assuming a standard image size of 600kB, how many images are
-// we looking to store in 1TB and will it fit inside 256 or 4096 buckets?
+// we looking to store in 1TB and will it fit inside 256 or 4096 buckets? Just
+// let people dump *all* images into one directory?
+// I'm leaning towards 2 digits. If it's good enough for git it's good enough
+// for me.
 type LocalStorage struct {
 	mu      sync.RWMutex
 	entries map[string][]byte
