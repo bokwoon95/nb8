@@ -1041,7 +1041,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 			case "postgres":
 				updateTextOrData = sq.Expr(", data = convert_to(text, 'UTF8'), text = NULL")
 			case "mysql":
-				updateTextOrData = sq.Expr(", data = convert(text USING binary), text = NULL")
+				updateTextOrData = sq.Expr(", data = convert(text USING BINARY), text = NULL")
 			}
 		}
 	}
