@@ -1011,7 +1011,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		return err
 	}
 	if !oldnameIsDir && isStoredInDB(oldname) != isStoredInDB(newname) {
-		return fmt.Errorf("cannot rename %q to %q because they are stored in different locations", oldname, newname)
+		return fmt.Errorf("cannot rename file from %q to %q because of incompatible storage locations", oldname, newname)
 	}
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
@@ -1093,15 +1093,14 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 
 // attribute=name|updated|created|size
 // start=<timestamp>|<name>
-func (fsys *RemoteFS) PaginateDir(name string, attribute, before, after string, limit int) ([]fs.DirEntry, error) {
-	// what's the most generic way of representing some field to sort by, as well as the possible start value for it?
-	// ascending bool
-	// sort=name,updated,created&order=asc,desc&from=2023&limit=1000
-	// SELECT * FROM files WHERE parent_id = {parentID} AND file_path >= abc ORDER BY file_path ASC LIMIT 1000
-	// SELECT * FROM files WHERE parent_id = {parentID} AND file_path <= abc ORDER BY file_path DESC LIMIT 1000
-	return nil, nil
-}
-
+// func (fsys *RemoteFS) PaginateDir(name string, attribute, before, after string, limit int) ([]fs.DirEntry, error) {
+// 	// what's the most generic way of representing some field to sort by, as well as the possible start value for it?
+// 	// ascending bool
+// 	// sort=name,updated,created&order=asc,desc&from=2023&limit=1000
+// 	// SELECT * FROM files WHERE parent_id = {parentID} AND file_path >= abc ORDER BY file_path ASC LIMIT 1000
+// 	// SELECT * FROM files WHERE parent_id = {parentID} AND file_path <= abc ORDER BY file_path DESC LIMIT 1000
+// 	return nil, nil
+// }
 // If PaginateDir() method exists, then call it
 // Else, call ReadDir() as usual
 // For both cases, preallocate a separate slice of identical capacity (with len 0) and accumulate all folders into it
@@ -1127,8 +1126,7 @@ func (fsys *RemoteFS) GetSize(name string) (int64, error) {
 				Default: sq.Expr("SUM(COALESCE(LENGTH(text), LENGTH(data), size, 0))"),
 				Cases: []sq.DialectCase{{
 					Dialect: "sqlite",
-					// TODO: check if our sqlite installation supports octet_length too.
-					Result: sq.Expr("SUM(COALESCE(LENGTH(CAST(text AS BLOB)), LENGTH(CAST(data AS BLOB)), size, 0))"),
+					Result:  sq.Expr("SUM(COALESCE(LENGTH(CAST(text AS BLOB)), LENGTH(CAST(data AS BLOB)), size, 0))"),
 				}, {
 					Dialect: "postgres",
 					Result:  sq.Expr("SUM(COALESCE(OCTET_LENGTH(text), OCTET_LENGTH(data), size, 0))"),
@@ -1149,14 +1147,10 @@ func (fsys *RemoteFS) GetSize(name string) (int64, error) {
 		},
 	}, func(row *sq.Row) int64 {
 		return row.Int64Field(sq.DialectExpression{
-			Default: sq.Expr("SUM(COALESCE(LENGTH(text), LENGTH(data), size, 0))"),
+			Default: sq.Expr("SUM(COALESCE(OCTET_LENGTH(text), OCTET_LENGTH(data), size, 0))"),
 			Cases: []sq.DialectCase{{
 				Dialect: "sqlite",
-				// TODO: check if our sqlite installation supports octet_length too.
-				Result: sq.Expr("SUM(COALESCE(LENGTH(CAST(text AS BLOB)), LENGTH(CAST(data AS BLOB)), size, 0))"),
-			}, {
-				Dialect: "postgres",
-				Result:  sq.Expr("SUM(COALESCE(OCTET_LENGTH(text), OCTET_LENGTH(data), size, 0))"),
+				Result:  sq.Expr("SUM(COALESCE(LENGTH(CAST(text AS BLOB)), LENGTH(CAST(data AS BLOB)), size, 0))"),
 			}},
 		})
 	})
