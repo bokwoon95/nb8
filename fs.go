@@ -115,12 +115,13 @@ func (fsys *LocalFS) Open(name string) (fs.File, error) {
 }
 
 type LocalFileWriter struct {
-	ctx      context.Context
-	rootDir  string
-	tempDir  string
-	name     string
-	perm     fs.FileMode
-	tempFile *os.File
+	ctx         context.Context
+	rootDir     string
+	tempDir     string
+	name        string
+	perm        fs.FileMode
+	tempFile    *os.File
+	writeFailed bool
 }
 
 func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
@@ -147,9 +148,15 @@ func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, 
 func (file *LocalFileWriter) Write(p []byte) (n int, err error) {
 	err = file.ctx.Err()
 	if err != nil {
+		file.writeFailed = true
 		return 0, err
 	}
-	return file.tempFile.Write(p)
+	n, err = file.tempFile.Write(p)
+	if err != nil {
+		file.writeFailed = true
+		return n, err
+	}
+	return n, nil
 }
 
 func (file *LocalFileWriter) Close() error {
@@ -157,12 +164,16 @@ func (file *LocalFileWriter) Close() error {
 	if err != nil {
 		return err
 	}
+	tempFilePath := filepath.Join(file.tempDir, fileInfo.Name())
+	destFilePath := filepath.Join(file.rootDir, file.name)
+	defer os.Remove(tempFilePath)
 	err = file.tempFile.Close()
 	if err != nil {
 		return err
 	}
-	tempFilePath := filepath.Join(file.tempDir, fileInfo.Name())
-	destFilePath := filepath.Join(file.rootDir, file.name)
+	if file.writeFailed {
+		return nil
+	}
 	fileInfo, err = os.Stat(destFilePath)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
@@ -227,6 +238,27 @@ func (fsys *LocalFS) Rename(oldname, newname string) error {
 	oldname = filepath.FromSlash(oldname)
 	newname = filepath.FromSlash(newname)
 	return os.Rename(filepath.Join(fsys.rootDir, oldname), filepath.Join(fsys.rootDir, newname))
+}
+
+func (fsys *LocalFS) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	return fsys.Open(key)
+}
+
+func (fsys *LocalFS) Put(ctx context.Context, key string, reader io.Reader) error {
+	writer, err := fsys.OpenWriter(key, 0644)
+	if err != nil {
+		return err
+	}
+	defer writer.Close()
+	_, err = io.Copy(writer, reader)
+	if err != nil {
+		return err
+	}
+	return writer.Close()
+}
+
+func (fsys *LocalFS) Delete(ctx context.Context, key string) error {
+	return fsys.Remove(key)
 }
 
 type RemoteFS struct {
@@ -440,6 +472,7 @@ type RemoteFileWriter struct {
 	storageWriter  *io.PipeWriter
 	storageWritten int
 	storageResult  chan error
+	writeFailed    bool
 }
 
 func NewID() [16]byte {
@@ -527,13 +560,21 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 func (file *RemoteFileWriter) Write(p []byte) (n int, err error) {
 	err = file.ctx.Err()
 	if err != nil {
+		file.writeFailed = true
 		return 0, err
 	}
 	if isFulltextIndexed(file.filePath) {
-		return file.buf.Write(p)
+		n, err = file.buf.Write(p)
+		if err != nil {
+			file.writeFailed = true
+		}
+		return n, err
 	} else {
 		n, err = file.storageWriter.Write(p)
 		file.storageWritten += n
+		if err != nil {
+			file.writeFailed = true
+		}
 		return n, err
 	}
 }
@@ -547,6 +588,9 @@ func (file *RemoteFileWriter) Close() error {
 		if err != nil {
 			return err
 		}
+	}
+	if file.writeFailed {
+		return nil
 	}
 
 	// if file exists, just have to update the file entry in the database.
