@@ -243,9 +243,22 @@ type RemoteFS struct {
 // internally. What column it's stored in only affects whether the file is
 // fulltext-indexed.
 
-var isTextExtension = map[string]bool{
-	".html": true, ".css": true, ".js": true, ".md": true, ".txt": true,
-	".json": true, ".toml": true, ".yaml": true, ".yml": true, ".xml": true,
+var textExtensions = map[string]struct{}{
+	".html": {}, ".css": {}, ".js": {}, ".md": {}, ".txt": {}, ".json": {},
+	".toml": {}, ".yaml": {}, ".yml": {}, ".xml": {},
+}
+
+func isText(filePath string) bool {
+	var ext string
+	if strings.HasSuffix(filePath, ".gzip") {
+		ext = path.Ext(strings.TrimSuffix(filePath, ".gzip"))
+	} else if strings.HasSuffix(filePath, ".gz") {
+		ext = path.Ext(strings.TrimSuffix(filePath, ".gz"))
+	} else {
+		ext = path.Ext(filePath)
+	}
+	_, ok := textExtensions[ext]
+	return ok
 }
 
 func isFulltextIndexed(filePath string) bool {
@@ -378,7 +391,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		fileInfo: &result.RemoteFileInfo,
 	}
 	if !result.isDir {
-		if isTextExtension[path.Ext(result.filePath)] {
+		if isText(result.filePath) {
 			if isFulltextIndexed(result.filePath) {
 				file.readCloser = io.NopCloser(strings.NewReader(result.text))
 				file.fileInfo.size = int64(len(result.text))
@@ -544,7 +557,7 @@ func (file *RemoteFileWriter) Close() error {
 
 	// if file exists, just have to update the file entry in the database.
 	if file.fileID != [16]byte{} {
-		if isTextExtension[path.Ext(file.filePath)] {
+		if isText(file.filePath) {
 			if isFulltextIndexed(file.filePath) {
 				_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 					Dialect: file.dialect,
@@ -590,7 +603,7 @@ func (file *RemoteFileWriter) Close() error {
 	}
 
 	// file doesn't exist, insert a new file entry into the database.
-	if isTextExtension[path.Ext(file.filePath)] {
+	if isText(file.filePath) {
 		if isFulltextIndexed(file.filePath) {
 			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 				Dialect: file.dialect,
@@ -1003,9 +1016,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		}
 		return err
 	}
-	oldnameIsText := isTextExtension[path.Ext(oldname)]
-	newnameIsText := isTextExtension[path.Ext(newname)]
-	if !oldnameIsDir && oldnameIsText != newnameIsText {
+	if !oldnameIsDir && isText(oldname) != isText(newname) {
 		return fmt.Errorf("cannot rename %q to %q because they are stored in different locations", oldname, newname)
 	}
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
@@ -1019,7 +1030,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		return err
 	}
 	updateTextOrData := sq.Expr("")
-	if oldnameIsText && newnameIsText {
+	if !oldnameIsDir && isText(oldname) && isText(newname) {
 		if !isFulltextIndexed(oldname) && isFulltextIndexed(newname) {
 			switch fsys.dialect {
 			case "sqlite":
