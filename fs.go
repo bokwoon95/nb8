@@ -237,18 +237,12 @@ type RemoteFS struct {
 	storage   Storage
 }
 
-// If extension is one of: .html .css .js .md .txt .json .toml .yaml .yml .xml
-// then it is stored as text
-// The user never has to worry which column it's stored in because it's handled
-// internally. What column it's stored in only affects whether the file is
-// fulltext-indexed.
-
 var textExtensions = map[string]struct{}{
 	".html": {}, ".css": {}, ".js": {}, ".md": {}, ".txt": {}, ".json": {},
 	".toml": {}, ".yaml": {}, ".yml": {}, ".xml": {},
 }
 
-func isText(filePath string) bool {
+func isStoredInDB(filePath string) bool {
 	var ext string
 	if strings.HasSuffix(filePath, ".gzip") {
 		ext = path.Ext(strings.TrimSuffix(filePath, ".gzip"))
@@ -391,7 +385,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		fileInfo: &result.RemoteFileInfo,
 	}
 	if !result.isDir {
-		if isText(result.filePath) {
+		if isStoredInDB(result.filePath) {
 			if isFulltextIndexed(result.filePath) {
 				file.readCloser = io.NopCloser(strings.NewReader(result.text))
 				file.fileInfo.size = int64(len(result.text))
@@ -557,7 +551,7 @@ func (file *RemoteFileWriter) Close() error {
 
 	// if file exists, just have to update the file entry in the database.
 	if file.fileID != [16]byte{} {
-		if isText(file.filePath) {
+		if isStoredInDB(file.filePath) {
 			if isFulltextIndexed(file.filePath) {
 				_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 					Dialect: file.dialect,
@@ -603,7 +597,7 @@ func (file *RemoteFileWriter) Close() error {
 	}
 
 	// file doesn't exist, insert a new file entry into the database.
-	if isText(file.filePath) {
+	if isStoredInDB(file.filePath) {
 		if isFulltextIndexed(file.filePath) {
 			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 				Dialect: file.dialect,
@@ -1016,7 +1010,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		}
 		return err
 	}
-	if !oldnameIsDir && isText(oldname) != isText(newname) {
+	if !oldnameIsDir && isStoredInDB(oldname) != isStoredInDB(newname) {
 		return fmt.Errorf("cannot rename %q to %q because they are stored in different locations", oldname, newname)
 	}
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
@@ -1030,7 +1024,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		return err
 	}
 	updateTextOrData := sq.Expr("")
-	if !oldnameIsDir && isText(oldname) && isText(newname) {
+	if !oldnameIsDir && isStoredInDB(oldname) && isStoredInDB(newname) {
 		if !isFulltextIndexed(oldname) && isFulltextIndexed(newname) {
 			switch fsys.dialect {
 			case "sqlite":
@@ -1129,7 +1123,17 @@ func (fsys *RemoteFS) GetSize(name string) (int64, error) {
 			Dialect: fsys.dialect,
 			Format:  "SELECT {*} FROM files",
 		}, func(row *sq.Row) int64 {
-			return row.Int64("SUM(COALESCE(LENGTH(data), size, 0))")
+			return row.Int64Field(sq.DialectExpression{
+				Default: sq.Expr("SUM(COALESCE(LENGTH(text), LENGTH(data), size, 0))"),
+				Cases: []sq.DialectCase{{
+					Dialect: "sqlite",
+					// TODO: check if our sqlite installation supports octet_length too.
+					Result: sq.Expr("SUM(COALESCE(LENGTH(CAST(text AS BLOB)), LENGTH(CAST(data AS BLOB)), size, 0))"),
+				}, {
+					Dialect: "postgres",
+					Result:  sq.Expr("SUM(COALESCE(OCTET_LENGTH(text), OCTET_LENGTH(data), size, 0))"),
+				}},
+			})
 		})
 		if err != nil {
 			return 0, err
@@ -1144,7 +1148,17 @@ func (fsys *RemoteFS) GetSize(name string) (int64, error) {
 			sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"),
 		},
 	}, func(row *sq.Row) int64 {
-		return row.Int64("SUM(COALESCE(LENGTH(data), size, 0))")
+		return row.Int64Field(sq.DialectExpression{
+			Default: sq.Expr("SUM(COALESCE(LENGTH(text), LENGTH(data), size, 0))"),
+			Cases: []sq.DialectCase{{
+				Dialect: "sqlite",
+				// TODO: check if our sqlite installation supports octet_length too.
+				Result: sq.Expr("SUM(COALESCE(LENGTH(CAST(text AS BLOB)), LENGTH(CAST(data AS BLOB)), size, 0))"),
+			}, {
+				Dialect: "postgres",
+				Result:  sq.Expr("SUM(COALESCE(OCTET_LENGTH(text), OCTET_LENGTH(data), size, 0))"),
+			}},
+		})
 	})
 	if err != nil {
 		return 0, err
