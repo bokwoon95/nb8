@@ -243,11 +243,12 @@ type RemoteFS struct {
 // internally. What column it's stored in only affects whether the file is
 // fulltext-indexed.
 
-func IsStoredInDB(filePath string) bool {
-	// TODO: refactor this massively. Now we need to decide if some data is
-	// stored in files.text (fulltext indexed), files.data (not fulltext
-	// indexed) or in S3 (too large to store in the database). How to best
-	// express this as a function, and how to consume it?
+var isTextExtension = map[string]bool{
+	".html": true, ".css": true, ".js": true, ".md": true, ".txt": true,
+	".json": true, ".toml": true, ".yaml": true, ".yml": true, ".xml": true,
+}
+
+func isFulltextIndexed(filePath string) bool {
 	ext := path.Ext(filePath)
 	head, tail, _ := strings.Cut(filePath, "/")
 	switch head {
@@ -269,8 +270,6 @@ func IsStoredInDB(filePath string) bool {
 			return true
 		}
 	}
-	// Is it stored in the DB? If it is a text type, or if it's a gzip of a text type.
-	// Is it stored in text or data? If it's a note .txt, page .html, post .txt/.md, output/themes .html .css .js => text. else data.
 	return false
 }
 
@@ -353,7 +352,8 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		},
 	}, func(row *sq.Row) (result struct {
 		RemoteFileInfo
-		data string
+		text string
+		data []byte
 	}) {
 		row.UUID(&result.fileID, "file_id")
 		row.UUID(&result.parentID, "parent_id")
@@ -364,7 +364,8 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		row.Scan(&modTime, "mod_time")
 		result.modTime = modTime.Time
 		result.perm = fs.FileMode(row.Int("perm"))
-		result.data = row.String("data")
+		result.text = row.String("text")
+		result.data = row.Bytes("data")
 		return result
 	})
 	if err != nil {
@@ -377,9 +378,14 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		fileInfo: &result.RemoteFileInfo,
 	}
 	if !result.isDir {
-		if IsStoredInDB(result.filePath) {
-			file.readCloser = io.NopCloser(strings.NewReader(result.data))
-			file.fileInfo.size = int64(len(result.data))
+		if isTextExtension[path.Ext(result.filePath)] {
+			if isFulltextIndexed(result.filePath) {
+				file.readCloser = io.NopCloser(strings.NewReader(result.text))
+				file.fileInfo.size = int64(len(result.text))
+			} else {
+				file.readCloser = io.NopCloser(bytes.NewReader(result.data))
+				file.fileInfo.size = int64(len(result.data))
+			}
 		} else {
 			file.readCloser, err = fsys.storage.Get(context.Background(), file.fileInfo.filePath)
 			if err != nil {
@@ -497,7 +503,7 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 	if parentDir != "." && file.parentID == nil {
 		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrNotExist}
 	}
-	if IsStoredInDB(file.filePath) {
+	if isFulltextIndexed(file.filePath) {
 		file.buf = bufPool.Get().(*bytes.Buffer)
 		file.buf.Reset()
 	} else {
@@ -516,7 +522,7 @@ func (file *RemoteFileWriter) Write(p []byte) (n int, err error) {
 	if err != nil {
 		return 0, err
 	}
-	if IsStoredInDB(file.filePath) {
+	if isFulltextIndexed(file.filePath) {
 		return file.buf.Write(p)
 	} else {
 		n, err = file.storageWriter.Write(p)
@@ -526,7 +532,7 @@ func (file *RemoteFileWriter) Write(p []byte) (n int, err error) {
 }
 
 func (file *RemoteFileWriter) Close() error {
-	if IsStoredInDB(file.filePath) {
+	if isFulltextIndexed(file.filePath) {
 		defer bufPool.Put(file.buf)
 	} else {
 		file.storageWriter.Close()
@@ -538,23 +544,38 @@ func (file *RemoteFileWriter) Close() error {
 
 	// if file exists, just have to update the file entry in the database.
 	if file.fileID != [16]byte{} {
-		if IsStoredInDB(file.filePath) {
-			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
-				Dialect: file.dialect,
-				Format:  "UPDATE files SET data = {data}, size = NULL, mod_time = {modTime} WHERE file_id = {fileID}",
-				Values: []any{
-					sq.BytesParam("data", file.buf.Bytes()),
-					sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
-					sq.UUIDParam("fileID", file.fileID),
-				},
-			})
-			if err != nil {
-				return err
+		if isTextExtension[path.Ext(file.filePath)] {
+			if isFulltextIndexed(file.filePath) {
+				_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
+					Dialect: file.dialect,
+					Format:  "UPDATE files SET text = {text}, data = NULL, size = NULL, mod_time = {modTime} WHERE file_id = {fileID}",
+					Values: []any{
+						sq.BytesParam("text", file.buf.Bytes()),
+						sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+						sq.UUIDParam("fileID", file.fileID),
+					},
+				})
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
+					Dialect: file.dialect,
+					Format:  "UPDATE files SET text = NULL, data = {data}, size = NULL, mod_time = {modTime} WHERE file_id = {fileID}",
+					Values: []any{
+						sq.BytesParam("data", file.buf.Bytes()),
+						sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+						sq.UUIDParam("fileID", file.fileID),
+					},
+				})
+				if err != nil {
+					return err
+				}
 			}
 		} else {
 			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 				Dialect: file.dialect,
-				Format:  "UPDATE files SET data = NULL, size = {size}, mod_time = {modTime} WHERE file_id = {fileID}",
+				Format:  "UPDATE files SET text = NULL, data = NULL, size = {size}, mod_time = {modTime} WHERE file_id = {fileID}",
 				Values: []any{
 					sq.IntParam("size", file.storageWritten),
 					sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
@@ -569,23 +590,43 @@ func (file *RemoteFileWriter) Close() error {
 	}
 
 	// file doesn't exist, insert a new file entry into the database.
-	if IsStoredInDB(file.filePath) {
-		_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
-			Dialect: file.dialect,
-			Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, data, mod_time, perm)" +
-				" VALUES ({fileID}, {parentID}, {filePath}, {isDir}, {data}, {modTime}, {perm})",
-			Values: []any{
-				sq.UUIDParam("fileID", NewID()),
-				sq.UUIDParam("parentID", file.parentID),
-				sq.StringParam("filePath", file.filePath),
-				sq.BoolParam("isDir", false),
-				sq.BytesParam("data", file.buf.Bytes()),
-				sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
-				sq.Param("perm", file.perm),
-			},
-		})
-		if err != nil {
-			return err
+	if isTextExtension[path.Ext(file.filePath)] {
+		if isFulltextIndexed(file.filePath) {
+			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
+				Dialect: file.dialect,
+				Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, text, mod_time, perm)" +
+					" VALUES ({fileID}, {parentID}, {filePath}, {isDir}, {text}, {modTime}, {perm})",
+				Values: []any{
+					sq.UUIDParam("fileID", NewID()),
+					sq.UUIDParam("parentID", file.parentID),
+					sq.StringParam("filePath", file.filePath),
+					sq.BoolParam("isDir", false),
+					sq.BytesParam("text", file.buf.Bytes()),
+					sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+					sq.Param("perm", file.perm),
+				},
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
+				Dialect: file.dialect,
+				Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, data, mod_time, perm)" +
+					" VALUES ({fileID}, {parentID}, {filePath}, {isDir}, {data}, {modTime}, {perm})",
+				Values: []any{
+					sq.UUIDParam("fileID", NewID()),
+					sq.UUIDParam("parentID", file.parentID),
+					sq.StringParam("filePath", file.filePath),
+					sq.BoolParam("isDir", false),
+					sq.BytesParam("data", file.buf.Bytes()),
+					sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+					sq.Param("perm", file.perm),
+				},
+			})
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
@@ -720,8 +761,8 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 	if parentDir == "." {
 		_, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
 			Dialect: fsys.dialect,
-			Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, mod_time, perm)" +
-				" VALUES ({fileID}, NULL, {filePath}, {isDir}, {modTime}, {perm})",
+			Format: "INSERT INTO files (file_id, file_path, is_dir, mod_time, perm)" +
+				" VALUES ({fileID}, {filePath}, {isDir}, {modTime}, {perm})",
 			Values: []any{
 				sq.UUIDParam("fileID", NewID()),
 				sq.StringParam("filePath", name),
@@ -862,7 +903,7 @@ func (fsys *RemoteFS) Remove(name string) error {
 	}) {
 		row.UUID(&file.fileID, "file_id")
 		file.hasChildren = row.Bool("EXISTS (SELECT 1 FROM files WHERE file_path LIKE {pattern} ESCAPE '\\')", sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"))
-		file.isStoredInDB = row.Bool("data IS NOT NULL")
+		file.isStoredInDB = row.Bool("text IS NOT NULL OR data IS NOT NULL")
 		return file
 	})
 	if err != nil {
@@ -962,7 +1003,9 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		}
 		return err
 	}
-	if !oldnameIsDir && IsStoredInDB(oldname) != IsStoredInDB(newname) {
+	oldnameIsText := isTextExtension[path.Ext(oldname)]
+	newnameIsText := isTextExtension[path.Ext(newname)]
+	if !oldnameIsDir && oldnameIsText != newnameIsText {
 		return fmt.Errorf("cannot rename %q to %q because they are stored in different locations", oldname, newname)
 	}
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
@@ -975,12 +1018,35 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	if err != nil {
 		return err
 	}
+	updateTextOrData := sq.Expr("")
+	if oldnameIsText && newnameIsText {
+		if !isFulltextIndexed(oldname) && isFulltextIndexed(newname) {
+			switch fsys.dialect {
+			case "sqlite":
+				updateTextOrData = sq.Expr("text = data, data = NULL,")
+			case "postgres":
+				updateTextOrData = sq.Expr("text = convert_from(data, 'UTF8'), data = NULL,")
+			case "mysql":
+				updateTextOrData = sq.Expr("text = convert(data USING utf8mb4), data = NULL,")
+			}
+		} else if isFulltextIndexed(oldname) && !isFulltextIndexed(newname) {
+			switch fsys.dialect {
+			case "sqlite":
+				updateTextOrData = sq.Expr("data = text, text = NULL")
+			case "postgres":
+				updateTextOrData = sq.Expr("data = convert_to(text, 'UTF8'), text = NULL,")
+			case "mysql":
+				updateTextOrData = sq.Expr("data = convert(text USING binary), text = NULL,")
+			}
+		}
+	}
 	modTime := sq.NewTimestamp(time.Now().UTC())
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
-		Format:  "UPDATE files SET file_path = {newname}, mod_time = {modTime} WHERE file_path = {oldname}",
+		Format:  "UPDATE files SET file_path = {newname}, {updateTextOrData} mod_time = {modTime} WHERE file_path = {oldname}",
 		Values: []any{
 			sq.StringParam("newname", newname),
+			sq.Param("updateTextOrData", updateTextOrData),
 			sq.Param("modTime", modTime),
 			sq.StringParam("oldname", oldname),
 		},
