@@ -237,6 +237,12 @@ type RemoteFS struct {
 	storage   Storage
 }
 
+// If extension is one of: .html .css .js .md .txt .json .toml .yaml .yml .xml
+// then it is stored as text
+// The user never has to worry which column it's stored in because it's handled
+// internally. What column it's stored in only affects whether the file is
+// fulltext-indexed.
+
 func IsStoredInDB(filePath string) bool {
 	// TODO: refactor this massively. Now we need to decide if some data is
 	// stored in files.text (fulltext indexed), files.data (not fulltext
@@ -263,6 +269,8 @@ func IsStoredInDB(filePath string) bool {
 			return true
 		}
 	}
+	// Is it stored in the DB? If it is a text type, or if it's a gzip of a text type.
+	// Is it stored in text or data? If it's a note .txt, page .html, post .txt/.md, output/themes .html .css .js => text. else data.
 	return false
 }
 
@@ -1204,6 +1212,10 @@ func RemoveAll(fsys FS, root string) error {
 	return nil
 }
 
+// TODO: we should be able to scrap this entirely. The localFS can be summed
+// using filepath.WalkDir + goroutines + atomic.Int64, while remoteFS can be
+// summed using a single SQL query. All this will be locally within the file.go
+// function itself.
 func GetSize(fsys fs.FS, root string) (int64, error) {
 	type Item struct {
 		Path     string // relative to root
