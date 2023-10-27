@@ -1123,13 +1123,10 @@ func (fsys *RemoteFS) GetSize(name string) (int64, error) {
 			Format:  "SELECT {*} FROM files",
 		}, func(row *sq.Row) int64 {
 			return row.Int64Field(sq.DialectExpression{
-				Default: sq.Expr("SUM(COALESCE(LENGTH(text), LENGTH(data), size, 0))"),
+				Default: sq.Expr("SUM(COALESCE(OCTET_LENGTH(text), OCTET_LENGTH(data), size, 0))"),
 				Cases: []sq.DialectCase{{
 					Dialect: "sqlite",
 					Result:  sq.Expr("SUM(COALESCE(LENGTH(CAST(text AS BLOB)), LENGTH(CAST(data AS BLOB)), size, 0))"),
-				}, {
-					Dialect: "postgres",
-					Result:  sq.Expr("SUM(COALESCE(OCTET_LENGTH(text), OCTET_LENGTH(data), size, 0))"),
 				}},
 			})
 		})
