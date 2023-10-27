@@ -1023,31 +1023,31 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		if !isFulltextIndexed(oldname) && isFulltextIndexed(newname) {
 			switch fsys.dialect {
 			case "sqlite":
-				updateTextOrData = sq.Expr("text = data, data = NULL,")
+				updateTextOrData = sq.Expr(", text = data, data = NULL")
 			case "postgres":
-				updateTextOrData = sq.Expr("text = convert_from(data, 'UTF8'), data = NULL,")
+				updateTextOrData = sq.Expr(", text = convert_from(data, 'UTF8'), data = NULL")
 			case "mysql":
-				updateTextOrData = sq.Expr("text = convert(data USING utf8mb4), data = NULL,")
+				updateTextOrData = sq.Expr(", text = convert(data USING utf8mb4), data = NULL")
 			}
 		} else if isFulltextIndexed(oldname) && !isFulltextIndexed(newname) {
 			switch fsys.dialect {
 			case "sqlite":
-				updateTextOrData = sq.Expr("data = text, text = NULL")
+				updateTextOrData = sq.Expr(", data = text, text = NULL")
 			case "postgres":
-				updateTextOrData = sq.Expr("data = convert_to(text, 'UTF8'), text = NULL,")
+				updateTextOrData = sq.Expr(", data = convert_to(text, 'UTF8'), text = NULL")
 			case "mysql":
-				updateTextOrData = sq.Expr("data = convert(text USING binary), text = NULL,")
+				updateTextOrData = sq.Expr(", data = convert(text USING binary), text = NULL")
 			}
 		}
 	}
 	modTime := sq.NewTimestamp(time.Now().UTC())
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
-		Format:  "UPDATE files SET file_path = {newname}, {updateTextOrData} mod_time = {modTime} WHERE file_path = {oldname}",
+		Format:  "UPDATE files SET file_path = {newname}, mod_time = {modTime}{updateTextOrData} WHERE file_path = {oldname}",
 		Values: []any{
 			sq.StringParam("newname", newname),
-			sq.Param("updateTextOrData", updateTextOrData),
 			sq.Param("modTime", modTime),
+			sq.Param("updateTextOrData", updateTextOrData),
 			sq.StringParam("oldname", oldname),
 		},
 	})
