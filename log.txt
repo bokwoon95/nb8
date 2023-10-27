@@ -1,4 +1,18 @@
-cdn.nbrew.io
+schema.go
+fs.go
+notebrew.go
+error.go
+template.go
+signup.go
+login.go
+logout.go
+resetpassword.go
+folder.go
+file.go
+...
+serve_http.go
+new.go
+notebrew/main.go
 
 TODO: come up with a good set of utility functions that seamlessly represent file operations so that you can queue them up effortlessly to use for testing ("first create this file, then create this folder, then..." etc). We need to do a lot of file operations to replicate the use cases we are testing, so better make this painless (and readable!)
 TODO: mailer.json instead of mailer.txt, that way users don't have to urlencode their password to put it in the smtp URL.
