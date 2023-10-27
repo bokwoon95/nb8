@@ -240,27 +240,6 @@ func (fsys *LocalFS) Rename(oldname, newname string) error {
 	return os.Rename(filepath.Join(fsys.rootDir, oldname), filepath.Join(fsys.rootDir, newname))
 }
 
-func (fsys *LocalFS) Get(ctx context.Context, key string) (io.ReadCloser, error) {
-	return fsys.Open(key)
-}
-
-func (fsys *LocalFS) Put(ctx context.Context, key string, reader io.Reader) error {
-	writer, err := fsys.OpenWriter(key, 0644)
-	if err != nil {
-		return err
-	}
-	defer writer.Close()
-	_, err = io.Copy(writer, reader)
-	if err != nil {
-		return err
-	}
-	return writer.Close()
-}
-
-func (fsys *LocalFS) Delete(ctx context.Context, key string) error {
-	return fsys.Remove(key)
-}
-
 type RemoteFS struct {
 	ctx       context.Context
 	db        *sql.DB
@@ -1531,4 +1510,33 @@ func (storage *InMemoryStorage) Delete(ctx context.Context, key string) error {
 	delete(storage.entries, key)
 	storage.mu.Unlock()
 	return nil
+}
+
+// TODO: how do we multiplex? First two significant digits or last 2 digits? Or
+// last 3 digits? Assuming a standard image size of 600kB, how many images are
+// we looking to store in 1TB and will it fit inside 256 or 4096 buckets?
+type LocalStorage struct {
+	mu      sync.RWMutex
+	entries map[string][]byte
+}
+
+func (fsys *LocalFS) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	return fsys.Open(key)
+}
+
+func (fsys *LocalFS) Put(ctx context.Context, key string, reader io.Reader) error {
+	writer, err := fsys.OpenWriter(key, 0644)
+	if err != nil {
+		return err
+	}
+	defer writer.Close()
+	_, err = io.Copy(writer, reader)
+	if err != nil {
+		return err
+	}
+	return writer.Close()
+}
+
+func (fsys *LocalFS) Delete(ctx context.Context, key string) error {
+	return fsys.Remove(key)
 }
