@@ -800,7 +800,7 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 		})
 		if err != nil {
 			if fsys.isKeyConflict(err) {
-				return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrNotExist}
+				return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrExist}
 			}
 			return err
 		}
@@ -820,7 +820,7 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 		})
 		if err != nil {
 			if fsys.isKeyConflict(err) {
-				return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrNotExist}
+				return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrExist}
 			}
 			return err
 		}
