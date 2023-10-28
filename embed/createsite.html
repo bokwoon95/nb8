@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
+<style>{{ stylesCSS }}</style>
+<script type="module">{{ baselineJS }}</script>
+<title>Create site</title>
+<body class="centered-body">
+<nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
+    <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
+    <span class="flex-grow-1"></span>
+    {{- if hasDatabase }}
+    <a href="" class="ma2">rss reader</a>
+    <a href="" class="ma2">{{ if username }}@{{ username }}{{ else }}user{{ end }}</a>
+    <a href="/admin/logout/" class="ma2">logout</a>
+    {{- end }}
+</nav>
+{{- if eq $.Status.Code "NB-03130" }}
+<div class="mv5 w-80 w-70-m w-60-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <div class="mv3 b">You have reached the maximum of {{ maxSites }} sites, cannot create any more.</div>
+    <ul class="ph3">
+        {{- range $siteName := $.SiteNames }}
+        <li><a href="/{{ join `admin` (toSitePrefix $siteName) }}/" class="linktext">{{ $siteName }}</a></li>
+        {{- end }}
+    </ul>
+</div>
+{{- else }}
+<form method="post" action="/admin/createsite/" class="mv5 w-80 w-70-m w-60-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <h1 class="f3 mv3 b">Create a new site</h1>
+    <div class="mv3">
+        <div><label for="siteName" class="b">Site name:</label></div>
+        <input id="siteName" name="siteName" value="{{ $.SiteName }}" class="pv1 ph2 br2 ba w-100{{ if index $.Errors `siteName` }} b--invalid-red{{ end }}" autocomplete="on" autofocus required>
+        <ul>
+            {{- range $i, $error := index $.Errors "siteName" }}
+            <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
+            {{- end }}
+        </ul>
+    </div>
+    <button type="submit" class="button ba br2 pa2 mv3 w-100">Create site</button>
+</form>
+{{- end }}

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
+<link rel="stylesheet" href="/admin/static/styles.css">
+<style>{{ stylesCSS }}</style>
+<script type="module">{{ baselineJS }}</script>
+<title>Create category</title>
+<body class="centered-body">
+<nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
+    <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
+    {{- if $.ContentSiteURL }}
+    &bull;
+    <a href="{{ $.ContentSiteURL }}" class="ma2">{{ neatenURL $.ContentSiteURL }}</a>
+    {{- end }}
+    <span class="flex-grow-1"></span>
+    {{- if hasDatabase }}
+    <a href="" class="ma2">rss reader</a>
+    <a href="" class="ma2">{{ if username }}@{{ username }}{{ else }}user{{ end }}</a>
+    <a href="/admin/logout/" class="ma2">logout</a>
+    {{- end }}
+</nav>
+{{- if containsError (index $.Errors "type") "NB-05000" "NB-05010" }}
+<ul class="mv5 w-80 w-70-m w-60-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <div class="b">Create category</div>
+    <li class="mv2 list-style-disc"><a href="/{{ join `admin` sitePrefix `createcategory` }}/?type=note" class="linktext">Create note category</a></li>
+    <li class="mv2 list-style-disc"><a href="/{{ join `admin` sitePrefix `createcategory` }}/?type=category" class="linktext">Create post category</a></li>
+</ul>
+{{- else }}
+<form method="post" action="/{{ join `admin` sitePrefix `createcategory` }}/" class="mv5 w-80 w-70-m w-60-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    {{- if eq $.Type "note" }}
+    <h1 class="f3 mv3 b">Create note category</h1>
+    {{- else if eq $.Type "post" }}
+    <h1 class="f3 mv3 b">Create post category</h1>
+    {{- end }}
+    <input type="hidden" name="type" value="{{ $.Type }}">
+    <div class="mv3">
+        <div><label for="category" class="b">Category:</label></div>
+        <input id="category" name="category" value="{{ $.Category }}" class="pv1 ph2 br2 ba w-100{{ if index $.Errors `category` }} b--invalid-red{{ end }}" autocomplete="on" required>
+        <ul>
+            {{- range $i, $error := index $.Errors "category" }}
+            <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
+            {{- end }}
+        </ul>
+    </div>
+    <div class="invalid-red">
+        {{- if eq $.Status.Code "NB-04000" }}
+        Please fix errors before continuing.
+        {{- end }}
+    </div>
+    {{- if eq $.Type "note" }}
+    <button type="submit" class="button ba br2 pa2 mv3 w-100">Create note category</button>
+    {{- else if eq $.Type "post" }}
+    <button type="submit" class="button ba br2 pa2 mv3 w-100">Create post category</button>
+    {{- end }}
+</form>
+{{- end }}

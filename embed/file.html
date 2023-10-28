@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
+<style>{{ stylesCSS }}</style>
+<script type="module">{{ baselineJS }}</script>
+{{- if le (len $.Content) 50000 }}
+<script type="module" src="/admin/static/codemirror.js"></script>
+{{- end }}
+<title>
+    {{- if or (eq (head $.Path) "") (eq (head $.Path) "") }}
+    {{ if title }}{{ title }}{{ else }}Untitled{{ end }}
+    {{- else }}
+    {{ base $.Path }}
+    {{- end }}
+</title>
+<body class="centered-body">
+<nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
+    <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
+    {{- if $.ContentSiteURL }}
+    &bull;
+    <a href="{{ $.ContentSiteURL }}" class="ma2">{{ neatenURL $.ContentSiteURL }}</a>
+    {{- end }}
+    <span class="flex-grow-1"></span>
+    {{- if hasDatabase }}
+    <a href="" class="ma2">rss reader</a>
+    <a href="" class="ma2">{{ if username }}@{{ username }}{{ else }}user{{ end }}</a>
+    <a href="/admin/logout/" class="ma2">logout</a>
+    {{- end }}
+</nav>
+{{- if and $.Status (ne $.Status.Code "NB-00000") }}
+{{- if $.Status.Success }}
+<div role="alert" class="alert-success mv2 pa2 br2 flex items-center">
+    <div>{{ safeHTML $.Status.Message }}</div>
+    <div class="flex-grow-1"></div>
+    <button class="f3 bg-transparent bn color-success o-70 hover-black" data-dismiss-alert>&times;</button>
+</div>
+{{- else if eq $.Status.Code "NB-03110" }}
+<div role="alert" class="alert-danger mv2 pa2 br2 flex items-center">
+    <div>Cannot save item, storage limit of {{ fileSizeToString $.StorageLimit }} exceeded</div>
+    <div class="flex-grow-1"></div>
+    <button class="f3 bg-transparent bn color-success o-70 hover-black" data-dismiss-alert>&times;</button>
+</div>
+{{- end }}
+{{- end }}
+{{- if hasPrefix $.Type "image" }}
+<div class="mv5 w-70 w-60-m w-50-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <h3 class="f3 mv2 tc b">image file</h3>
+    <div class="mv2 tc">image file</div>
+</div>
+{{- else if hasPrefix $.Type "font" "gzip" }}
+<div class="mv5 w-70 w-60-m w-50-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <h3 class="f3 mv2 tc b">cannot display this file</h3>
+    <div class="mv2 tc">choose to <a href="" class="linktext">download</a> it instead.</div>
+</div>
+{{- else if hasPrefix $.Type "text" }}
+{{ $parentDir := dir $.Path }}
+{{ $head := head $.Path }}
+{{ $readOnly := and (eq (head $.Path) "output") (ne (head (tail $.Path)) "themes") (ne (head (tail $.Path)) "images") }}
+<div>
+    {{- if and referer (ne $.Status.Code "NB-00060") }}
+    <a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a>
+    <span>&boxv;</span>
+    {{- end }}
+    <a href="/{{ join `admin` sitePrefix }}/" class="linktext">admin</a>
+    <span>&boxv;</span>
+    <a href="/{{ join `admin` sitePrefix $head }}/" class="linktext">{{ $head }}</a>
+    {{- if ne $parentDir $head }}
+    <span>&boxv;</span>
+    <a href="/{{ join `admin` sitePrefix $parentDir }}/" class="linktext">{{ base $parentDir }}</a>
+    {{- end }}
+</div>
+<div class="mv2">
+    <label for="content" class="b">{{ base $.Path }}</label>
+    {{- if not $readOnly }}
+    <a href="" class="f6 mh2 linktext">rename</a>
+    {{- end }}
+</div>
+{{- if $readOnly }}
+<div class="ba br2">
+    <pre class="w-100 pa2 pa3-m min-h5 h6 resize-vertical ma0" style="white-space: pre-wrap; overflow-wrap: break-word;">{{ $.Content }}</pre>
+</div>
+{{- else }}
+<form method="post" enctype="multipart/form-data" class="mv1">
+    <div class="flex mv2">
+        <label for="content" class="b">Content:</label>
+        <div class="flex-grow-1"></div>
+        <button id="bottom" type="submit" class="button ba br2">Save</button>
+    </div>
+    <ul>
+        {{- range $error := index $.Errors "content" }}
+        <li class="invalid-red list-style-disc">{{ $error }}</li>
+        {{- end }}
+    </ul>
+    <div data-codemirror="{{ base $.Type }}">
+        <textarea id="content" name="content" dir="auto" class="w-100 pa2 min-h5 h6 resize-vertical code" autofocus>{{ $.Content }}</textarea>
+    </div>
+    <button id="bottom" type="submit" class="button ba br2 pa2 mv2 w-100">Save</button>
+</form>
+{{- end }}
+{{- else }}
+<div class="mv5 w-70 w-60-m w-50-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <h3 class="f3 mv2 tc b">cannot display this file</h3>
+    <div class="mv2 tc">unknown file type</div>
+</div>
+{{- end }}

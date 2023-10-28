@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
+<style>{{ stylesCSS }}</style>
+<script type="module">{{ baselineJS }}</script>
+<script type="module" src="/admin/static/codemirror.js"></script>
+<title>Create file</title>
+<body class="centered-body">
+<nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
+    <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
+    {{- if $.ContentSiteURL }}
+    &bull;
+    <a href="{{ $.ContentSiteURL }}" class="ma2">{{ neatenURL $.ContentSiteURL }}</a>
+    {{- end }}
+    <span class="flex-grow-1"></span>
+    {{- if hasDatabase }}
+    <a href="" class="ma2">rss reader</a>
+    <a href="" class="ma2">{{ if username }}@{{ username }}{{ else }}user{{ end }}</a>
+    <a href="/admin/logout/" class="ma2">logout</a>
+    {{- end }}
+</nav>
+{{- if containsError (index $.Errors "parentFolder") "NB-05000" "NB-05010" }}
+<div class="mv5 w-80 w-70-m w-60-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <div class="mv3 b tc">Can't create a file here.</div>
+</div>
+{{- else if containsError (index $.Errors "ext") "NB-05000" "NB-05010" }}
+<ul class="mv5 w-80 w-70-m w-60-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <div class="b">Create file</div>
+    <li class="mv2 list-style-disc"><a href="/{{ join `admin` sitePrefix `createfile` }}/?parent={{ $.ParentFolder}}&ext=html" class="linktext">Create html template</a></li>
+    <li class="mv2 list-style-disc"><a href="/{{ join `admin` sitePrefix `createfile` }}/?parent={{ $.ParentFolder}}&ext=css" class="linktext">Create css file</a></li>
+    <li class="mv2 list-style-disc"><a href="/{{ join `admin` sitePrefix `createfile` }}/?parent={{ $.ParentFolder}}&ext=js" class="linktext">Create js file</a></li>
+{{- else }}
+<div class="mv2">
+    {{- if referer }}
+    <a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a>
+    <span>&boxv;</span>
+    {{- end }}
+    <a href="/{{ join `admin` sitePrefix }}/" class="linktext">admin</a>
+    <span>&boxv;</span>
+    <a href="/{{ join `admin` sitePrefix `output/themes` }}/" class="linktext">themes</a>
+    {{- if ne $.ParentFolder "output/themes" }}
+    <span>&boxv;</span>
+    <a href="/{{ join `admin` sitePrefix $.ParentFolder }}/" class="linktext">{{ base $.ParentFolder }}</a>
+    {{- end }}
+</div>
+{{- if eq $.Ext "html" }}
+<h1 class="f3 mv2 b">Create HTML template</h1>
+{{- else if eq $.Ext "css" }}
+<h1 class="f3 mv2 b">Create CSS file</h1>
+{{- else if eq $.Ext "js" }}
+<h1 class="f3 mv2 b">Create JavaScript file</h1>
+{{- else }}
+<h1 class="f3 mv2 b">Create file</h1>
+{{- end }}
+<form method="post" enctype="multipart/form-data" action="/{{ join `admin` sitePrefix `createfile` }}/">
+    <input type="hidden" name="parentFolder" value="{{ $.ParentFolder }}">
+    <input type="hidden" name="ext" value="{{ $.Ext }}">
+    <div class="mv2">
+        <div><label for="name" class="b">Name:</label></div>
+        <div class="flex items-center">
+            <input id="name" name="name" value="{{ $.Name }}" class="pv1 ph2 br2 ba flex-grow-1{{ if index $.Errors `category` }} b--invalid-red{{ end }}" autofocus required>
+            <span class="mh1">.{{ $.Ext }}</span>
+        </div>
+        <ul>
+            {{- range $i, $error := index $.Errors "name" }}
+            <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
+            {{- end }}
+        </ul>
+    </div>
+    <div class="mv2">
+        <div class="flex mv2">
+            <label for="content" class="b">Content:</label>
+            <div class="flex-grow-1"></div>
+            <button id="bottom" type="submit" class="button ba br2">Create file</button>
+        </div>
+        <ul>
+            {{- range $i, $error := index $.Errors "content" }}
+            <li class="f6 invalid-red list-style-disc">{{ $error }}</li>
+            {{- end }}
+        </ul>
+        <div data-codemirror="{{ if eq $.Ext `html` }}html{{ else if eq $.Ext `css` }}css{{ else if eq $.Ext `js` }}javascript{{ end }}">
+            <textarea id="content" name="content" dir="auto" class="w-100 pa2 min-h5 h6 resize-vertical code">{{ $.Content }}</textarea>
+        </div>
+    </div>
+    <button type="submit" class="button ba br2 pa2 mv2 w-100">Create file</button>
+</form>
+{{- end }}

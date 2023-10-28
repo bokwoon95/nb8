@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
+<style>{{ stylesCSS }}</style>
+<script type="module">{{ baselineJS }}</script>
+<title>Delete site</title>
+<body class="centered-body">
+<nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
+    <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
+    <span class="flex-grow-1"></span>
+    {{- if hasDatabase }}
+    <a href="" class="ma2">rss reader</a>
+    <a href="" class="ma2">{{ if username }}@{{ username }}{{ else }}user{{ end }}</a>
+    <a href="/admin/logout/" class="ma2">logout</a>
+    {{- end }}
+</nav>
+{{- if eq $.Status.Code "NB-04119" "NB-04120" "NB-04140" "NB-99403" }}
+<div class="mv5 w-80 w-70-m w-60-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <h3 class="mv3 b">No site to delete</h3>
+</div>
+{{- else if eq $.Status.Code "NB-04130" }}
+<div class="mv5 w-80 w-70-m w-60-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <h3 class="mv3 b">Cannot delete {{ $.SiteName }} because it is a user.</h3>
+</div>
+{{- else if not $.Status.Success }}
+<div class="mv5 w-80 w-70-m w-60-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <div class="mv3 b">{{ $.Status }}</div>
+</div>
+{{- else }}
+<form method="post" class="mv5 w-80 w-70-m w-60-l center">
+    {{- if referer }}
+    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    {{- end }}
+    <h3 class="mv3 b">Are you sure you wish to delete the site <a href="/admin/{{ toSitePrefix $.SiteName }}/" class="linktext">{{ $.SiteName }}</a>?</h3>
+    <div>This action is permanent and cannot be undone. All files within the site will be deleted.</div>
+    <input type="hidden" name="siteName" value="{{ $.SiteName }}">
+    <button type="submit" class="button-danger ba br2 b--dark-red pa2 mv3">Delete site ({{ $.SiteName }})</button>
+</form>
+{{- end }}

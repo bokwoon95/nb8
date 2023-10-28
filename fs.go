@@ -97,9 +97,6 @@ func (fsys *LocalFS) WithContext(ctx context.Context) FS {
 	// think it's fine to ignore context since that's what the default *os.File
 	// does, but if it proves necessary we can add the file wrappers around
 	// *os.File that respect context (only if it proves necessary).
-	_ = os.WriteFile
-	_ = os.ReadDir
-	_ = os.Mkdir
 	return &LocalFS{
 		rootDir: fsys.rootDir,
 		tempDir: fsys.tempDir,

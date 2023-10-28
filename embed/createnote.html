@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
+<style>{{ stylesCSS }}</style>
+<script type="module">{{ baselineJS }}</script>
+<script type="module" src="/admin/static/codemirror.js"></script>
+<title>Create note</title>
+<body class="centered-body">
+<nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
+    <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
+    {{- if $.ContentSiteURL }}
+    &bull;
+    <a href="{{ $.ContentSiteURL }}" class="ma2">{{ neatenURL $.ContentSiteURL }}</a>
+    {{- end }}
+    <span class="flex-grow-1"></span>
+    {{- if hasDatabase }}
+    <a href="" class="ma2">rss reader</a>
+    <a href="" class="ma2">{{ if username }}@{{ username }}{{ else }}user{{ end }}</a>
+    <a href="/admin/logout/" class="ma2">logout</a>
+    {{- end }}
+</nav>
+{{- if and $.Status (ne $.Status.Code "NB-00000") }}
+{{- if $.Status.Success }}
+<div role="alert" class="alert-success mv2 pa2 br2 flex items-center">
+    <div>{{ safeHTML $.Status.Message }}</div>
+    <div class="flex-grow-1"></div>
+    <button class="f3 bg-transparent bn color-success o-70 hover-black" data-dismiss-alert>&times;</button>
+</div>
+{{- else }}
+<div role="alert" class="alert-danger mv2 pa2 br2 flex items-center">
+    <div>{{ safeHTML $.Status.Message }}</div>
+    <div class="flex-grow-1"></div>
+    <button class="f3 bg-transparent bn color-success o-70 hover-black" data-dismiss-alert>&times;</button>
+</div>
+{{- end }}
+{{- end }}
+<div class="mv2">
+    {{- if referer }}
+    <a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a>
+    <span>&boxv;</span>
+    {{- end }}
+    <a href="/{{ join `admin` sitePrefix }}/" class="linktext">admin</a>
+    <span>&boxv;</span>
+    <a href="/{{ join `admin` sitePrefix `notes` }}/" class="linktext">notes</a>
+    {{- range $category := $.Categories }}
+    {{- if eq $category $.Category }}
+    <span>&boxv;</span>
+    <a href="/{{ join `admin` sitePrefix `notes` $.Category }}/" class="linktext">{{ $.Category }}</a>
+    {{- break }}
+    {{- end }}
+    {{- end }}
+</div>
+<h1 class="f3 mv2 b">Create note</h1>
+<form method="post" enctype="multipart/form-data" action="/{{ join `admin` sitePrefix `createnote` }}/">
+    <div class="mv2">
+        <div><label for="slug" class="b">Note slug (optional):</label></div>
+        <input id="slug" name="slug" value="" class="pv1 ph2 br2 ba w-100">
+        <details>
+            <summary class="f6">
+                What is a note slug?
+            </summary>
+            <fieldset class="ba b--moon-gray br3 pa2 near-black bg-white word-break">
+                <p>A note slug is the ending part of a URL that describes the note in a few words. Some examples:</p>
+                <ul class="ph3">
+                    <li>this is the note slug &rarr; <code>https://example.com/notes/this-is-the-note-slug/</code></li>
+                    <li>my day trip to hokkaido &rarr; <code>https://example.com/notes/my-day-trip-to-hokkaido/</code></li>
+                </ul>
+                <p>If a note slug is not explicitly provided, the title of the note (the first line) will be used as the slug.</p>
+            </fieldset>
+        </details>
+    </div>
+    <div class="mv2">
+        <div><label for="category" class="b">Category</label></div>
+        <select id="category" name="category" class="pv1 br2 ba w-100{{ if index $.Errors `category` }} b--invalid-red{{ end }}">
+            <option value="">&lt;default&gt;</option>
+            {{- range $category := $.Categories }}
+            <option value="{{ $category }}"{{ if eq $category $.Category }} selected{{ end }}>{{ $category }}</option>
+            {{- end }}
+        </select>
+        <ul>
+            {{- range $i, $error := index $.Errors "category" }}
+            <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
+            {{- end }}
+        </ul>
+        <div class="f6"><a href="/{{ join `admin` sitePrefix `createcategory` }}/?type=note" class="linktext">&plus; create category</a></div>
+    </div>
+    <div class="mv2">
+        <div class="flex mv2">
+            <label for="content" class="b">Content:</label>
+            <div class="flex-grow-1"></div>
+            <button id="bottom" type="submit" class="button ba br2">Create note</button>
+        </div>
+        <div data-codemirror="markdown">
+            <textarea id="content" name="content" dir="auto" class="w-100 pa2 min-h5 h6 resize-vertical code" autofocus>{{ $.Content }}</textarea>
+        </div>
+    </div>
+    <button type="submit" class="button ba br2 pa2 mv2 w-100">Create note</button>
+</form>
