@@ -1111,6 +1111,22 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	return nil
 }
 
+func (fsys *RemoteFS) ReadDirByName(name string, before, after string, limit int) ([]fs.DirEntry, error) {
+	return nil, nil
+}
+
+func (fsys *RemoteFS) ReadDirByUpdated(name string, before, after time.Time, limit int) ([]fs.DirEntry, error) {
+	return nil, nil
+}
+
+func (fsys *RemoteFS) ReadDirByCreated(name string, before, after time.Time, limit int) ([]fs.DirEntry, error) {
+	return nil, nil
+}
+
+func (fsys *RemoteFS) ReadDirBySize(name string, before, after int64, limit int) ([]fs.DirEntry, error) {
+	return nil, nil
+}
+
 // attribute=name|updated|created|size
 // start=<timestamp>|<name>
 // func (fsys *RemoteFS) PaginateDir(name string, attribute, before, after string, limit int) ([]fs.DirEntry, error) {
@@ -1379,18 +1395,6 @@ func GetSize(fsys fs.FS, root string) (int64, error) {
 // No pages I'm afraid. Only keyset pagination, which means you can just to the start or jump to the end very quickly (by ordering asc or desc) but not in the middle.
 // for sort=name, v is just the base name (not full path). then on the server side we just assemble the full path using join(sitePrefix, parentDir, v)
 // v is matched using greater or equal >=. Whenever we show 1000 items, we always fetch 1000+1 items. The +1 item is not show on the page, but its presence indicates that there is a next page (the template uses this to display the next button conditionally) and the item's name is used as v for the next button.
-
-// Open(name string) (fs.File, error)
-// OpenReaderFrom(name string, perm fs.FileMode) (io.ReaderFrom, error)
-// ReadDir(name string) ([]fs.DirEntry, error)
-// Mkdir(name string, perm fs.FileMode) error
-// Remove(name string) error
-// Rename(oldname, newname string) error
-// RemoveAll
-// MkdirAll
-// WalkDir
-// (fs.FileInfo).GetSize()
-// (fs.DirEntry).GetSize()
 
 type Storage interface {
 	Get(ctx context.Context, key string) (io.ReadCloser, error)
