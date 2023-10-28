@@ -37,7 +37,5 @@ type Notebrew struct {
 	// implementation is provided, ErrorCode returns an empty string.
 	ErrorCode func(error) string
 
-	// FTS *FTS
-
 	Logger *slog.Logger
 }

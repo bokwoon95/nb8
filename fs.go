@@ -1109,6 +1109,18 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	return nil
 }
 
+// If ReadDirByX() method exists, then call it
+// Else, call ReadDir() as usual
+// For both cases, preallocate a separate slice of identical capacity (with len 0) and accumulate all folders into it
+// Sort the folders slice in alphabetical ascending order (unconditionally)
+// Then do an in-place filter on the old slice removing all folders leaving behind only files
+// If we called ReadDir() just now, do the file sorting now using sort and order params
+// Then append the files behind the folders in the folders slice and return that slice (files always trail folders)
+// If we called PaginateDir, lop off the last item and set it as the next item id
+// Build the query string for the [next] link
+// TODO: but what about the [previous] link? What's the value of from? 🤔
+// "from" change to "after", also add "before"
+
 func (fsys *RemoteFS) ReadDirByName(name string, before, after string, limit int) ([]fs.DirEntry, error) {
 	return nil, nil
 }
@@ -1125,27 +1137,8 @@ func (fsys *RemoteFS) ReadDirBySize(name string, before, after int64, limit int)
 	return nil, nil
 }
 
-// attribute=name|updated|created|size
-// start=<timestamp>|<name>
-// func (fsys *RemoteFS) PaginateDir(name string, attribute, before, after string, limit int) ([]fs.DirEntry, error) {
-// 	// what's the most generic way of representing some field to sort by, as well as the possible start value for it?
-// 	// ascending bool
-// 	// sort=name,updated,created&order=asc,desc&from=2023&limit=1000
-// 	// SELECT * FROM files WHERE parent_id = {parentID} AND file_path >= abc ORDER BY file_path ASC LIMIT 1000
-// 	// SELECT * FROM files WHERE parent_id = {parentID} AND file_path <= abc ORDER BY file_path DESC LIMIT 1000
-// 	return nil, nil
-// }
-// If PaginateDir() method exists, then call it
-// Else, call ReadDir() as usual
-// For both cases, preallocate a separate slice of identical capacity (with len 0) and accumulate all folders into it
-// Sort the folders slice in alphabetical ascending order (unconditionally)
-// Then do an in-place filter on the old slice removing all folders leaving behind only files
-// If we called ReadDir() just now, do the file sorting now using sort and order params
-// Then append the files behind the folders in the folders slice and return that slice (files always trail folders)
-// If we called PaginateDir, lop off the last item and set it as the next item id
-// Build the query string for the [next] link
-// TODO: but what about the [previous] link? What's the value of from? 🤔
-// "from" change to "after", also add "before"
+func (fsys *RemoteFS) Match(name string) /* what return? */ {
+}
 
 func (fsys *RemoteFS) GetSize(name string) (int64, error) {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
