@@ -835,12 +835,11 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 	if name == "." {
 		return nil
 	}
-	// Begin transaction.
-	tx, err := fsys.db.Begin()
+	conn, err := fsys.db.Conn(fsys.ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer conn.Close()
 	// Insert the top level directory (no parent), ignoring duplicates.
 	segments := strings.Split(name, "/")
 	query := sq.CustomQuery{
@@ -861,7 +860,7 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 	case "mysql":
 		query = query.Append("ON DUPLICATE KEY UPDATE file_id = file_id")
 	}
-	_, err = sq.ExecContext(fsys.ctx, tx, query)
+	_, err = sq.ExecContext(fsys.ctx, conn, query)
 	if err != nil {
 		return err
 	}
@@ -886,7 +885,7 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 		case "mysql":
 			query = query.Append("ON DUPLICATE KEY UPDATE file_id = file_id")
 		}
-		preparedExec, err := sq.PrepareExecContext(fsys.ctx, tx, query)
+		preparedExec, err := sq.PrepareExecContext(fsys.ctx, conn, query)
 		if err != nil {
 			return err
 		}
@@ -905,8 +904,7 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 			}
 		}
 	}
-	// Commit transaction.
-	err = tx.Commit()
+	err = conn.Close()
 	if err != nil {
 		return err
 	}
