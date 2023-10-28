@@ -845,8 +845,8 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 	segments := strings.Split(name, "/")
 	query := sq.CustomQuery{
 		Dialect: fsys.dialect,
-		Format: "INSERT INTO files (file_id, parent_id, file_path, is_dir, mod_time, perm)" +
-			" VALUES ({fileID}, NULL, {filePath}, {isDir}, {modTime}, {perm})",
+		Format: "INSERT INTO files (file_id, file_path, is_dir, mod_time, perm)" +
+			" VALUES ({fileID}, {filePath}, {isDir}, {modTime}, {perm})",
 		Values: []any{
 			sq.UUIDParam("fileID", NewID()),
 			sq.StringParam("filePath", segments[0]),
