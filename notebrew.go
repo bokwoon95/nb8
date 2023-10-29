@@ -1,24 +1,41 @@
 package nb8
 
 import (
+	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"embed"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
+	"html/template"
+	"io"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/netip"
 	"strings"
+	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/bokwoon95/sq"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -220,4 +237,358 @@ func getAuthenticationTokenHash(r *http.Request) []byte {
 	copy(authenticationTokenHash[:8], authenticationToken[:8])
 	copy(authenticationTokenHash[8:], checksum[:])
 	return authenticationTokenHash[:]
+}
+
+var base32Encoding = base32.NewEncoding("0123456789abcdefghjkmnpqrstvwxyz").WithPadding(base32.NoPadding)
+
+var goldmarkMarkdown = func() goldmark.Markdown {
+	md := goldmark.New()
+	md.Parser().AddOptions(parser.WithAttribute())
+	extension.Table.Extend(md)
+	return md
+}()
+
+func stripMarkdownStyles(src []byte) string {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+	var node ast.Node
+	nodes := []ast.Node{
+		goldmarkMarkdown.Parser().Parse(text.NewReader(src)),
+	}
+	for len(nodes) > 0 {
+		node, nodes = nodes[len(nodes)-1], nodes[:len(nodes)-1]
+		if node == nil {
+			continue
+		}
+		switch node := node.(type) {
+		case *ast.Text:
+			buf.Write(node.Text(src))
+		}
+		nodes = append(nodes, node.NextSibling(), node.FirstChild())
+	}
+	// Manually escape backslashes (goldmark may be able to do this,
+	// investigate).
+	var b strings.Builder
+	str := buf.String()
+	// Jump to the location of each backslash found in the string.
+	for i := strings.IndexByte(str, '\\'); i >= 0; i = strings.IndexByte(str, '\\') {
+		b.WriteString(str[:i])
+		if i == len(str)-1 {
+			break
+		}
+		char, width := utf8.DecodeRuneInString(str[i+1:])
+		b.WriteRune(char)
+		str = str[i+1+width:]
+	}
+	b.WriteString(str)
+	return b.String()
+}
+
+var isForbiddenChar = []bool{
+	' ': true, '!': true, '"': true, '#': true, '$': true, '%': true, '&': true, '\'': true,
+	'(': true, ')': true, '*': true, '+': true, ',': true, '/': true, ':': true, ';': true,
+	'<': true, '>': true, '=': true, '?': true, '[': true, ']': true, '\\': true, '^': true,
+	'`': true, '{': true, '}': true, '|': true, '~': true,
+}
+
+func urlSafe(s string) string {
+	s = strings.TrimSpace(s)
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, char := range s {
+		if utf8.RuneCountInString(b.String()) >= 80 {
+			break
+		}
+		if char == ' ' {
+			b.WriteRune('-')
+			continue
+		}
+		if char == '-' || (char >= '0' && char <= '9') || (char >= 'a' && char <= 'z') {
+			b.WriteRune(char)
+			continue
+		}
+		if char >= 'A' && char <= 'Z' {
+			b.WriteRune(unicode.ToLower(char))
+			continue
+		}
+		n := int(char)
+		if n < len(isForbiddenChar) && isForbiddenChar[n] {
+			continue
+		}
+		b.WriteRune(char)
+	}
+	return strings.Trim(b.String(), ".")
+}
+
+func getHost(r *http.Request) string {
+	if r.Host == "127.0.0.1" {
+		return "localhost"
+	}
+	if strings.HasPrefix(r.Host, "127.0.0.1:") {
+		return "localhost" + strings.TrimPrefix(r.Host, "127.0.0.1:")
+	}
+	return r.Host
+}
+
+var (
+	commonPasswordHashes = make(map[string]struct{})
+	stylesCSS            string
+	stylesCSSHash        string
+	baselineJS           string
+	baselineJSHash       string
+	folderJS             string
+	folderJSHash         string
+)
+
+func init() {
+	// top-10000-passwords.txt
+	file, err := rootFS.Open("embed/top-10000-passwords.txt")
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	reader := bufio.NewReader(file)
+	done := false
+	for {
+		if done {
+			break
+		}
+		line, err := reader.ReadBytes('\n')
+		done = err == io.EOF
+		if err != nil && !done {
+			panic(err)
+		}
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		hash := blake2b.Sum256([]byte(line))
+		encodedHash := hex.EncodeToString(hash[:])
+		commonPasswordHashes[encodedHash] = struct{}{}
+	}
+	// styles.css
+	b, err := fs.ReadFile(rootFS, "static/styles.css")
+	if err != nil {
+		return
+	}
+	hash := sha256.Sum256(b)
+	stylesCSS = string(b)
+	stylesCSSHash = "'sha256-" + base64.StdEncoding.EncodeToString(hash[:]) + "'"
+	// baseline.js
+	b, err = fs.ReadFile(rootFS, "static/baseline.js")
+	if err != nil {
+		return
+	}
+	hash = sha256.Sum256(b)
+	baselineJS = string(b)
+	baselineJSHash = "'sha256-" + base64.StdEncoding.EncodeToString(hash[:]) + "'"
+	// folder.js
+	b, err = fs.ReadFile(rootFS, "static/folder.js")
+	if err != nil {
+		return
+	}
+	hash = sha256.Sum256(b)
+	folderJS = string(b)
+	folderJSHash = "'sha256-" + base64.StdEncoding.EncodeToString(hash[:]) + "'"
+}
+
+func IsCommonPassword(password []byte) bool {
+	hash := blake2b.Sum256(password)
+	encodedHash := hex.EncodeToString(hash[:])
+	_, ok := commonPasswordHashes[encodedHash]
+	return ok
+}
+
+func getIP(r *http.Request) string {
+	// Get IP from the X-REAL-IP header
+	ip := r.Header.Get("X-REAL-IP")
+	_, err := netip.ParseAddr(ip)
+	if err == nil {
+		return ip
+	}
+	// Get IP from X-FORWARDED-FOR header
+	ips := r.Header.Get("X-FORWARDED-FOR")
+	splitIps := strings.Split(ips, ",")
+	for _, ip := range splitIps {
+		_, err = netip.ParseAddr(ip)
+		if err == nil {
+			return ip
+		}
+	}
+	// Get IP from RemoteAddr
+	ip, _, err = net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return ""
+	}
+	_, err = netip.ParseAddr(ip)
+	if err == nil {
+		return ip
+	}
+	return ""
+}
+
+func fileSizeToString(size int64) string {
+	// https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
+	if size < 0 {
+		return ""
+	}
+	const unit = 1000
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "kMGTPE"[exp])
+}
+
+func contentSiteURL(nbrew *Notebrew, sitePrefix string) string {
+	if strings.Contains(sitePrefix, ".") {
+		return "https://" + sitePrefix + "/"
+	}
+	if sitePrefix != "" {
+		switch nbrew.MultisiteMode {
+		case "subdomain":
+			return nbrew.Scheme + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.ContentDomain + "/"
+		case "subdirectory":
+			return nbrew.Scheme + nbrew.ContentDomain + "/" + sitePrefix + "/"
+		default:
+			return ""
+		}
+	}
+	return nbrew.Scheme + nbrew.ContentDomain + "/"
+}
+
+func neatenURL(s string) string {
+	if strings.HasPrefix(s, "https://") {
+		return strings.TrimSuffix(strings.TrimPrefix(s, "https://"), "/")
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(s, "http://"), "/")
+}
+
+var gzipPool = sync.Pool{
+	New: func() any {
+		// Use compression level 4 for best balance between space and
+		// performance.
+		// https://blog.klauspost.com/gzip-performance-for-go-webservers/
+		gzipWriter, _ := gzip.NewWriterLevel(nil, 4)
+		return gzipWriter
+	},
+}
+
+var hashPool = sync.Pool{
+	New: func() any {
+		hash, err := blake2b.New256(nil)
+		if err != nil {
+			panic(err)
+		}
+		return hash
+	},
+}
+
+var bytesPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, 0, 64)
+		return &b
+	},
+}
+
+func executeTemplate(w http.ResponseWriter, r *http.Request, modtime time.Time, tmpl *template.Template, data any) {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	hasher := hashPool.Get().(hash.Hash)
+	hasher.Reset()
+	defer hashPool.Put(hasher)
+
+	multiWriter := io.MultiWriter(buf, hasher)
+	gzipWriter := gzipPool.Get().(*gzip.Writer)
+	gzipWriter.Reset(multiWriter)
+	defer gzipPool.Put(gzipWriter)
+
+	err := tmpl.Execute(gzipWriter, data)
+	if err != nil {
+		getLogger(r.Context()).Error(err.Error(), slog.String("data", fmt.Sprintf("%#v", data)))
+		internalServerError(w, r, err)
+		return
+	}
+	err = gzipWriter.Close()
+	if err != nil {
+		getLogger(r.Context()).Error(err.Error())
+		internalServerError(w, r, err)
+		return
+	}
+
+	src := bytesPool.Get().(*[]byte)
+	*src = (*src)[:0]
+	defer bytesPool.Put(src)
+
+	dst := bytesPool.Get().(*[]byte)
+	*dst = (*dst)[:0]
+	defer bytesPool.Put(dst)
+
+	*src = hasher.Sum(*src)
+	encodedLen := hex.EncodedLen(len(*src))
+	if cap(*dst) < encodedLen {
+		*dst = make([]byte, encodedLen)
+	}
+	*dst = (*dst)[:encodedLen]
+	hex.Encode(*dst, *src)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Encoding", "gzip")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("ETag", `"`+string(*dst)+`"`)
+	http.ServeContent(w, r, "", modtime, bytes.NewReader(buf.Bytes()))
+}
+
+func contentSecurityPolicy(w http.ResponseWriter, cdnBaseURL string, allowCaptcha bool) {
+	var b strings.Builder
+	// default-src
+	b.WriteString("default-src 'none';")
+	// script-src
+	b.WriteString(" script-src 'self' 'unsafe-hashes' " + baselineJSHash + " " + folderJSHash)
+	if cdnBaseURL != "" {
+		b.WriteString(" " + cdnBaseURL)
+	}
+	if allowCaptcha {
+		b.WriteString(" https://hcaptcha.com https://*.hcaptcha.com")
+	}
+	b.WriteString(";")
+	// connect-src
+	b.WriteString(" connect-src 'self'")
+	if allowCaptcha {
+		b.WriteString(" https://hcaptcha.com https://*.hcaptcha.com")
+	}
+	b.WriteString(";")
+	// img-src
+	b.WriteString(" img-src 'self' data:")
+	if cdnBaseURL != "" {
+		b.WriteString(" " + cdnBaseURL)
+	}
+	b.WriteString(";")
+	// style-src
+	b.WriteString(" style-src 'self' 'unsafe-inline'")
+	if cdnBaseURL != "" {
+		b.WriteString(" " + cdnBaseURL)
+	}
+	if allowCaptcha {
+		b.WriteString(" https://hcaptcha.com https://*.hcaptcha.com")
+	}
+	b.WriteString(";")
+	// base-uri
+	b.WriteString(" base-uri 'self';")
+	// form-action
+	b.WriteString(" form-action 'self';")
+	// manifest-src
+	b.WriteString(" manifest-src 'self';")
+	// frame-src
+	if allowCaptcha {
+		b.WriteString(" frame-src https://hcaptcha.com https://*.hcaptcha.com;")
+	}
+	w.Header().Set("Content-Security-Policy", b.String())
 }

@@ -33,8 +33,10 @@ for (const element of document.querySelectorAll("[data-dismiss-alert]")) {
     });
 }
 
-const element = document.querySelector("[data-go-back]");
-if (element && element.tagName == "A") {
+for (const element of document.querySelectorAll("[data-go-back]")) {
+    if (element.tagName != "A") {
+        continue;
+    }
     element.addEventListener("click", function(event) {
         if (document.referrer && history.length > 2 && !event.ctrlKey && !event.metaKey) {
             event.preventDefault();
