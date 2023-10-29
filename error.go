@@ -18,9 +18,24 @@ type Error string
 
 const (
 	// Class 00 - Success
-	Success = Error("NB-00000 success")
+	Success       = Error("NB-00000 success")
+	SignupSuccess = Error("NB-00010 signup success")
 
 	// Class 03 - General
+	ErrAlreadyAuthenticated   = Error("NB-03000 already authenticated")
+	ErrSignupsNotOpen         = Error("NB-03001 signups are not open")
+	ErrInvalidToken           = Error("NB-03002 invalid token")
+	ErrRetryWithCaptcha       = Error("NB-03003 retry with captcha")
+	ErrCaptchaChallengeFailed = Error("NB-03004 captcha challenge failed")
+	ErrRequired               = Error("NB-03005 required")
+	ErrForbiddenCharacters    = Error("NB-03006 forbidden characters")
+	ErrUnavailable            = Error("NB-03007 unavailable")
+	ErrInvalidEmail           = Error("NB-03008 invalid email")
+	ErrEmailAlreadyUsed       = Error("NB-03009 email already used by an existing user account")
+	ErrTooShort               = Error("NB-03010 too short")
+	ErrPasswordTooCommon      = Error("NB-03011 password too common")
+	ErrPasswordNotMatch       = Error("NB-03012 password does not match")
+	ErrValidationFailed       = Error("NB-03013 validation failed")
 
 	// Class 99 - HTTP equivalent
 	ErrBadRequest           = Error("NB-99400 bad request")

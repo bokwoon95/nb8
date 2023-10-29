@@ -18,11 +18,11 @@
 <div class="mv5 w-80 w-70-m w-60-l center">
     <div class="f4 tc">You are already logged in, <a href="/admin/" class="linktext">click here.</a></div>
 </div>
-{{- else if eq $.Status.Code "NB-03010" }}
+{{- else if eq $.Status.Code "NB-03001" }}
 <div class="mv5 w-80 w-70-m w-60-l center">
     <div class="f3 mb4 b tc">Signups are currently invite-only</div>
 </div>
-{{- else if eq $.Status.Code "NB-03020" }}
+{{- else if eq $.Status.Code "NB-03002" }}
 {{- if isInviteLink }}
 <div class="mv5 w-80 w-70-m w-60-l center">
     <div class="f3 mb4 b">Invalid invite link</div>
