@@ -9,6 +9,7 @@ require (
 	github.com/aws/smithy-go v1.15.0
 	github.com/bokwoon95/sq v0.4.4
 	github.com/bokwoon95/sqddl v0.4.6
+	github.com/yuin/goldmark v1.4.13
 	golang.org/x/crypto v0.9.0
 	golang.org/x/sync v0.2.0
 )

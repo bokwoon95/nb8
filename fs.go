@@ -19,12 +19,18 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
 	"github.com/bokwoon95/sq"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -449,18 +455,6 @@ type RemoteFileWriter struct {
 	storageWritten int
 	storageResult  chan error
 	writeFailed    bool
-}
-
-func NewID() [16]byte {
-	var timestamp [8]byte
-	binary.BigEndian.PutUint64(timestamp[:], uint64(time.Now().Unix()))
-	var id [16]byte
-	copy(id[:5], timestamp[len(timestamp)-5:])
-	_, err := rand.Read(id[5:])
-	if err != nil {
-		panic(err)
-	}
-	return id
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
@@ -1532,6 +1526,18 @@ func (fsys *LocalFS) Delete(ctx context.Context, key string) error {
 	return fsys.Remove(key)
 }
 
+func NewID() [16]byte {
+	var timestamp [8]byte
+	binary.BigEndian.PutUint64(timestamp[:], uint64(time.Now().Unix()))
+	var id [16]byte
+	copy(id[:5], timestamp[len(timestamp)-5:])
+	_, err := rand.Read(id[5:])
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 func IsKeyViolation(dialect string, errcode string) bool {
 	switch dialect {
 	case "sqlite":
@@ -1560,4 +1566,46 @@ func IsForeignKeyViolation(dialect string, errcode string) bool {
 	default:
 		return false
 	}
+}
+
+var goldmarkMarkdown = func() goldmark.Markdown {
+	md := goldmark.New()
+	md.Parser().AddOptions(parser.WithAttribute())
+	extension.Table.Extend(md)
+	return md
+}()
+
+func stripMarkdownStyles(src []byte) string {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+	var node ast.Node
+	nodes := []ast.Node{goldmarkMarkdown.Parser().Parse(text.NewReader(src))}
+	for len(nodes) > 0 {
+		node, nodes = nodes[len(nodes)-1], nodes[:len(nodes)-1]
+		if node == nil {
+			continue
+		}
+		switch node := node.(type) {
+		case *ast.Text:
+			buf.Write(node.Text(src))
+		}
+		nodes = append(nodes, node.NextSibling(), node.FirstChild())
+	}
+	// Manually escape backslashes (goldmark may be able to do this,
+	// investigate).
+	var b strings.Builder
+	str := buf.String()
+	// Jump to the location of each backslash found in the string.
+	for i := strings.IndexByte(str, '\\'); i >= 0; i = strings.IndexByte(str, '\\') {
+		b.WriteString(str[:i])
+		if i == len(str)-1 {
+			break
+		}
+		char, width := utf8.DecodeRuneInString(str[i+1:])
+		b.WriteRune(char)
+		str = str[i+1+width:]
+	}
+	b.WriteString(str)
+	return b.String()
 }
