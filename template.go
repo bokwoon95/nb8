@@ -1,10 +1,7 @@
 package nb8
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,14 +10,11 @@ import (
 	"io/fs"
 	"net/url"
 	"path"
-	"runtime"
 	"slices"
 	"strings"
 	"sync"
 	"text/template/parse"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 )
 
 type TemplateParser struct {
@@ -362,115 +356,9 @@ type Post struct {
 	UpdatedAt time.Time
 }
 
+// TODO: getPosts needs a revamp. It now needs to return a struct with the
+// total number of pages, the current page number plus the slices of (possibly
+// paginated) posts.
 func (nbrew *Notebrew) getPosts(ctx context.Context, sitePrefix, category string) ([]Post, error) {
-	siteURL := nbrew.Scheme + nbrew.ContentDomain
-	if strings.Contains(sitePrefix, ".") {
-		siteURL = "https://" + sitePrefix
-	} else if sitePrefix != "" {
-		switch nbrew.MultisiteMode {
-		case "subdomain":
-			siteURL = nbrew.Scheme + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.ContentDomain
-		case "subdirectory":
-			siteURL = nbrew.Scheme + nbrew.ContentDomain + "/" + sitePrefix
-		}
-	}
-	if category != urlSafe(category) {
-		return nil, fs.ErrNotExist
-	}
-	fileInfo, err := fs.Stat(nbrew.FS, path.Join(sitePrefix, "posts", category))
-	if err != nil {
-		return nil, err
-	}
-	if !fileInfo.IsDir() {
-		return nil, nil
-	}
-	dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, "posts", category))
-	if err != nil {
-		return nil, err
-	}
-	var posts []Post
-	for _, dirEntry := range dirEntries {
-		err := ctx.Err()
-		if err != nil {
-			return nil, err
-		}
-		if dirEntry.IsDir() {
-			continue
-		}
-		name := dirEntry.Name()
-		ext := path.Ext(name)
-		if ext != ".md" && ext != ".txt" {
-			continue
-		}
-		fileInfo, err := dirEntry.Info()
-		if err != nil {
-			return nil, err
-		}
-		var createdAt time.Time
-		prefix, _, ok := strings.Cut(name, "-")
-		if ok && len(prefix) > 0 && len(prefix) <= 8 {
-			b, _ := base32Encoding.DecodeString(fmt.Sprintf("%08s", prefix))
-			if len(b) == 5 {
-				var timestamp [8]byte
-				copy(timestamp[len(timestamp)-5:], b)
-				createdAt = time.Unix(int64(binary.BigEndian.Uint64(timestamp[:])), 0)
-			}
-		}
-		post := Post{
-			URL:       siteURL + "/" + path.Join("posts", category, strings.TrimSuffix(name, path.Ext(name))) + "/",
-			Category:  category,
-			Name:      name,
-			CreatedAt: createdAt,
-			UpdatedAt: fileInfo.ModTime(),
-		}
-		posts = append(posts, post)
-	}
-	slices.SortFunc(posts, func(p1, p2 Post) int {
-		if p1.CreatedAt.Equal(p2.CreatedAt) {
-			return 0
-		}
-		if p1.CreatedAt.Before(p2.CreatedAt) {
-			return 1
-		}
-		return -1
-	})
-	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(runtime.NumCPU())
-	for i := range posts {
-		post := &posts[i]
-		g.Go(func() error {
-			file, err := nbrew.FS.Open(path.Join(sitePrefix, "posts", post.Category, post.Name))
-			if err != nil {
-				return err
-			}
-			reader := bufio.NewReader(file)
-			proceed := true
-			for proceed {
-				err := ctx.Err()
-				if err != nil {
-					return err
-				}
-				line, err := reader.ReadBytes('\n')
-				if err != nil {
-					proceed = false
-				}
-				line = bytes.TrimSpace(line)
-				if len(line) == 0 {
-					continue
-				}
-				if post.Title == "" {
-					post.Title = stripMarkdownStyles(line)
-					continue
-				}
-				post.Preview = stripMarkdownStyles(line)
-				break
-			}
-			return nil
-		})
-	}
-	err = g.Wait()
-	if err != nil {
-		return nil, err
-	}
-	return posts, nil
+	return nil, nil
 }
