@@ -79,36 +79,62 @@ type FS interface {
 }
 
 type LocalFS struct {
+	ctx     context.Context
 	rootDir string
 	tempDir string
 }
 
 func NewLocalFS(rootDir, tempDir string) *LocalFS {
 	return &LocalFS{
+		ctx:     context.Background(),
 		rootDir: filepath.FromSlash(rootDir),
 		tempDir: filepath.FromSlash(tempDir),
 	}
 }
 
-func (fsys *LocalFS) String() string { return fsys.rootDir }
-
 func (fsys *LocalFS) WithContext(ctx context.Context) FS {
-	// NOTE: LocalFS does not yet respect context. For the local filesystem I
-	// think it's fine to ignore context since that's what the default *os.File
-	// does, but if it proves necessary we can add the file wrappers around
-	// *os.File that respect context (only if it proves necessary).
 	return &LocalFS{
+		ctx:     ctx,
 		rootDir: fsys.rootDir,
 		tempDir: fsys.tempDir,
 	}
 }
 
+type LocalFile struct {
+	ctx     context.Context
+	srcFile *os.File
+}
+
+func (file *LocalFile) Read(p []byte) (n int, err error) {
+	err = file.ctx.Err()
+	if err != nil {
+		return 0, err
+	}
+	return file.srcFile.Read(p)
+}
+
+func (file *LocalFile) Stat() (fs.FileInfo, error) { return file.srcFile.Stat() }
+
+func (file *LocalFile) Close() error { return file.srcFile.Close() }
+
 func (fsys *LocalFS) Open(name string) (fs.File, error) {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return nil, err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
 	}
 	name = filepath.FromSlash(name)
-	return os.Open(filepath.Join(fsys.rootDir, name))
+	srcFile, err := os.Open(filepath.Join(fsys.rootDir, name))
+	if err != nil {
+		return nil, err
+	}
+	file := &LocalFile{
+		ctx:     fsys.ctx,
+		srcFile: srcFile,
+	}
+	return file, nil
 }
 
 type LocalFileWriter struct {
@@ -122,6 +148,10 @@ type LocalFileWriter struct {
 }
 
 func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return nil, err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrInvalid}
 	}
@@ -186,6 +216,10 @@ func (file *LocalFileWriter) Close() error {
 }
 
 func (fsys *LocalFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return nil, err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
 	}
@@ -194,6 +228,10 @@ func (fsys *LocalFS) ReadDir(name string) ([]fs.DirEntry, error) {
 }
 
 func (fsys *LocalFS) Mkdir(name string, perm fs.FileMode) error {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrInvalid}
 	}
@@ -202,6 +240,10 @@ func (fsys *LocalFS) Mkdir(name string, perm fs.FileMode) error {
 }
 
 func (fsys *LocalFS) MkdirAll(name string, perm fs.FileMode) error {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "mkdirall", Path: name, Err: fs.ErrInvalid}
 	}
@@ -210,6 +252,10 @@ func (fsys *LocalFS) MkdirAll(name string, perm fs.FileMode) error {
 }
 
 func (fsys *LocalFS) Remove(name string) error {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "remove", Path: name, Err: fs.ErrInvalid}
 	}
@@ -218,6 +264,10 @@ func (fsys *LocalFS) Remove(name string) error {
 }
 
 func (fsys *LocalFS) RemoveAll(name string) error {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
 	}
@@ -226,6 +276,10 @@ func (fsys *LocalFS) RemoveAll(name string) error {
 }
 
 func (fsys *LocalFS) Rename(oldname, newname string) error {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return err
+	}
 	if !fs.ValidPath(oldname) || strings.Contains(oldname, "\\") {
 		return &fs.PathError{Op: "rename", Path: oldname, Err: fs.ErrInvalid}
 	}
@@ -343,11 +397,16 @@ func (fileInfo *RemoteFileInfo) Type() fs.FileMode { return fileInfo.Mode().Type
 func (fileInfo *RemoteFileInfo) Info() (fs.FileInfo, error) { return fileInfo, nil }
 
 type RemoteFile struct {
+	ctx        context.Context
 	fileInfo   *RemoteFileInfo
 	readCloser io.ReadCloser
 }
 
 func (fsys *RemoteFS) Open(name string) (fs.File, error) {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return nil, err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
 	}
@@ -390,6 +449,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		return nil, err
 	}
 	file := &RemoteFile{
+		ctx:      fsys.ctx,
 		fileInfo: &result.RemoteFileInfo,
 	}
 	if !result.isDir {
@@ -418,6 +478,10 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 }
 
 func (file *RemoteFile) Read(p []byte) (n int, err error) {
+	err = file.ctx.Err()
+	if err != nil {
+		return 0, err
+	}
 	if file.fileInfo.isDir {
 		return 0, &fs.PathError{Op: "read", Path: file.fileInfo.filePath, Err: syscall.EISDIR}
 	}
@@ -452,6 +516,10 @@ type RemoteFileWriter struct {
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return nil, err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrInvalid}
 	}
@@ -667,6 +735,10 @@ func (file *RemoteFileWriter) Close() error {
 }
 
 func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return nil, err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
 	}
@@ -750,6 +822,10 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 }
 
 func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrInvalid}
 	}
@@ -809,6 +885,10 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 }
 
 func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "mkdirall", Path: name, Err: fs.ErrInvalid}
 	}
@@ -892,6 +972,10 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 }
 
 func (fsys *RemoteFS) Remove(name string) error {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "remove", Path: name, Err: fs.ErrInvalid}
 	}
@@ -940,6 +1024,10 @@ func (fsys *RemoteFS) Remove(name string) error {
 }
 
 func (fsys *RemoteFS) RemoveAll(name string) error {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") || name == "." {
 		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
 	}
@@ -982,6 +1070,10 @@ func (fsys *RemoteFS) RemoveAll(name string) error {
 }
 
 func (fsys *RemoteFS) Rename(oldname, newname string) error {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return err
+	}
 	if !fs.ValidPath(oldname) || strings.Contains(oldname, "\\") {
 		return &fs.PathError{Op: "rename", Path: oldname, Err: fs.ErrInvalid}
 	}
@@ -1125,6 +1217,10 @@ func (fsys *RemoteFS) Match(name string) /* what return? */ {
 }
 
 func (fsys *RemoteFS) GetSize(name string) (int64, error) {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return 0, err
+	}
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return 0, &fs.PathError{Op: "getsize", Path: name, Err: fs.ErrInvalid}
 	}
@@ -1246,7 +1342,6 @@ func RemoveAll(fsys FS, root string) error {
 	if fsys, ok := fsys.(interface{ RemoveAll(name string) error }); ok {
 		return fsys.RemoveAll(root)
 	}
-	root = filepath.FromSlash(root)
 	fileInfo, err := fs.Stat(fsys, root)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
