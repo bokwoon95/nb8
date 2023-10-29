@@ -1580,7 +1580,9 @@ func stripMarkdownStyles(src []byte) string {
 	buf.Reset()
 	defer bufPool.Put(buf)
 	var node ast.Node
-	nodes := []ast.Node{goldmarkMarkdown.Parser().Parse(text.NewReader(src))}
+	nodes := []ast.Node{
+		goldmarkMarkdown.Parser().Parse(text.NewReader(src)),
+	}
 	for len(nodes) > 0 {
 		node, nodes = nodes[len(nodes)-1], nodes[:len(nodes)-1]
 		if node == nil {
