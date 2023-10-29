@@ -761,22 +761,6 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	return dirEntries, cursor.Close()
 }
 
-func (fsys *RemoteFS) isKeyConflict(err error) bool {
-	if fsys.errorcode == nil {
-		return false
-	}
-	errcode := fsys.errorcode(err)
-	if errcode == "" {
-		return false
-	}
-	if (fsys.dialect == "sqlite" && (errcode == "1555" /* SQLITE_CONSTRAINT_PRIMARYKEY */ || errcode == "2067" /* SQLITE_CONSTRAINT_UNIQUE */)) ||
-		(fsys.dialect == "postgres" && errcode == "23505" /* unique_violation */) ||
-		(fsys.dialect == "mysql" && errcode == "1062" /* ER_DUP_ENTRY */) {
-		return true
-	}
-	return false
-}
-
 func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
 		return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrInvalid}
@@ -799,7 +783,11 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 			},
 		})
 		if err != nil {
-			if fsys.isKeyConflict(err) {
+			if fsys.errorcode == nil {
+				return err
+			}
+			errcode := fsys.errorcode(err)
+			if IsKeyViolation(fsys.dialect, errcode) {
 				return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrExist}
 			}
 			return err
@@ -819,7 +807,11 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 			},
 		})
 		if err != nil {
-			if fsys.isKeyConflict(err) {
+			if fsys.errorcode == nil {
+				return err
+			}
+			errcode := fsys.errorcode(err)
+			if IsKeyViolation(fsys.dialect, errcode) {
 				return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrExist}
 			}
 			return err
@@ -1077,7 +1069,11 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	if err != nil {
 		// We weren't able to delete {newname} earlier, which means it is a
 		// directory.
-		if fsys.isKeyConflict(err) {
+		if fsys.errorcode == nil {
+			return err
+		}
+		errcode := fsys.errorcode(err)
+		if IsKeyViolation(fsys.dialect, errcode) {
 			return &fs.PathError{Op: "rename", Path: newname, Err: syscall.EISDIR}
 		}
 		return err
@@ -1534,4 +1530,34 @@ func (fsys *LocalFS) Put(ctx context.Context, key string, reader io.Reader) erro
 
 func (fsys *LocalFS) Delete(ctx context.Context, key string) error {
 	return fsys.Remove(key)
+}
+
+func IsKeyViolation(dialect string, errcode string) bool {
+	switch dialect {
+	case "sqlite":
+		return errcode == "1555" || errcode == "2067" // SQLITE_CONSTRAINT_PRIMARYKEY, SQLITE_CONSTRAINT_UNIQUE
+	case "postgres":
+		return errcode == "23505" // unique_violation
+	case "mysql":
+		return errcode == "1062" // ER_DUP_ENTRY
+	case "sqlserver":
+		return errcode == "2627"
+	default:
+		return false
+	}
+}
+
+func IsForeignKeyViolation(dialect string, errcode string) bool {
+	switch dialect {
+	case "sqlite":
+		return errcode == "787" //  SQLITE_CONSTRAINT_FOREIGNKEY
+	case "postgres":
+		return errcode == "23503" // foreign_key_violation
+	case "mysql":
+		return errcode == "1216" // ER_NO_REFERENCED_ROW
+	case "sqlserver":
+		return errcode == "547"
+	default:
+		return false
+	}
 }
