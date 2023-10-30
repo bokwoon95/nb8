@@ -31,7 +31,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/bokwoon95/sq"
-	"github.com/mholt/acmez"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -69,6 +68,12 @@ type Config struct {
 	SMTPPort     string
 }
 
+// -dir :database: -database -domain -content-domain
+// -enc-dns01-provider -enc-dns01-username -dns01-api-key -dns01-api-token -dns01-secret-key
+// -captcha-secret-key -captcha-site-key
+// -smtp-username -smtp-password
+// The problem with so many flags is that it makes running notebrew subcommands cleanly basically impossible (remember, noob self-hosters will want to run subcommands in order to add new users and stuff)
+
 // DNS01, Captcha, Mailer, S3
 
 // Notebrew represents a notebrew instance.
@@ -97,10 +102,6 @@ type Notebrew struct {
 	ErrorCode func(error) string
 
 	Logger *slog.Logger
-
-	DNS01Solver acmez.Solver
-
-	SendMail func(from, to string, msg []byte) error
 }
 
 type contextKey struct{}
