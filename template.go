@@ -38,12 +38,12 @@ type TemplateParser struct {
 
 func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) (*TemplateParser, error) {
 	siteName := strings.TrimPrefix(sitePrefix, "@")
-	adminURL := nbrew.Scheme + nbrew.AdminDomain
+	adminURL := nbrew.Scheme + nbrew.Domain
 	siteURL := nbrew.Scheme + nbrew.ContentDomain
 	if strings.Contains(siteName, ".") {
 		siteURL = "https://" + siteName
 	} else if siteName != "" {
-		switch nbrew.MultisiteMode {
+		switch nbrew.Multisite {
 		case "subdomain":
 			siteURL = nbrew.Scheme + siteName + "." + nbrew.ContentDomain
 		case "subdirectory":

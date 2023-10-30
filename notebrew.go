@@ -31,6 +31,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bokwoon95/sq"
+	"github.com/mholt/acmez"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -44,25 +45,51 @@ var embedFS embed.FS
 
 var rootFS fs.FS = embedFS
 
+// This must live in the main, not notebrew!
+type Config struct {
+	Multisite     string
+	Scheme        string
+	Domain        string
+	ContentDomain string
+
+	DNS01Provider  string
+	DNS01Username  string
+	DNS01ApiKey    string
+	DNS01ApiToken  string
+	DNS01SecretKey string
+
+	CaptchaSecretKey string
+	CaptchaSiteKey   string
+
+	AllowSignup bool
+
+	SMTPUsername string
+	SMTPPassword string
+	SMTPHost     string
+	SMTPPort     string
+}
+
+// DNS01, Captcha, Mailer, S3
+
 // Notebrew represents a notebrew instance.
 type Notebrew struct {
 	// FS is the file system associated with the notebrew instance.
 	FS FS
 
-	// DB is the database associated with the notebrew instance.
+	// DB is the DB associated with the notebrew instance.
 	DB *sql.DB
 
-	// Dialect is dialect of the database. Only sqlite, postgres and mysql
+	// Dialect is Dialect of the database. Only sqlite, postgres and mysql
 	// databases are supported.
 	Dialect string
 
 	Scheme string // http:// | https://
 
-	AdminDomain string // localhost:6444, example.com
+	Domain string // localhost:6444, example.com
 
 	ContentDomain string // localhost:6444, example.com
 
-	MultisiteMode string // subdomain | subdirectory
+	Multisite string // subdomain | subdirectory
 
 	// ErrorCode translates a database error into an dialect-specific error
 	// code. If the error is not a database error or if no underlying
@@ -70,6 +97,10 @@ type Notebrew struct {
 	ErrorCode func(error) string
 
 	Logger *slog.Logger
+
+	DNS01Solver acmez.Solver
+
+	SendMail func(from, to string, msg []byte) error
 }
 
 type contextKey struct{}
@@ -450,7 +481,7 @@ func contentSiteURL(nbrew *Notebrew, sitePrefix string) string {
 		return "https://" + sitePrefix + "/"
 	}
 	if sitePrefix != "" {
-		switch nbrew.MultisiteMode {
+		switch nbrew.Multisite {
 		case "subdomain":
 			return nbrew.Scheme + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.ContentDomain + "/"
 		case "subdirectory":
