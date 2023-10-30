@@ -18,6 +18,14 @@ TODO: come up with a good set of utility functions that seamlessly represent fil
 TODO: mailer.json instead of mailer.txt, that way users don't have to urlencode their password to put it in the smtp URL.
 TODO: what may a user want to display in a posts.html? A daily comic series, photography showcase, full blown posts, etc? We never let the user make an N+1 query, whatever fields they want must be supplied inside the call to getPosts. They get to cap how many posts are displayed per page via pagination.json/rss.json (ugh) in the category folder, which is stored in the files.data field.
 
+notebrew encrypt -key $KEY $MESSAGE
+notebrew decrypt
+notebrew decrypt 'ABCDEFHGH' | notebrew
+notebrew -config '{"domain":"bokwoon.com"}'
+notebrew -config $(cat config.json | notebrew decrypt -key $NOTEBREW_SECRET_KEY)
+
+-dir :database: -database "$HOME/notebrew.db" -multisite subdomain -address notebrew.com,notebrew.io
+
 www.nbrew.io nuances
 - only serves stuff in {sitePrefix}/output/themes
 - if requested URL is a HTML page, issue a permanent redirect to that site's URL instead
