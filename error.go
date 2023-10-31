@@ -24,6 +24,7 @@ const (
 	LogoutSuccess               = Error("NB-00003 logout success")
 	SentPaswordResetLinkSuccess = Error("NB-00004 sent password reset link successfully")
 	ResetPasswordSuccess        = Error("NB-00005 reset password successfully")
+	UpdateSuccess               = Error("NB-00006 update success")
 
 	// Class 03 - General
 	ErrAlreadyAuthenticated      = Error("NB-03000 already authenticated")

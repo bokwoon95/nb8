@@ -546,6 +546,9 @@ func executeTemplate(w http.ResponseWriter, r *http.Request, modtime time.Time, 
 	http.ServeContent(w, r, "", modtime, bytes.NewReader(buf.Bytes()))
 }
 
+// TODO: we can retire this function since the cdn url will always be hardcoded
+// to cdn.nbrew.io, instead make it a global variable built at init time.
+// Besides, this is only applicable to user sites and not the admin site.
 func contentSecurityPolicy(w http.ResponseWriter, cdnBaseURL string, allowCaptcha bool) {
 	var b strings.Builder
 	// default-src
