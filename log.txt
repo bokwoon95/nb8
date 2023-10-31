@@ -35,6 +35,29 @@ static/dynamic private/public config:
 - dynamic private: captcha.json
 - dynamic public: allow-signup.txt
 
+notebrew config
+Ctrl+C to stop anytime. Press enter without typing anything if you are satisfied with the current (or default) value.
+config folder?
+admin folder? (the admin folder is where X are stored. the current value is)
+configure database? (database currently not configured):
+    database dialect?
+    sqlite file location?
+    database host?
+    database port?
+    database user?
+    database name?
+    database password?
+domain?
+content domain? (content domain is currently not configured):
+multisite?
+allow signups?
+captcha (y/n)?
+    captcha site key?
+    captcha secret key?
+smtp (y/n)?
+dns01 (y/n)?
+s3 (y/n)? (if s3 not configured and the admin-folder is the database, use ~/notebrew-objects instead)
+
 dialect
 user
 password
@@ -42,7 +65,6 @@ host
 port
 dbname
 sslmode
-useDatabaseForFiles
 
 just... dump everything in the admin folder? but you really don't want to back up the admin folder then because it contains sensitive secrets :(
 then... use two folders?
