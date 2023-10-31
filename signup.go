@@ -393,7 +393,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 				return
 			}
 			if fileInfo != nil {
-				response.Errors["username"] = append(response.Errors["username"], ErrUnavailable)
+				response.Errors["username"] = append(response.Errors["username"], ErrUsernameUnavailable)
 			} else {
 				exists, err := sq.FetchExistsContext(r.Context(), nbrew.DB, sq.CustomQuery{
 					Dialect: nbrew.Dialect,
@@ -408,7 +408,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 					return
 				}
 				if exists {
-					response.Errors["username"] = append(response.Errors["username"], ErrUnavailable)
+					response.Errors["username"] = append(response.Errors["username"], ErrUsernameUnavailable)
 				}
 			}
 		}
@@ -443,7 +443,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 			response.Errors["password"] = append(response.Errors["password"], ErrRequired)
 		} else {
 			if utf8.RuneCountInString(request.Password) < 8 {
-				response.Errors["password"] = append(response.Errors["password"], Error(string(ErrTooShort)+" - minimum 8 characters"))
+				response.Errors["password"] = append(response.Errors["password"], ErrPasswordTooShort)
 			}
 			if IsCommonPassword([]byte(request.Password)) {
 				response.Errors["password"] = append(response.Errors["password"], ErrPasswordTooCommon)
@@ -516,11 +516,11 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 		})
 		if err != nil {
 			var errcode string
-			if nbrew.ErrorCode!=nil{
+			if nbrew.ErrorCode != nil {
 				errcode = nbrew.ErrorCode(err)
 			}
 			if IsKeyViolation(nbrew.Dialect, errcode) {
-				response.Errors["username"] = append(response.Errors["username"], ErrUnavailable)
+				response.Errors["username"] = append(response.Errors["username"], ErrUsernameUnavailable)
 				response.Status = ErrValidationFailed
 				writeResponse(w, r, response)
 				return
@@ -542,7 +542,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 		})
 		if err != nil {
 			var errcode string
-			if nbrew.ErrorCode!=nil{
+			if nbrew.ErrorCode != nil {
 				errcode = nbrew.ErrorCode(err)
 			}
 			if IsKeyViolation(nbrew.Dialect, errcode) {
@@ -581,7 +581,6 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 			"output/themes",
 			"pages",
 			"posts",
-			"system",
 		}
 		for _, dir := range dirs {
 			err = nbrew.FS.Mkdir(path.Join("@"+request.Username, dir), 0755)

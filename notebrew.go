@@ -44,30 +44,6 @@ var embedFS embed.FS
 
 var rootFS fs.FS = embedFS
 
-// This must live in the main, not notebrew!
-type Config struct {
-	Multisite     string
-	Scheme        string
-	Domain        string
-	ContentDomain string
-
-	DNS01Provider  string
-	DNS01Username  string
-	DNS01ApiKey    string
-	DNS01ApiToken  string
-	DNS01SecretKey string
-
-	CaptchaSecretKey string
-	CaptchaSiteKey   string
-
-	AllowSignup bool
-
-	SMTPUsername string
-	SMTPPassword string
-	SMTPHost     string
-	SMTPPort     string
-}
-
 // Notebrew represents a notebrew instance.
 type Notebrew struct {
 	// FS is the file system associated with the notebrew instance.

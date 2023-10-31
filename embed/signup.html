@@ -38,13 +38,13 @@
 <form method="post" action="/admin/signup/" class="mv5 w-80 w-70-m w-60-l center" data-signup-validation>
     <h1 class="f3 mv3 b tc">Sign up</h1>
 
-    {{- if eq $.Status.Code "NB-03030" }}
+    {{- if eq $.Status.Code "NB-03003" }}
     <div role="alert" class="alert-danger mv3 pa2 br2 flex items-center">
         <div>Please retry with captcha.</div>
         <div class="flex-grow-1"></div>
         <button class="f3 bg-transparent bn color-success o-70 hover-black" data-dismiss-alert>&times;</button>
     </div>
-    {{- else if eq $.Status.Code "NB-03040" }}
+    {{- else if eq $.Status.Code "NB-03004" }}
     <div role="alert" class="alert-danger mv3 pa2 br2 flex items-center">
         <div>Captcha challenge failed.</div>
         <div class="flex-grow-1"></div>
@@ -101,7 +101,7 @@
     {{- end }}
 
     <div class="invalid-red" data-validation-status>
-        {{- if eq $.Status.Code "NB-04000" }}
+        {{- if eq $.Status.Code "NB-03013" }}
         Please fix errors before continuing.
         {{- end }}
     </div>
