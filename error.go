@@ -32,7 +32,7 @@ const (
 	ErrRetryWithCaptcha          = Error("NB-03003 retry with captcha")
 	ErrCaptchaChallengeFailed    = Error("NB-03004 captcha challenge failed")
 	ErrRequired                  = Error("NB-03005 required")
-	ErrForbiddenCharacters       = Error("NB-03006 forbidden characters")
+	ErrForbiddenCharacters       = Error("NB-03006 forbidden characters (only lowercase letters, numbers and hyphen allowed)")
 	ErrUsernameUnavailable       = Error("NB-03007 username unavailable")
 	ErrInvalidEmail              = Error("NB-03008 invalid email")
 	ErrEmailAlreadyUsed          = Error("NB-03009 email already used by an existing user account")

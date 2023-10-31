@@ -381,7 +381,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 				if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '-' {
 					continue
 				}
-				response.Errors["username"] = append(response.Errors["username"], Error(string(ErrForbiddenCharacters)+" - only lowercase letters, numbers and hyphen allowed"))
+				response.Errors["username"] = append(response.Errors["username"], ErrForbiddenCharacters)
 				break
 			}
 		}
