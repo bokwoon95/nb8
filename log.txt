@@ -21,8 +21,8 @@ notebrew -db mysql://localhost
 notebrew -db sqlite://notebrew.db
 notebrew -dir ~/Dropbox/notebrew-admin -db sqlite -multisite subdomain
 
-notebrew -dir ...
-notebrew -config ./config
+notebrew -config-folder
+sqlite3 ~/notebrew.db
 
 default dir: $HOME/notebrew-admin
 default config? $HOME/notebrew-config
@@ -31,9 +31,18 @@ notebrew-config.txt => ~/Dropbox/notebrew-config/
 
 static/dynamic private/public config:
 - static private: database.json, dns01.json, smtp.json, s3.json
-- static public: domain.txt, content-domain.txt, multisite.txt
+- static public: admin-folder.txt domain.txt, content-domain.txt, multisite.txt
 - dynamic private: captcha.json
 - dynamic public: allow-signup.txt
+
+dialect
+user
+password
+host
+port
+dbname
+sslmode
+useDatabaseForFiles
 
 just... dump everything in the admin folder? but you really don't want to back up the admin folder then because it contains sensitive secrets :(
 then... use two folders?
