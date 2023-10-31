@@ -321,16 +321,12 @@ func isFulltextIndexed(filePath string) bool {
 	ext := path.Ext(filePath)
 	head, tail, _ := strings.Cut(filePath, "/")
 	switch head {
-	case "notes":
-		if ext == ".txt" {
+	case "notes", "posts":
+		if ext == ".txt" || ext == ".md" {
 			return true
 		}
 	case "pages":
 		if ext == ".html" {
-			return true
-		}
-	case "posts":
-		if ext == ".txt" || ext == ".md" {
 			return true
 		}
 	case "output":
