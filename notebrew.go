@@ -46,6 +46,9 @@ var rootFS fs.FS = embedFS
 
 // Notebrew represents a notebrew instance.
 type Notebrew struct {
+	// ConfigFS is the where the configuration files are stored.
+	ConfigFS fs.FS
+
 	// FS is the file system associated with the notebrew instance.
 	FS FS
 	// NOTE: now that we no longer have a New() function, it is up to the

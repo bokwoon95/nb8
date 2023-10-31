@@ -20,6 +20,10 @@ notebrew -db mysql://localhost
 notebrew -db sqlite://notebrew.db
 notebrew -dir ~/Dropbox/notebrew-admin -db sqlite -multisite subdomain
 
+$XDG_CONFIG_HOME/notebrew-config => $HOME/notebrew-config
+$XDG_DATA_HOME/notebrew-admin => $HOME/notebrew-admin
+$XDG_DATA_HOME/notebrew-objects => $HOME/notebrew-objects
+$XDG_DATA_HOME/notebrew.db => $HOME/notebrew.db
 notebrew -config-folder
 sqlite3 ~/notebrew.db
 
