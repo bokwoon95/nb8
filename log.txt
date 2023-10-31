@@ -14,6 +14,36 @@ serve_http.go
 new.go
 notebrew/main.go
 
+notebrew -dir ~/Dropbox/notebrew-admin
+notebrew -db file://path/to/file/
+notebrew -db postgres://user:pass@locahost:port/db
+notebrew -db mysql://localhost
+notebrew -db sqlite://notebrew.db
+notebrew -dir ~/Dropbox/notebrew-admin -db sqlite -multisite subdomain
+
+notebrew -dir ...
+notebrew -config ./config
+
+default dir: $HOME/notebrew-admin
+default config? $HOME/notebrew-config
+notebrew.db lives in uh ~/notebrew-config? ~/notebrew-admin? ~/notebrew.db?
+notebrew-config.txt => ~/Dropbox/notebrew-config/
+
+static/dynamic private/public config:
+- static private: database.json, dns01.json, smtp.json, s3.json
+- static public: domain.txt, content-domain.txt, multisite.txt
+- dynamic private: captcha.json
+- dynamic public: allow-signup.txt
+
+just... dump everything in the admin folder? but you really don't want to back up the admin folder then because it contains sensitive secrets :(
+then... use two folders?
+
+notebrew-admin
+
+dns01.json
+captcha.json
+smtp.json
+
 TODO: come up with a good set of utility functions that seamlessly represent file operations so that you can queue them up effortlessly to use for testing ("first create this file, then create this folder, then..." etc). We need to do a lot of file operations to replicate the use cases we are testing, so better make this painless (and readable!)
 TODO: mailer.json instead of mailer.txt, that way users don't have to urlencode their password to put it in the smtp URL.
 TODO: what may a user want to display in a posts.html? A daily comic series, photography showcase, full blown posts, etc? We never let the user make an N+1 query, whatever fields they want must be supplied inside the call to getPosts. They get to cap how many posts are displayed per page via pagination.json/rss.json (ugh) in the category folder, which is stored in the files.data field.
