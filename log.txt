@@ -10,8 +10,7 @@ resetpassword.go
 folder.go
 file.go
 ...
-serve_http.go
-new.go
+server.go
 notebrew/main.go
 
 notebrew -dir ~/Dropbox/notebrew-admin

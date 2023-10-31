@@ -48,6 +48,9 @@ var rootFS fs.FS = embedFS
 type Notebrew struct {
 	// FS is the file system associated with the notebrew instance.
 	FS FS
+	// NOTE: now that we no longer have a New() function, it is up to the
+	// callers to prep the initial folders: notes, output, output/images,
+	// output/themes, pages, posts.
 
 	// DB is the DB associated with the notebrew instance.
 	DB *sql.DB
@@ -212,6 +215,16 @@ func (nbrew *Notebrew) clearSession(w http.ResponseWriter, r *http.Request, name
 		}
 		logger.Error(err.Error())
 	}
+}
+
+func (nbrew *Notebrew) Close() error {
+	if nbrew.DB == nil {
+		return nil
+	}
+	if nbrew.Dialect == "sqlite" {
+		nbrew.DB.Exec("PRAGMA analysis_limit(400); PRAGMA optimize;")
+	}
+	return nbrew.DB.Close()
 }
 
 func getAuthenticationTokenHash(r *http.Request) []byte {
