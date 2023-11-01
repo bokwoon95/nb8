@@ -10,12 +10,6 @@ import (
 	"github.com/bokwoon95/nb8"
 )
 
-// static/dynamic private/public config:
-// - static private: database.json, dns01.json, smtp.json, s3.json
-// - static public: admin-folder.txt domain.txt, content-domain.txt, multisite.txt
-// - dynamic private: captcha.json
-// - dynamic public: allow-signup.txt
-
 type DatabaseConfig struct {
 	Dialect  string `json:"dialect,omitempty"`
 	Filepath string `json:"filepath,omitempty"`
@@ -52,8 +46,29 @@ type S3Config struct {
 	SecretAccessKey string `json:"secretAccessKey,omitempty"`
 }
 
+type CaptchaConfig struct {
+	SecretKey string `json:"secretKey,omitempty"`
+	SiteKey   string `json:"siteKey,omitempty"`
+}
+
+// static/dynamic private/public config:
+// - static private: database.json, dns01.json, smtp.json, s3.json
+// - static public: admin-folder.txt domain.txt, content-domain.txt, multisite.txt
+// - dynamic private: captcha.json
+// - dynamic public: allow-signup.txt
+
 func main() {
 	err := func() error {
+		var configFolder string
+		flagset := flag.NewFlagSet("", flag.ContinueOnError)
+		flagset.StringVar(&configFolder, "config-folder", "", "")
+		err := flagset.Parse(os.Args[1:])
+		if err != nil {
+			return err
+		}
+		if configFolder == "" {
+			configFolder = os.Getenv("XDG_CONFIG_HOME")
+		}
 		return nil
 	}()
 	if err != nil && !errors.Is(err, flag.ErrHelp) && !errors.Is(err, io.EOF) {
