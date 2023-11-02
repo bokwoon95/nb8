@@ -57,16 +57,6 @@ type CaptchaConfig struct {
 	SiteKey   string `json:"siteKey,omitempty"`
 }
 
-// static/dynamic private/public config:
-// - static private: database.json, dns01.json, smtp.json, s3.json
-// - static public: admin-folder.txt domain.txt, content-domain.txt, multisite.txt
-// - dynamic private: captcha.json
-// - dynamic public: allow-signup.txt
-
-// 1. Find the config folder.
-// 2. Find the admin folder.
-// 3. Figure out the database.
-
 func main() {
 	err := func() error {
 		var configFolder string
@@ -84,6 +74,16 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+// static/dynamic private/public config:
+// - static private: database.json, dns01.json, smtp.json, s3.json
+// - static public: admin-folder.txt domain.txt, content-domain.txt, multisite.txt
+// - dynamic private: captcha.json
+// - dynamic public: allow-signup.txt
+
+// 1. Find the config folder.
+// 2. Find the admin folder.
+// 3. Figure out the database.
 
 func New(configFolder string) (*nb8.Notebrew, error) {
 	homeDir, err := os.UserHomeDir()
