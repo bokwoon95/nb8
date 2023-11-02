@@ -10,7 +10,10 @@ require (
 	github.com/bokwoon95/sq v0.4.4
 	github.com/bokwoon95/sqddl v0.4.6
 	github.com/caddyserver/certmagic v0.19.2
+	github.com/denisenkom/go-mssqldb v0.12.3
+	github.com/go-sql-driver/mysql v1.7.1
 	github.com/klauspost/cpuid/v2 v2.2.5
+	github.com/lib/pq v1.10.9
 	github.com/mholt/acmez v1.2.0
 	github.com/yuin/goldmark v1.4.13
 	golang.org/x/crypto v0.10.0
@@ -26,6 +29,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.38 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.37 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.15.6 // indirect
+	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
+	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/libdns/libdns v0.2.1 // indirect
 	github.com/miekg/dns v1.1.55 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect

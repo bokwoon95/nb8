@@ -8,6 +8,9 @@ import (
 	"os"
 
 	"github.com/bokwoon95/nb8"
+	_ "github.com/denisenkom/go-mssqldb"
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 )
 
 type DatabaseConfig struct {
