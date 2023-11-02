@@ -1,11 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/bokwoon95/nb8"
 	_ "github.com/denisenkom/go-mssqldb"
@@ -60,6 +63,10 @@ type CaptchaConfig struct {
 // - dynamic private: captcha.json
 // - dynamic public: allow-signup.txt
 
+// 1. Find the config folder.
+// 2. Find the admin folder.
+// 3. Figure out the database.
+
 func main() {
 	err := func() error {
 		var configFolder string
@@ -68,9 +75,6 @@ func main() {
 		err := flagset.Parse(os.Args[1:])
 		if err != nil {
 			return err
-		}
-		if configFolder == "" {
-			configFolder = os.Getenv("XDG_CONFIG_HOME")
 		}
 		return nil
 	}()
@@ -81,7 +85,42 @@ func main() {
 	}
 }
 
-func NewNotebrew() (*nb8.Notebrew, error) {
+func New(configFolder string) (*nb8.Notebrew, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	if configFolder == "" {
+		XDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
+		if XDGConfigHome != "" {
+			configFolder = filepath.Join(XDGConfigHome, "notebrew-config")
+		} else {
+			configFolder = filepath.Join(homeDir, "notebrew-config")
+		}
+	}
+	configFS := os.DirFS(configFolder)
+
+	var adminFolder string
+	b, err := fs.ReadFile(configFS, "admin-folder.txt")
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	}
+	if len(b) > 0 {
+		adminFolder = string(b)
+	} else {
+		adminFolder = filepath.Join(homeDir, "notebrew-admin")
+	}
+	_ = adminFolder
+
+	var db *sql.DB
+	b, err = fs.ReadFile(configFS, "database.json")
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	}
+	if len(b) > 0 {
+	}
+	_ = db
+
 	nbrew := &nb8.Notebrew{}
 	return nbrew, nil
 }
