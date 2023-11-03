@@ -69,14 +69,9 @@ port
 dbname
 sslmode
 
-just... dump everything in the admin folder? but you really don't want to back up the admin folder then because it contains sensitive secrets :(
-then... use two folders?
+== rss reader ==
 
-notebrew-admin
-
-dns01.json
-captcha.json
-smtp.json
+I still don't know what people want from an RSS reader. I don't even know what I want because I've never used an RSS reader. But to get a good idea you can google "google reader adds search" and find all the blog posts talking about it. Quite often, it would involve people talking about the features Google Reader had and bemoaning that it still doesn't have search.
 
 TODO: come up with a good set of utility functions that seamlessly represent file operations so that you can queue them up effortlessly to use for testing ("first create this file, then create this folder, then..." etc). We need to do a lot of file operations to replicate the use cases we are testing, so better make this painless (and readable!)
 TODO: mailer.json instead of mailer.txt, that way users don't have to urlencode their password to put it in the smtp URL.
