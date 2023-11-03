@@ -38,7 +38,7 @@ static/dynamic private/public config:
 - dynamic private: captcha.json
 - dynamic public: allow-signup.txt
 
-important: notebrew ip which gets the ip address of the current machine. this is so that users can add their A/AAAA records accordingly. Actually, this means we can double check the dns resolution ourselves on startup and inform the user if the domain name they provided does not point to the ip address of the current machine.
+important: notebrew ip which gets the ip address of the current machine. this is so that users can add their A/AAAA records accordingly. Actually, this means we can double check the dns resolution ourselves on startup and inform the user if the domain name they provided does not point to the ip address of the current machine. BUT not on startup, but rather as a separate subcommand. In fact, we can bury it within the config subcommand?
 notebrew config
 Ctrl+C to stop anytime. Press enter without typing anything if you are satisfied with the current (or default) value.
 config folder?
