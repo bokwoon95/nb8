@@ -390,13 +390,6 @@ func main() {
 			command, args := args[0], args[1:]
 			_ = args
 			switch command {
-			case "createinvite", "deleteinvite", "createsite", "deletesite",
-				"createuser", "deleteuser", "permissions", "resetpassword":
-				if nbrew.DB == nil {
-					return fmt.Errorf("cannot call command because no database has been configured (%s is missing)", filepath.Join(configFolder, "database.json"))
-				}
-			}
-			switch command {
 			default:
 				return fmt.Errorf("unknown command %s", command)
 			}
