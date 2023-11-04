@@ -26,7 +26,11 @@ $XDG_DATA_HOME/notebrew-objects => $HOME/notebrew-objects
 $XDG_DATA_HOME/notebrew.db => $HOME/notebrew.db
 notebrew -config-folder
 sqlite3 ~/notebrew.db
+
 notebrew-config/503.html => 503 The server is down for maintenance
+
+rename any image with the suffix *-original.<ext> and notebrew will honour it by not compressing the image
+image compression is done immediately on demand so users are responsible for babysitting the upload and monitoring its compression status (no queue system needed, if upload or compression fails the user is notified and that's it)
 
 default dir: $HOME/notebrew-admin
 default config? $HOME/notebrew-config
