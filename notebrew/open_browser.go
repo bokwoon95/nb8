@@ -26,7 +26,7 @@ func init() {
         | | | | (_) | ||  __/ |_) | | |  __/\ V  V /
         |_| |_|\___/ \__\___|_.__/|_|  \___| \_/\_/
 
-        notebrew is running on %s
+     notebrew is running on %s
 
   please do not close this window (except to quit notebrew)
 `

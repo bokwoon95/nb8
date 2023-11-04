@@ -143,6 +143,9 @@ func main() {
 			}
 			nbrew.Multisite = str
 		}
+		if domainIsLocalhost && contentDomainIsLocalhost && nbrew.Multisite == "" {
+			nbrew.Multisite = "subdirectory"
+		}
 
 		b, err = os.ReadFile(filepath.Join(configFolder, "database.json"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -502,7 +505,7 @@ func main() {
 					fmt.Println(server.Addr + " already in use")
 					return nil
 				}
-				fmt.Println("http://" + server.Addr)
+				fmt.Println("http://" + server.Addr + "/admin/ already running")
 				open("http://" + server.Addr + "/admin/")
 				return nil
 			} else {
