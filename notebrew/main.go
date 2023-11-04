@@ -117,64 +117,12 @@ func main() {
 		if domainIsLocalhost && contentDomainIsLocalhost {
 			nbrew.Scheme = "http://"
 			if nbrew.Domain != nbrew.ContentDomain {
-				// TODO: do we want to allow the user to specify two different localhost addresses? Can we even support it?
 				return fmt.Errorf("%s: %s: if localhost, domains must be the same", filepath.Join(configFolder, "domain.txt"), filepath.Join(configFolder, "content-domain.txt"))
-			}
-			if strings.HasPrefix(nbrew.Domain, "localhost:") {
-				_, err = strconv.Atoi(strings.TrimPrefix(nbrew.Domain, "localhost:"))
-				if err != nil {
-					return fmt.Errorf("%s: localhost port invalid, must be a number e.g. localhost:6444", filepath.Join(configFolder, "domain.txt"))
-				}
-			}
-			if strings.HasPrefix(nbrew.ContentDomain, "localhost:") {
-				_, err = strconv.Atoi(strings.TrimPrefix(nbrew.ContentDomain, "localhost:"))
-				if err != nil {
-					return fmt.Errorf("%s: localhost port invalid, must be a number e.g. localhost:6444", filepath.Join(configFolder, "content-domain.txt"))
-				}
 			}
 		} else if !domainIsLocalhost && !contentDomainIsLocalhost {
 			nbrew.Scheme = "https://"
-			if !strings.Contains(nbrew.AdminDomain, ".") {
-				return nil, fmt.Errorf("%s: %q is not a valid domain (e.g. example.com):"+
-					" missing a top level domain (.com, .org, .net, etc)",
-					filepath.Join(localDir, "config/address.txt"),
-					nbrew.AdminDomain,
-				)
-			}
-			for _, char := range nbrew.AdminDomain {
-				if (char >= '0' && char <= '9') || (char >= 'a' && char <= 'z') || char == '.' || char == '-' {
-					continue
-				}
-				return nil, fmt.Errorf("%s: %q is not a valid domain:"+
-					" only lowercase letters, numbers, dot and hyphen are allowed e.g. example.com",
-					filepath.Join(localDir, "config/address.txt"),
-					nbrew.AdminDomain,
-				)
-			}
-			if !strings.Contains(nbrew.ContentDomain, ".") {
-				return nil, fmt.Errorf("%s: %q is not a valid domain:"+
-					" missing a top level domain (.com, .org, .net, etc)",
-					filepath.Join(localDir, "config/address.txt"),
-					nbrew.ContentDomain,
-				)
-			}
-			for _, char := range nbrew.ContentDomain {
-				if (char >= '0' && char <= '9') || (char >= 'a' && char <= 'z') || char == '.' || char == '-' {
-					continue
-				}
-				return nil, fmt.Errorf("%s: %q is not a valid domain (e.g. example.com):"+
-					" only lowercase letters, numbers, dot and hyphen are allowed e.g. example.com",
-					filepath.Join(localDir, "config/address.txt"),
-					nbrew.ContentDomain,
-				)
-			}
 		} else {
-			return nil, fmt.Errorf(
-				"%s: %q, %q: localhost and non-localhost addresses cannot be mixed",
-				filepath.Join(localDir, "config/address.txt"),
-				nbrew.AdminDomain,
-				nbrew.ContentDomain,
-			)
+			return fmt.Errorf("%s: %s: localhost and non-localhost domains cannot be mixed", filepath.Join(configFolder, "domain.txt"), filepath.Join(configFolder, "content-domain.txt"))
 		}
 
 		b, err = os.ReadFile(filepath.Join(configFolder, "multisite.txt"))
@@ -183,9 +131,10 @@ func main() {
 		}
 		if len(b) > 0 {
 			str := string(b)
-			if str == "subdomain" || str == "subdirectory" {
-				nbrew.Multisite = str
+			if str != "" && str != "subdomain" && str != "subdirectory" {
+				return fmt.Errorf("%s: invalid value %q (possible values: subdomain, subdirectory)", filepath.Join(configFolder, "multisite.txt"), str)
 			}
+			nbrew.Multisite = str
 		}
 
 		b, err = os.ReadFile(filepath.Join(configFolder, "database.json"))
@@ -282,15 +231,30 @@ func main() {
 				if databaseConfig.Port == "" {
 					databaseConfig.Port = "3306"
 				}
-				dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", databaseConfig.User, databaseConfig.Password, databaseConfig.Host, databaseConfig.Password, databaseConfig.DBName, values.Encode())
-				nbrew.Dialect = "mysql"
-				nbrew.DB, err = sql.Open("mysql", dataSourceName)
+				// We are parsing the DSN and setting the username and password
+				// fields separately because it's the only way to have special
+				// characters inside the username and password for the go mysql
+				// driver.
+				//
+				// https://github.com/go-sql-driver/mysql/issues/1323
+				config, err := mysql.ParseDSN(fmt.Sprintf("tcp(%s:%s)/%s?%s", databaseConfig.Host, databaseConfig.Port, url.PathEscape(databaseConfig.DBName), values.Encode()))
 				if err != nil {
-					return fmt.Errorf("%s: mysql: open %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
+					return err
+				}
+				config.User = databaseConfig.User
+				config.Passwd = databaseConfig.Password
+				driver, err := mysql.NewConnector(config)
+				if err != nil {
+					return err
+				}
+				nbrew.Dialect = "mysql"
+				nbrew.DB = sql.OpenDB(driver)
+				if err != nil {
+					return fmt.Errorf("%s: mysql: open %s: %w", filepath.Join(configFolder, "database.json"), config.FormatDSN(), err)
 				}
 				err = nbrew.DB.Ping()
 				if err != nil {
-					return fmt.Errorf("%s: mysql: ping %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
+					return fmt.Errorf("%s: mysql: ping %s: %w", filepath.Join(configFolder, "database.json"), config.FormatDSN(), err)
 				}
 				nbrew.ErrorCode = func(err error) string {
 					var mysqlErr *mysql.MySQLError
@@ -396,12 +360,12 @@ func main() {
 		}
 
 		var dns01Solver acmez.Solver
-		b, err = os.ReadFile(filepath.Join(configFolder, "dns01.json"))
+		b, err = os.ReadFile(filepath.Join(configFolder, "dns.json"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns01.json"), err)
+			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns.json"), err)
 		}
 		if len(b) > 0 {
-			var dns01Config struct {
+			var dnsConfig struct {
 				Provider  string `json:"provider,omitempty"`
 				Username  string `json:"username,omitempty"`
 				APIKey    string `json:"apiKey,omitempty"`
@@ -410,17 +374,17 @@ func main() {
 			}
 			decoder := json.NewDecoder(bytes.NewReader(b))
 			decoder.DisallowUnknownFields()
-			err := decoder.Decode(&dns01Config)
+			err := decoder.Decode(&dnsConfig)
 			if err != nil {
-				return fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns01.json"), err)
+				return fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns.json"), err)
 			}
-			switch dns01Config.Provider {
+			switch dnsConfig.Provider {
 			case "namecheap":
-				if dns01Config.Username == "" {
-					return fmt.Errorf("%s: namecheap: missing username field", filepath.Join(configFolder, "dns01.json"))
+				if dnsConfig.Username == "" {
+					return fmt.Errorf("%s: namecheap: missing username field", filepath.Join(configFolder, "dns.json"))
 				}
-				if dns01Config.APIKey == "" {
-					return fmt.Errorf("%s: namecheap: missing apiKey field", filepath.Join(configFolder, "dns01.json"))
+				if dnsConfig.APIKey == "" {
+					return fmt.Errorf("%s: namecheap: missing apiKey field", filepath.Join(configFolder, "dns.json"))
 				}
 				resp, err := http.Get("https://ipv4.icanhazip.com")
 				if err != nil {
@@ -446,51 +410,51 @@ func main() {
 				}
 				dns01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &namecheap.Provider{
-						APIKey:      dns01Config.APIKey,
-						User:        dns01Config.Username,
+						APIKey:      dnsConfig.APIKey,
+						User:        dnsConfig.Username,
 						APIEndpoint: "https://api.namecheap.com/xml.response",
 						ClientIP:    clientIP,
 					},
 				}
 			case "cloudflare":
-				if dns01Config.APIToken == "" {
-					return fmt.Errorf("%s: cloudflare: missing apiToken field", filepath.Join(configFolder, "dns01.json"))
+				if dnsConfig.APIToken == "" {
+					return fmt.Errorf("%s: cloudflare: missing apiToken field", filepath.Join(configFolder, "dns.json"))
 				}
 				dns01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &cloudflare.Provider{
-						APIToken: dns01Config.APIToken,
+						APIToken: dnsConfig.APIToken,
 					},
 				}
 			case "porkbun":
-				if dns01Config.APIKey == "" {
-					return fmt.Errorf("%s: porkbun: missing apiKey field", filepath.Join(configFolder, "dns01.json"))
+				if dnsConfig.APIKey == "" {
+					return fmt.Errorf("%s: porkbun: missing apiKey field", filepath.Join(configFolder, "dns.json"))
 				}
-				if dns01Config.SecretKey == "" {
-					return fmt.Errorf("%s: porkbun: missing secretKey field", filepath.Join(configFolder, "dns01.json"))
+				if dnsConfig.SecretKey == "" {
+					return fmt.Errorf("%s: porkbun: missing secretKey field", filepath.Join(configFolder, "dns.json"))
 				}
 				dns01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &porkbun.Provider{
-						APIKey:       dns01Config.APIKey,
-						APISecretKey: dns01Config.SecretKey,
+						APIKey:       dnsConfig.APIKey,
+						APISecretKey: dnsConfig.SecretKey,
 					},
 				}
 			case "godaddy":
-				if dns01Config.APIToken == "" {
-					return fmt.Errorf("%s: godaddy: missing apiToken field", filepath.Join(configFolder, "dns01.json"))
+				if dnsConfig.APIToken == "" {
+					return fmt.Errorf("%s: godaddy: missing apiToken field", filepath.Join(configFolder, "dns.json"))
 				}
 				dns01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &godaddy.Provider{
-						APIToken: dns01Config.APIToken,
+						APIToken: dnsConfig.APIToken,
 					},
 				}
 			case "":
-				return fmt.Errorf("%s: missing provider field", filepath.Join(configFolder, "dns01.json"))
+				return fmt.Errorf("%s: missing provider field", filepath.Join(configFolder, "dns.json"))
 			default:
-				return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configFolder, "dns01.json"), dns01Config.Provider)
+				return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configFolder, "dns.json"), dnsConfig.Provider)
 			}
 		}
 		if nbrew.Scheme == "https://" && nbrew.Multisite == "subdomain" && dns01Solver == nil {
-			return fmt.Errorf("%s: cannot use \"subdomain\" because DNS-01 has not been configured (%s is missing), please use \"subdirectory\" instead", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns01.json"))
+			return fmt.Errorf("%s: cannot use \"subdomain\" because %s has not been configured, please use \"subdirectory\" instead", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns.json"))
 		}
 		server, err := nbrew.NewServer(dns01Solver)
 		if err != nil {
@@ -534,7 +498,7 @@ func main() {
 }
 
 // static/dynamic private/public config:
-// - static private: database.json, dns01.json, s3.json, smtp.json (excluded)
+// - static private: database.json, dns.json, s3.json, smtp.json (excluded)
 // - static public: admin-folder.txt domain.txt, content-domain.txt, multisite.txt
 // - dynamic private: captcha.json
 // - dynamic public: allow-signup.txt, 503.html
@@ -788,9 +752,9 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 
 	var dns01Solver acmez.Solver
 	_ = dns01Solver
-	b, err = os.ReadFile(filepath.Join(configFolder, "dns01.json"))
+	b, err = os.ReadFile(filepath.Join(configFolder, "dns.json"))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns01.json"), err)
+		return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns.json"), err)
 	}
 	if len(b) > 0 {
 		var dns01Config struct {
@@ -804,15 +768,15 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 		decoder.DisallowUnknownFields()
 		err := decoder.Decode(&dns01Config)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns01.json"), err)
+			return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns.json"), err)
 		}
 		switch dns01Config.Provider {
 		case "namecheap":
 			if dns01Config.Username == "" {
-				return nil, fmt.Errorf("%s: namecheap: missing username field", filepath.Join(configFolder, "dns01.json"))
+				return nil, fmt.Errorf("%s: namecheap: missing username field", filepath.Join(configFolder, "dns.json"))
 			}
 			if dns01Config.APIKey == "" {
-				return nil, fmt.Errorf("%s: namecheap: missing apiKey field", filepath.Join(configFolder, "dns01.json"))
+				return nil, fmt.Errorf("%s: namecheap: missing apiKey field", filepath.Join(configFolder, "dns.json"))
 			}
 			resp, err := http.Get("https://ipv4.icanhazip.com")
 			if err != nil {
@@ -842,7 +806,7 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 			}
 		case "cloudflare":
 			if dns01Config.APIToken == "" {
-				return nil, fmt.Errorf("%s: cloudflare: missing apiToken field", filepath.Join(configFolder, "dns01.json"))
+				return nil, fmt.Errorf("%s: cloudflare: missing apiToken field", filepath.Join(configFolder, "dns.json"))
 			}
 			dns01Solver = &certmagic.DNS01Solver{
 				DNSProvider: &cloudflare.Provider{
@@ -851,10 +815,10 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 			}
 		case "porkbun":
 			if dns01Config.APIKey == "" {
-				return nil, fmt.Errorf("%s: porkbun: missing apiKey field", filepath.Join(configFolder, "dns01.json"))
+				return nil, fmt.Errorf("%s: porkbun: missing apiKey field", filepath.Join(configFolder, "dns.json"))
 			}
 			if dns01Config.SecretKey == "" {
-				return nil, fmt.Errorf("%s: porkbun: missing secretKey field", filepath.Join(configFolder, "dns01.json"))
+				return nil, fmt.Errorf("%s: porkbun: missing secretKey field", filepath.Join(configFolder, "dns.json"))
 			}
 			dns01Solver = &certmagic.DNS01Solver{
 				DNSProvider: &porkbun.Provider{
@@ -864,7 +828,7 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 			}
 		case "godaddy":
 			if dns01Config.APIToken == "" {
-				return nil, fmt.Errorf("%s: godaddy: missing apiToken field", filepath.Join(configFolder, "dns01.json"))
+				return nil, fmt.Errorf("%s: godaddy: missing apiToken field", filepath.Join(configFolder, "dns.json"))
 			}
 			dns01Solver = &certmagic.DNS01Solver{
 				DNSProvider: &godaddy.Provider{
@@ -872,9 +836,9 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 				},
 			}
 		case "":
-			return nil, fmt.Errorf("%s: missing provider field", filepath.Join(configFolder, "dns01.json"))
+			return nil, fmt.Errorf("%s: missing provider field", filepath.Join(configFolder, "dns.json"))
 		default:
-			return nil, fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configFolder, "dns01.json"), dns01Config.Provider)
+			return nil, fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configFolder, "dns.json"), dns01Config.Provider)
 		}
 	}
 
