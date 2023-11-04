@@ -282,6 +282,10 @@ func main() {
 			default:
 				return fmt.Errorf("%s: unsupported dialect %q (possible values: sqlite, postgres, mysql)", filepath.Join(configFolder, "database.json"), databaseConfig.Dialect)
 			}
+			err = nb8.Automigrate(nbrew.Dialect, nbrew.DB)
+			if err != nil {
+				return err
+			}
 		}
 
 		b, err = os.ReadFile(filepath.Join(configFolder, "admin-folder.txt"))

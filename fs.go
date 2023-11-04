@@ -574,7 +574,7 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 		file.storageWriter = pipeWriter
 		file.storageResult = make(chan error, 1)
 		go func() {
-			file.storageResult <- fsys.storage.Put(file.ctx, hex.EncodeToString(file.fileID[:]), pipeReader)
+			file.storageResult <- fsys.storage.Put(file.ctx, hex.EncodeToString(file.fileID[:])+path.Ext(file.filePath), pipeReader)
 		}()
 	}
 	return file, nil
@@ -718,7 +718,7 @@ func (file *RemoteFileWriter) Close() error {
 			},
 		})
 		if err != nil {
-			go file.storage.Delete(context.Background(), hex.EncodeToString(file.fileID[:]))
+			go file.storage.Delete(context.Background(), hex.EncodeToString(file.fileID[:])+path.Ext(file.filePath))
 			return err
 		}
 	}
@@ -978,10 +978,12 @@ func (fsys *RemoteFS) Remove(name string) error {
 		},
 	}, func(row *sq.Row) (file struct {
 		fileID       [16]byte
+		filePath     string
 		hasChildren  bool
 		isStoredInDB bool
 	}) {
 		row.UUID(&file.fileID, "file_id")
+		file.filePath = row.String("file_path")
 		file.hasChildren = row.Bool("EXISTS (SELECT 1 FROM files WHERE file_path LIKE {pattern} ESCAPE '\\')", sq.StringParam("pattern", strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name)+"/%"))
 		file.isStoredInDB = row.Bool("text IS NOT NULL OR data IS NOT NULL")
 		return file
@@ -996,7 +998,7 @@ func (fsys *RemoteFS) Remove(name string) error {
 		return &fs.PathError{Op: "remove", Path: name, Err: syscall.ENOTEMPTY}
 	}
 	if !file.isStoredInDB {
-		err = fsys.storage.Delete(fsys.ctx, hex.EncodeToString(file.fileID[:]))
+		err = fsys.storage.Delete(fsys.ctx, hex.EncodeToString(file.fileID[:])+path.Ext(file.filePath))
 		if err != nil {
 			return err
 		}
@@ -1023,23 +1025,26 @@ func (fsys *RemoteFS) RemoveAll(name string) error {
 		return &fs.PathError{Op: "removeall", Path: name, Err: fs.ErrInvalid}
 	}
 	pattern := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(name) + "/%"
-	fileIDs, err := sq.FetchAllContext(fsys.ctx, fsys.db, sq.CustomQuery{
+	files, err := sq.FetchAllContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "SELECT {*} FROM files WHERE file_path = {name} OR file_path LIKE {pattern} ESCAPE '\\' AND data IS NULL",
 		Values: []any{
 			sq.StringParam("name", name),
 			sq.StringParam("pattern", pattern),
 		},
-	}, func(row *sq.Row) [16]byte {
-		var fileID [16]byte
-		row.UUID(&fileID, "file_id")
-		return fileID
+	}, func(row *sq.Row) (file struct {
+		fileID   [16]byte
+		filePath string
+	}) {
+		row.UUID(&file.fileID, "file_id")
+		file.filePath = row.String("file_path")
+		return file
 	})
 	g, ctx := errgroup.WithContext(fsys.ctx)
-	for _, fileID := range fileIDs {
-		fileID := fileID
+	for _, file := range files {
+		file := file
 		g.Go(func() error {
-			return fsys.storage.Delete(ctx, hex.EncodeToString(fileID[:]))
+			return fsys.storage.Delete(ctx, hex.EncodeToString(file.fileID[:])+path.Ext(file.filePath))
 		})
 	}
 	err = g.Wait()
