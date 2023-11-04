@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -357,6 +358,16 @@ func main() {
 						objectsFolder = filepath.Join(XDGDataHome, "notebrew-objects")
 					} else {
 						objectsFolder = filepath.Join(homeDir, "notebrew-objects")
+					}
+					err := os.MkdirAll(objectsFolder, 0755)
+					if err != nil {
+						return err
+					}
+				} else {
+					objectsFolder = path.Clean(objectsFolder)
+					_, err := os.Stat(objectsFolder)
+					if err != nil {
+						return err
 					}
 				}
 				nbrew.FS = nb8.NewRemoteFS(nbrew.Dialect, nbrew.DB, nbrew.ErrorCode, nb8.NewFileStorage(objectsFolder, os.TempDir()))
