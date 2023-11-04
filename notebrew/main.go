@@ -546,8 +546,8 @@ func main() {
 				err := server.ServeTLS(listener, "", "")
 				if !errors.Is(err, http.ErrServerClosed) {
 					fmt.Println(err)
+					close(wait)
 				}
-				close(wait)
 			}()
 		} else {
 			// If we're running on localhost, we don't need to enforce strict
@@ -560,8 +560,8 @@ func main() {
 				err := server.Serve(listener)
 				if !errors.Is(err, http.ErrServerClosed) {
 					fmt.Println(err)
+					close(wait)
 				}
-				close(wait)
 			}()
 			open("http://" + server.Addr + "/admin/")
 		}
