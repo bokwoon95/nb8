@@ -496,8 +496,8 @@ func main() {
 				return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configFolder, "dns01.json"), dns01Config.Provider)
 			}
 		}
-		if nbrew.Multisite == "subdomain" && dns01Solver == nil {
-			return fmt.Errorf("%s: cannot use \"subdomain\" because DNS-01 solver has not been configured (%s is missing), please use \"subdirectory\" instead", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns01.json"))
+		if nbrew.Scheme == "https://" && nbrew.Multisite == "subdomain" && dns01Solver == nil {
+			return fmt.Errorf("%s: cannot use \"subdomain\" because DNS-01 has not been configured (%s is missing), please use \"subdirectory\" instead", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns01.json"))
 		}
 		server, err := nbrew.NewServer(dns01Solver)
 		if err != nil {
