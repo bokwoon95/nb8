@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -21,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -49,9 +51,14 @@ type CaptchaConfig struct {
 	SiteKey   string `json:"siteKey,omitempty"`
 }
 
-var open = func(address string) {}
+var (
+	open     = func(address string) {}
+	startmsg = "Listening on %s\n"
+)
 
 func main() {
+	// Wrap everything in an anonymous function so that deferred functions are
+	// run before we call os.Exit(1).
 	err := func() error {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
@@ -177,7 +184,6 @@ func main() {
 				if err != nil {
 					return fmt.Errorf("%s: sqlite: ping %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
 				}
-				nbrew.ErrorCode = sqliteErrorCode
 			case "postgres":
 				values := make(url.Values)
 				for key, value := range databaseConfig.Params {
@@ -347,6 +353,20 @@ func main() {
 		} else {
 			nbrew.FS = nb8.NewLocalFS(adminFolder, os.TempDir())
 		}
+		dirs := []string{
+			"notes",
+			"output",
+			"output/images",
+			"output/themes",
+			"pages",
+			"posts",
+		}
+		for _, dir := range dirs {
+			err = nbrew.FS.Mkdir(dir, 0755)
+			if err != nil && !errors.Is(err, fs.ErrExist) {
+				return err
+			}
+		}
 
 		defer nbrew.Close()
 		args := flagset.Args()
@@ -456,15 +476,17 @@ func main() {
 		if nbrew.Scheme == "https://" && nbrew.Multisite == "subdomain" && dns01Solver == nil {
 			return fmt.Errorf("%s: cannot use \"subdomain\" because %s has not been configured, please use \"subdirectory\" instead", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns.json"))
 		}
+		// Create a new server (this step will provision the certificates for
+		// serving HTTPS traffic, and will return an error if certmagic fails
+		// to obtain the necessary certificates).
 		server, err := nbrew.NewServer(dns01Solver)
 		if err != nil {
 			return err
 		}
-		wait := make(chan os.Signal, 1)
-		signal.Notify(wait, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-		// Don't use ListenAndServe, manually acquire a listener. That way we
-		// can report back to the user if the port is already in user.
+		// Manually acquire a listener instead of using the convenient
+		// ListenAndServe() so that we can report back to the user if the port
+		// is already in use.
 		listener, err := net.Listen("tcp", server.Addr)
 		if err != nil {
 			var errno syscall.Errno
@@ -487,7 +509,50 @@ func main() {
 				return err
 			}
 		}
-
+		wait := make(chan os.Signal, 1)
+		signal.Notify(wait, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+		if nbrew.Scheme == "https://" {
+			go http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != "GET" && r.Method != "HEAD" {
+					http.Error(w, "Use HTTPS", http.StatusBadRequest)
+					return
+				}
+				host, _, err := net.SplitHostPort(r.Host)
+				if err != nil {
+					host = r.Host
+				} else {
+					host = net.JoinHostPort(host, "443")
+				}
+				http.Redirect(w, r, "https://"+host+r.URL.RequestURI(), http.StatusFound)
+			}))
+			fmt.Printf(startmsg, server.Addr)
+			go func() {
+				err := server.ServeTLS(listener, "", "")
+				if !errors.Is(err, http.ErrServerClosed) {
+					fmt.Println(err)
+				}
+				close(wait)
+			}()
+		} else {
+			// If we're running on localhost, we don't need to enforce strict
+			// timeouts (makes debugging easier).
+			server.ReadTimeout = 0
+			server.WriteTimeout = 0
+			server.IdleTimeout = 0
+			fmt.Printf(startmsg, "http://"+server.Addr+"/admin/")
+			go func() {
+				err := server.Serve(listener)
+				if !errors.Is(err, http.ErrServerClosed) {
+					fmt.Println(err)
+				}
+				close(wait)
+			}()
+			open("http://" + server.Addr + "/admin/")
+		}
+		<-wait
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		server.Shutdown(ctx)
 		return nil
 	}()
 	if err != nil && !errors.Is(err, flag.ErrHelp) && !errors.Is(err, io.EOF) {

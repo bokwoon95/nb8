@@ -53,7 +53,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		return
 	}
 	if fileInfo == nil {
-		fileInfo, err = fs.Stat(nbrew.FS, path.Join(sitePrefix, folderPath))
+		fileInfo, err = fs.Stat(nbrew.FS, path.Join(".", sitePrefix, folderPath))
 		if err != nil {
 			getLogger(r.Context()).Error(err.Error())
 			internalServerError(w, r, err)

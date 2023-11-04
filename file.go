@@ -144,7 +144,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			return
 		}
 		if fileInfo == nil {
-			fileInfo, err = fs.Stat(nbrew.FS, path.Join(sitePrefix, filePath))
+			fileInfo, err = fs.Stat(nbrew.FS, path.Join(".", sitePrefix, filePath))
 			if err != nil {
 				getLogger(r.Context()).Error(err.Error())
 				internalServerError(w, r, err)

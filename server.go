@@ -113,7 +113,7 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 		NextProtos: []string{"h2", "http/1.1", "acme-tls/1"},
 		GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 			if clientHello.ServerName == "" {
-				return nil, fmt.Errorf("clientHelloInfo.ServerName is empty")
+				return nil, fmt.Errorf("clientHello.ServerName is empty")
 			}
 			for _, domain := range domains {
 				if certmagic.MatchWildcard(clientHello.ServerName, domain) {
@@ -717,7 +717,7 @@ func (nbrew *Notebrew) admin(w http.ResponseWriter, r *http.Request, ip string) 
 	}
 
 	if head == "" || head == "notes" || head == "output" || head == "pages" || head == "posts" {
-		fileInfo, err := fs.Stat(nbrew.FS, path.Join(sitePrefix, urlPath))
+		fileInfo, err := fs.Stat(nbrew.FS, path.Join(".", sitePrefix, urlPath))
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				notFound(w, r)
