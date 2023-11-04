@@ -58,8 +58,8 @@ var (
 )
 
 func main() {
-	// Wrap everything in an anonymous function so that deferred functions are
-	// run before we call os.Exit(1).
+	// Wrap everything in an anonymous function so that deferred functions have
+	// a chance to complete before we call os.Exit(1).
 	err := func() error {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
