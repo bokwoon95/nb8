@@ -54,7 +54,7 @@ type CaptchaConfig struct {
 
 var (
 	open     = func(address string) {}
-	startmsg = "Listening on %s\n"
+	startmsg = "Running on %s\n"
 )
 
 func main() {
@@ -148,7 +148,7 @@ func main() {
 			}
 			nbrew.Multisite = str
 		}
-		if domainIsLocalhost && contentDomainIsLocalhost && nbrew.Multisite == "" {
+		if nbrew.Multisite == "" && domainIsLocalhost && contentDomainIsLocalhost {
 			nbrew.Multisite = "subdirectory"
 		}
 
