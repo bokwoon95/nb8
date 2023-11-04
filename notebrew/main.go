@@ -10,13 +10,17 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -44,6 +48,8 @@ type CaptchaConfig struct {
 	SecretKey string `json:"secretKey,omitempty"`
 	SiteKey   string `json:"siteKey,omitempty"`
 }
+
+var open = func(address string) {}
 
 func main() {
 	err := func() error {
@@ -89,6 +95,9 @@ func main() {
 		} else {
 			nbrew.Domain = "localhost:6444"
 		}
+		if strings.Contains(nbrew.Domain, "127.0.0.1") {
+			return fmt.Errorf("%s: don't use 127.0.0.1, use localhost instead", filepath.Join(configFolder, "domain.txt"))
+		}
 
 		b, err = os.ReadFile(filepath.Join(configFolder, "content-domain.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -98,6 +107,74 @@ func main() {
 			nbrew.ContentDomain = string(b)
 		} else {
 			nbrew.ContentDomain = nbrew.Domain
+		}
+		if strings.Contains(nbrew.ContentDomain, "127.0.0.1") {
+			return fmt.Errorf("%s: don't use 127.0.0.1, use localhost instead", filepath.Join(configFolder, "content-domain.txt"))
+		}
+
+		domainIsLocalhost := nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:")
+		contentDomainIsLocalhost := nbrew.ContentDomain == "localhost" || strings.HasPrefix(nbrew.ContentDomain, "localhost:")
+		if domainIsLocalhost && contentDomainIsLocalhost {
+			nbrew.Scheme = "http://"
+			if nbrew.Domain != nbrew.ContentDomain {
+				// TODO: do we want to allow the user to specify two different localhost addresses? Can we even support it?
+				return fmt.Errorf("%s: %s: if localhost, domains must be the same", filepath.Join(configFolder, "domain.txt"), filepath.Join(configFolder, "content-domain.txt"))
+			}
+			if strings.HasPrefix(nbrew.Domain, "localhost:") {
+				_, err = strconv.Atoi(strings.TrimPrefix(nbrew.Domain, "localhost:"))
+				if err != nil {
+					return fmt.Errorf("%s: localhost port invalid, must be a number e.g. localhost:6444", filepath.Join(configFolder, "domain.txt"))
+				}
+			}
+			if strings.HasPrefix(nbrew.ContentDomain, "localhost:") {
+				_, err = strconv.Atoi(strings.TrimPrefix(nbrew.ContentDomain, "localhost:"))
+				if err != nil {
+					return fmt.Errorf("%s: localhost port invalid, must be a number e.g. localhost:6444", filepath.Join(configFolder, "content-domain.txt"))
+				}
+			}
+		} else if !domainIsLocalhost && !contentDomainIsLocalhost {
+			nbrew.Scheme = "https://"
+			if !strings.Contains(nbrew.AdminDomain, ".") {
+				return nil, fmt.Errorf("%s: %q is not a valid domain (e.g. example.com):"+
+					" missing a top level domain (.com, .org, .net, etc)",
+					filepath.Join(localDir, "config/address.txt"),
+					nbrew.AdminDomain,
+				)
+			}
+			for _, char := range nbrew.AdminDomain {
+				if (char >= '0' && char <= '9') || (char >= 'a' && char <= 'z') || char == '.' || char == '-' {
+					continue
+				}
+				return nil, fmt.Errorf("%s: %q is not a valid domain:"+
+					" only lowercase letters, numbers, dot and hyphen are allowed e.g. example.com",
+					filepath.Join(localDir, "config/address.txt"),
+					nbrew.AdminDomain,
+				)
+			}
+			if !strings.Contains(nbrew.ContentDomain, ".") {
+				return nil, fmt.Errorf("%s: %q is not a valid domain:"+
+					" missing a top level domain (.com, .org, .net, etc)",
+					filepath.Join(localDir, "config/address.txt"),
+					nbrew.ContentDomain,
+				)
+			}
+			for _, char := range nbrew.ContentDomain {
+				if (char >= '0' && char <= '9') || (char >= 'a' && char <= 'z') || char == '.' || char == '-' {
+					continue
+				}
+				return nil, fmt.Errorf("%s: %q is not a valid domain (e.g. example.com):"+
+					" only lowercase letters, numbers, dot and hyphen are allowed e.g. example.com",
+					filepath.Join(localDir, "config/address.txt"),
+					nbrew.ContentDomain,
+				)
+			}
+		} else {
+			return nil, fmt.Errorf(
+				"%s: %q, %q: localhost and non-localhost addresses cannot be mixed",
+				filepath.Join(localDir, "config/address.txt"),
+				nbrew.AdminDomain,
+				nbrew.ContentDomain,
+			)
 		}
 
 		b, err = os.ReadFile(filepath.Join(configFolder, "multisite.txt"))
@@ -305,6 +382,153 @@ func main() {
 			}
 		} else {
 			nbrew.FS = nb8.NewLocalFS(adminFolder, os.TempDir())
+		}
+
+		defer nbrew.Close()
+		args := flagset.Args()
+		if len(args) > 0 {
+			command, args := args[0], args[1:]
+			_ = args
+			switch command {
+			case "createinvite", "deleteinvite", "createsite", "deletesite",
+				"createuser", "deleteuser", "permissions", "resetpassword":
+				if nbrew.DB == nil {
+					return fmt.Errorf("cannot call command because no database has been configured (%s is missing)", filepath.Join(configFolder, "database.json"))
+				}
+			}
+			switch command {
+			default:
+				return fmt.Errorf("unknown command %s", command)
+			}
+		}
+
+		var dns01Solver acmez.Solver
+		b, err = os.ReadFile(filepath.Join(configFolder, "dns01.json"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns01.json"), err)
+		}
+		if len(b) > 0 {
+			var dns01Config struct {
+				Provider  string `json:"provider,omitempty"`
+				Username  string `json:"username,omitempty"`
+				APIKey    string `json:"apiKey,omitempty"`
+				APIToken  string `json:"apiToken,omitempty"`
+				SecretKey string `json:"secretKey,omitempty"`
+			}
+			decoder := json.NewDecoder(bytes.NewReader(b))
+			decoder.DisallowUnknownFields()
+			err := decoder.Decode(&dns01Config)
+			if err != nil {
+				return fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns01.json"), err)
+			}
+			switch dns01Config.Provider {
+			case "namecheap":
+				if dns01Config.Username == "" {
+					return fmt.Errorf("%s: namecheap: missing username field", filepath.Join(configFolder, "dns01.json"))
+				}
+				if dns01Config.APIKey == "" {
+					return fmt.Errorf("%s: namecheap: missing apiKey field", filepath.Join(configFolder, "dns01.json"))
+				}
+				resp, err := http.Get("https://ipv4.icanhazip.com")
+				if err != nil {
+					return fmt.Errorf("determining the IP address of this machine by calling https://ipv4.icanhazip.com: %w", err)
+				}
+				defer resp.Body.Close()
+				var b strings.Builder
+				_, err = io.Copy(&b, resp.Body)
+				if err != nil {
+					return fmt.Errorf("https://ipv4.icanhazip.com: reading response body: %w", err)
+				}
+				err = resp.Body.Close()
+				if err != nil {
+					return err
+				}
+				clientIP := strings.TrimSpace(b.String())
+				ip, err := netip.ParseAddr(clientIP)
+				if err != nil {
+					return fmt.Errorf("could not determine IP address of the current machine: https://ipv4.icanhazip.com returned %q which is not an IP address", clientIP)
+				}
+				if !ip.Is4() {
+					return fmt.Errorf("the current machine's IP address (%s) is not IPv4: an IPv4 address is needed to integrate with namecheap's API", clientIP)
+				}
+				dns01Solver = &certmagic.DNS01Solver{
+					DNSProvider: &namecheap.Provider{
+						APIKey:      dns01Config.APIKey,
+						User:        dns01Config.Username,
+						APIEndpoint: "https://api.namecheap.com/xml.response",
+						ClientIP:    clientIP,
+					},
+				}
+			case "cloudflare":
+				if dns01Config.APIToken == "" {
+					return fmt.Errorf("%s: cloudflare: missing apiToken field", filepath.Join(configFolder, "dns01.json"))
+				}
+				dns01Solver = &certmagic.DNS01Solver{
+					DNSProvider: &cloudflare.Provider{
+						APIToken: dns01Config.APIToken,
+					},
+				}
+			case "porkbun":
+				if dns01Config.APIKey == "" {
+					return fmt.Errorf("%s: porkbun: missing apiKey field", filepath.Join(configFolder, "dns01.json"))
+				}
+				if dns01Config.SecretKey == "" {
+					return fmt.Errorf("%s: porkbun: missing secretKey field", filepath.Join(configFolder, "dns01.json"))
+				}
+				dns01Solver = &certmagic.DNS01Solver{
+					DNSProvider: &porkbun.Provider{
+						APIKey:       dns01Config.APIKey,
+						APISecretKey: dns01Config.SecretKey,
+					},
+				}
+			case "godaddy":
+				if dns01Config.APIToken == "" {
+					return fmt.Errorf("%s: godaddy: missing apiToken field", filepath.Join(configFolder, "dns01.json"))
+				}
+				dns01Solver = &certmagic.DNS01Solver{
+					DNSProvider: &godaddy.Provider{
+						APIToken: dns01Config.APIToken,
+					},
+				}
+			case "":
+				return fmt.Errorf("%s: missing provider field", filepath.Join(configFolder, "dns01.json"))
+			default:
+				return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configFolder, "dns01.json"), dns01Config.Provider)
+			}
+		}
+		if nbrew.Multisite == "subdomain" && dns01Solver == nil {
+			return fmt.Errorf("%s: \"subdomain\" not supported because DNS-01 solver has not been configured (%s is missing), please use \"subdirectory\" instead", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns01.json"))
+		}
+		server, err := nbrew.NewServer(dns01Solver)
+		if err != nil {
+			return err
+		}
+		wait := make(chan os.Signal, 1)
+		signal.Notify(wait, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
+		// Don't use ListenAndServe, manually acquire a listener. That way we
+		// can report back to the user if the port is already in user.
+		listener, err := net.Listen("tcp", server.Addr)
+		if err != nil {
+			var errno syscall.Errno
+			if !errors.As(err, &errno) {
+				return err
+			}
+			// WSAEADDRINUSE copied from
+			// https://cs.opensource.google/go/x/sys/+/refs/tags/v0.6.0:windows/zerrors_windows.go;l=2680
+			// To avoid importing an entire 3rd party library just to use a constant.
+			const WSAEADDRINUSE = syscall.Errno(10048)
+			if errno == syscall.EADDRINUSE || runtime.GOOS == "windows" && errno == WSAEADDRINUSE {
+				if nbrew.Scheme == "https://" {
+					fmt.Println(server.Addr + " already in use")
+					return nil
+				}
+				fmt.Println("http://" + server.Addr)
+				open("http://" + server.Addr + "/admin/")
+				return nil
+			} else {
+				return err
+			}
 		}
 
 		return nil

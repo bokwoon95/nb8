@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -48,19 +47,15 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 		return nil, fmt.Errorf("ContentDomain cannot be empty")
 	}
 	server.Addr = ":443"
-	domains := []string{nbrew.Domain}
-	if nbrew.Domain == nbrew.ContentDomain {
-		domains = append(domains, "www."+nbrew.Domain)
-	} else {
-		domains = append(domains, nbrew.ContentDomain, "www."+nbrew.ContentDomain)
+	domains := []string{
+		nbrew.Domain,
+		"www." + nbrew.ContentDomain,
+		"cdn." + nbrew.ContentDomain,
 	}
-	// TODO: add this check into main, make this a panic instead and explictly
-	// tell the user that it panics if a nil dns01 solver is passed in but the
-	// multisite is subdomain.
+	if nbrew.ContentDomain != nbrew.Domain {
+		domains = append(domains, nbrew.ContentDomain)
+	}
 	if nbrew.Multisite == "subdomain" {
-		if certmagic.DefaultACME.CA == certmagic.LetsEncryptProductionCA && dns01Solver == nil {
-			return nil, fmt.Errorf(`%s: "subdomain" not supported because DNS-01 solver not configured, please use "subdirectory" instead (more info: https://notebrew.com/path/to/docs/)`, filepath.Join("config/multisite.txt"))
-		}
 		domains = append(domains, "*."+nbrew.ContentDomain)
 	}
 	// certConfig manages the certificate for the admin domain, content domain
