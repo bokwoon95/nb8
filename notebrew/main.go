@@ -497,7 +497,7 @@ func main() {
 			}
 		}
 		if nbrew.Multisite == "subdomain" && dns01Solver == nil {
-			return fmt.Errorf("%s: \"subdomain\" not supported because DNS-01 solver has not been configured (%s is missing), please use \"subdirectory\" instead", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns01.json"))
+			return fmt.Errorf("%s: cannot use \"subdomain\" because DNS-01 solver has not been configured (%s is missing), please use \"subdirectory\" instead", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns01.json"))
 		}
 		server, err := nbrew.NewServer(dns01Solver)
 		if err != nil {
