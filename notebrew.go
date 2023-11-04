@@ -58,14 +58,14 @@ type Notebrew struct {
 	// DB is the DB associated with the notebrew instance.
 	DB *sql.DB
 
+	// Dialect is Dialect of the database. Only sqlite, postgres and mysql
+	// databases are supported.
+	Dialect string
+
 	// ErrorCode translates a database error into an dialect-specific error
 	// code. If the error is not a database error or if no underlying
 	// implementation is provided, ErrorCode returns an empty string.
 	ErrorCode func(error) string
-
-	// Dialect is Dialect of the database. Only sqlite, postgres and mysql
-	// databases are supported.
-	Dialect string
 
 	Scheme string // http:// | https://
 

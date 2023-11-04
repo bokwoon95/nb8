@@ -14,11 +14,16 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bokwoon95/nb8"
 	"github.com/caddyserver/certmagic"
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/libdns/cloudflare"
 	"github.com/libdns/godaddy"
@@ -32,14 +37,6 @@ type SMTPConfig struct {
 	Password string `json:"password,omitempty"`
 	Host     string `json:"host,omitempty"`
 	Port     string `json:"port,omitempty"`
-}
-
-type S3Config struct {
-	Endpoint        string `json:"endpoint,omitempty"`
-	Region          string `json:"region,omitempty"`
-	Bucket          string `json:"bucket,omitempty"`
-	AccessKeyID     string `json:"accessKeyID,omitempty"`
-	SecretAccessKey string `json:"secretAccessKey,omitempty"`
 }
 
 type CaptchaConfig struct {
@@ -127,7 +124,6 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 		}
 	}
 
-	var db *sql.DB
 	b, err = os.ReadFile(filepath.Join(configFolder, "database.json"))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "database.json"), err)
@@ -159,14 +155,16 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 				return nil, fmt.Errorf("%s: sqlite: %w", filepath.Join(configFolder, "database.json"), err)
 			}
 			dataSourceName := databaseConfig.Filepath + "?" + sqliteQueryString(databaseConfig.Params)
-			db, err = sql.Open(sqliteDriverName, dataSourceName)
+			nbrew.Dialect = "sqlite"
+			nbrew.DB, err = sql.Open(sqliteDriverName, dataSourceName)
 			if err != nil {
 				return nil, fmt.Errorf("%s: sqlite: open %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
 			}
-			err = db.Ping()
+			err = nbrew.DB.Ping()
 			if err != nil {
 				return nil, fmt.Errorf("%s: sqlite: ping %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
 			}
+			nbrew.ErrorCode = sqliteErrorCode
 		case "postgres":
 			values := make(url.Values)
 			for key, value := range databaseConfig.Params {
@@ -189,13 +187,21 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 				RawQuery: values.Encode(),
 			}
 			dataSourceName := uri.String()
-			db, err = sql.Open("pgx", dataSourceName)
+			nbrew.Dialect = "postgres"
+			nbrew.DB, err = sql.Open("pgx", dataSourceName)
 			if err != nil {
 				return nil, fmt.Errorf("%s: postgres: open %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
 			}
-			err = db.Ping()
+			err = nbrew.DB.Ping()
 			if err != nil {
 				return nil, fmt.Errorf("%s: postgres: ping %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
+			}
+			nbrew.ErrorCode = func(err error) string {
+				var pgErr *pgconn.PgError
+				if errors.As(err, &pgErr) {
+					return pgErr.Code
+				}
+				return ""
 			}
 		case "mysql":
 			values := make(url.Values)
@@ -213,13 +219,21 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 				databaseConfig.Port = "3306"
 			}
 			dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", databaseConfig.User, databaseConfig.Password, databaseConfig.Host, databaseConfig.Password, databaseConfig.DBName, values.Encode())
-			db, err = sql.Open("mysql", dataSourceName)
+			nbrew.Dialect = "mysql"
+			nbrew.DB, err = sql.Open("mysql", dataSourceName)
 			if err != nil {
 				return nil, fmt.Errorf("%s: mysql: open %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
 			}
-			err = db.Ping()
+			err = nbrew.DB.Ping()
 			if err != nil {
 				return nil, fmt.Errorf("%s: mysql: ping %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
+			}
+			nbrew.ErrorCode = func(err error) string {
+				var mysqlErr *mysql.MySQLError
+				if errors.As(err, &mysqlErr) {
+					return strconv.FormatUint(uint64(mysqlErr.Number), 10)
+				}
+				return ""
 			}
 		case "":
 			return nil, fmt.Errorf("%s: missing dialect field", filepath.Join(configFolder, "database.json"))
@@ -228,16 +242,83 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 		}
 	}
 
-	var adminFolder string
-	_ = adminFolder // may be "database"
 	b, err = os.ReadFile(filepath.Join(configFolder, "admin-folder.txt"))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "admin-folder.txt"), err)
 	}
-	if len(b) > 0 {
-		adminFolder = string(b)
-	} else {
-		adminFolder = filepath.Join(homeDir, "notebrew-admin")
+	adminFolder := string(b)
+	if adminFolder == "" {
+		XDGDataHome := os.Getenv("XDG_DATA_HOME")
+		if XDGDataHome != "" {
+			adminFolder = filepath.Join(XDGDataHome, "notebrew-admin")
+		} else {
+			adminFolder = filepath.Join(homeDir, "notebrew-admin")
+		}
+	}
+	if adminFolder != "database" {
+		nbrew.FS = nb8.NewLocalFS(adminFolder, os.TempDir())
+	}
+	if adminFolder == "database" {
+		if nbrew.DB == nil {
+			return nil, fmt.Errorf("%s: cannot use database as filesystem because %s is missing", filepath.Join(configFolder, "admin-folder.txt"), filepath.Join(configFolder, "database.json"))
+		}
+		b, err = os.ReadFile(filepath.Join(configFolder, "s3.json"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "s3.json"), err)
+		}
+		if len(b) > 0 {
+			var s3Config struct {
+				Endpoint        string `json:"endpoint,omitempty"`
+				Region          string `json:"region,omitempty"`
+				Bucket          string `json:"bucket,omitempty"`
+				AccessKeyID     string `json:"accessKeyID,omitempty"`
+				SecretAccessKey string `json:"secretAccessKey,omitempty"`
+			}
+			decoder := json.NewDecoder(bytes.NewReader(b))
+			decoder.DisallowUnknownFields()
+			err := decoder.Decode(&s3Config)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "s3.json"), err)
+			}
+			if s3Config.Endpoint == "" {
+				return nil, fmt.Errorf("%s: missing endpoint field", filepath.Join(configFolder, "s3.json"))
+			}
+			if s3Config.Region == "" {
+				return nil, fmt.Errorf("%s: missing region field", filepath.Join(configFolder, "s3.json"))
+			}
+			if s3Config.Bucket == "" {
+				return nil, fmt.Errorf("%s: missing bucket field", filepath.Join(configFolder, "s3.json"))
+			}
+			if s3Config.AccessKeyID == "" {
+				return nil, fmt.Errorf("%s: missing accessKeyID field", filepath.Join(configFolder, "s3.json"))
+			}
+			if s3Config.SecretAccessKey == "" {
+				return nil, fmt.Errorf("%s: missing secretAccessKey field", filepath.Join(configFolder, "s3.json"))
+			}
+			nbrew.FS = nb8.NewRemoteFS(nbrew.Dialect, nbrew.DB, nbrew.ErrorCode, &nb8.S3Storage{
+				Client: s3.New(s3.Options{
+					BaseEndpoint: aws.String(s3Config.Endpoint),
+					Region:       s3Config.Region,
+					Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(s3Config.AccessKeyID, s3Config.SecretAccessKey, "")),
+				}),
+				Bucket: s3Config.Bucket,
+			})
+		} else {
+			b, err = os.ReadFile(filepath.Join(configFolder, "objects-folder.txt"))
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "objects-folder.txt"), err)
+			}
+			objectsFolder := string(b)
+			if objectsFolder == "" {
+				XDGDataHome := os.Getenv("XDG_DATA_HOME")
+				if XDGDataHome != "" {
+					objectsFolder = filepath.Join(XDGDataHome, "notebrew-objects")
+				} else {
+					objectsFolder = filepath.Join(homeDir, "notebrew-objects")
+				}
+			}
+			nbrew.FS = nb8.NewRemoteFS(nbrew.Dialect, nbrew.DB, nbrew.ErrorCode, nb8.NewFileStorage(objectsFolder, os.TempDir()))
+		}
 	}
 
 	var dns01Solver acmez.Solver

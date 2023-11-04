@@ -296,7 +296,7 @@ type RemoteFS struct {
 	ctx       context.Context
 	db        *sql.DB
 	dialect   string
-	errorcode func(error) string
+	errorCode func(error) string
 	storage   Storage
 }
 
@@ -339,12 +339,12 @@ func isFulltextIndexed(filePath string) bool {
 	return false
 }
 
-func NewRemoteFS(dialect string, db *sql.DB, errorcode func(error) string, storage Storage) *RemoteFS {
+func NewRemoteFS(dialect string, db *sql.DB, errorCode func(error) string, storage Storage) *RemoteFS {
 	return &RemoteFS{
 		ctx:       context.Background(),
 		db:        db,
 		dialect:   dialect,
-		errorcode: errorcode,
+		errorCode: errorCode,
 		storage:   storage,
 	}
 }
@@ -838,10 +838,10 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 			},
 		})
 		if err != nil {
-			if fsys.errorcode == nil {
+			if fsys.errorCode == nil {
 				return err
 			}
-			errcode := fsys.errorcode(err)
+			errcode := fsys.errorCode(err)
 			if IsKeyViolation(fsys.dialect, errcode) {
 				return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrExist}
 			}
@@ -862,10 +862,10 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 			},
 		})
 		if err != nil {
-			if fsys.errorcode == nil {
+			if fsys.errorCode == nil {
 				return err
 			}
-			errcode := fsys.errorcode(err)
+			errcode := fsys.errorCode(err)
 			if IsKeyViolation(fsys.dialect, errcode) {
 				return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrExist}
 			}
@@ -1140,10 +1140,10 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	if err != nil {
 		// We weren't able to delete {newname} earlier, which means it is a
 		// directory.
-		if fsys.errorcode == nil {
+		if fsys.errorCode == nil {
 			return err
 		}
-		errcode := fsys.errorcode(err)
+		errcode := fsys.errorCode(err)
 		if IsKeyViolation(fsys.dialect, errcode) {
 			return &fs.PathError{Op: "rename", Path: newname, Err: syscall.EISDIR}
 		}
