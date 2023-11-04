@@ -84,6 +84,10 @@ func main() {
 			} else {
 				configFolder = filepath.Join(homeDir, "notebrew-config")
 			}
+			err := os.MkdirAll(configFolder, 0755)
+			if err != nil {
+				return err
+			}
 		} else {
 			configFolder = filepath.Clean(configFolder)
 			_, err := os.Stat(configFolder)
@@ -291,8 +295,12 @@ func main() {
 			} else {
 				adminFolder = filepath.Join(homeDir, "notebrew-admin")
 			}
-		}
-		if adminFolder == "database" {
+			err := os.MkdirAll(adminFolder, 0755)
+			if err != nil {
+				return err
+			}
+			nbrew.FS = nb8.NewLocalFS(adminFolder, os.TempDir())
+		} else if adminFolder == "database" {
 			if nbrew.DB == nil {
 				return fmt.Errorf("%s: cannot use database as filesystem because %s is missing", filepath.Join(configFolder, "admin-folder.txt"), filepath.Join(configFolder, "database.json"))
 			}
@@ -354,6 +362,11 @@ func main() {
 				nbrew.FS = nb8.NewRemoteFS(nbrew.Dialect, nbrew.DB, nbrew.ErrorCode, nb8.NewFileStorage(objectsFolder, os.TempDir()))
 			}
 		} else {
+			adminFolder = filepath.Clean(adminFolder)
+			_, err := os.Stat(adminFolder)
+			if err != nil {
+				return err
+			}
 			nbrew.FS = nb8.NewLocalFS(adminFolder, os.TempDir())
 		}
 		dirs := []string{
