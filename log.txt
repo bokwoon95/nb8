@@ -26,6 +26,7 @@ $XDG_DATA_HOME/notebrew-objects => $HOME/notebrew-objects
 $XDG_DATA_HOME/notebrew.db => $HOME/notebrew.db
 notebrew -config-folder
 sqlite3 ~/notebrew.db
+notebrew-config/503.html => 503 The server is down for maintenance
 
 default dir: $HOME/notebrew-admin
 default config? $HOME/notebrew-config

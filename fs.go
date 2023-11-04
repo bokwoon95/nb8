@@ -144,6 +144,7 @@ type LocalFileWriter struct {
 	name        string
 	perm        fs.FileMode
 	tempFile    *os.File
+	tempName    string
 	writeFailed bool
 }
 
@@ -164,11 +165,15 @@ func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, 
 	if file.tempDir == "" {
 		file.tempDir = os.TempDir()
 	}
-	tempFile, err := os.CreateTemp(file.tempDir, "__notebrewtemp*__")
+	file.tempFile, err = os.CreateTemp(file.tempDir, "__notebrewtemp*__")
 	if err != nil {
 		return nil, err
 	}
-	file.tempFile = tempFile
+	fileInfo, err := file.tempFile.Stat()
+	if err != nil {
+		return nil, err
+	}
+	file.tempName = fileInfo.Name()
 	return file, nil
 }
 
@@ -187,21 +192,17 @@ func (file *LocalFileWriter) Write(p []byte) (n int, err error) {
 }
 
 func (file *LocalFileWriter) Close() error {
-	fileInfo, err := file.tempFile.Stat()
-	if err != nil {
-		return err
-	}
-	tempFilePath := filepath.Join(file.tempDir, fileInfo.Name())
+	tempFilePath := filepath.Join(file.tempDir, file.tempName)
 	destFilePath := filepath.Join(file.rootDir, file.name)
 	defer os.Remove(tempFilePath)
-	err = file.tempFile.Close()
+	err := file.tempFile.Close()
 	if err != nil {
 		return err
 	}
 	if file.writeFailed {
 		return nil
 	}
-	fileInfo, err = os.Stat(destFilePath)
+	_, err = os.Stat(destFilePath)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return err
@@ -326,7 +327,7 @@ func isFulltextIndexed(filePath string) bool {
 			return true
 		}
 	case "pages":
-		if ext == ".html" {
+		if ext == ".html" || ext == ".md" {
 			return true
 		}
 	case "output":
@@ -460,12 +461,6 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		} else {
 			file.readCloser, err = fsys.storage.Get(context.Background(), file.fileInfo.filePath)
 			if err != nil {
-				var apiErr smithy.APIError
-				if errors.As(err, &apiErr) {
-					if apiErr.ErrorCode() == "NoSuchKey" {
-						return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
-					}
-				}
 				return nil, err
 			}
 		}
@@ -1509,6 +1504,12 @@ func (storage *S3Storage) Get(ctx context.Context, key string) (io.ReadCloser, e
 		Key:    aws.String(key),
 	})
 	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			if apiErr.ErrorCode() == "NoSuchKey" {
+				return nil, &fs.PathError{Op: "open", Path: key, Err: fs.ErrNotExist}
+			}
+		}
 		return nil, err
 	}
 	return output.Body, nil
@@ -1556,7 +1557,7 @@ func (storage *InMemoryStorage) Get(ctx context.Context, key string) (io.ReadClo
 	value, ok := storage.entries[key]
 	storage.mu.RUnlock()
 	if !ok {
-		return nil, fmt.Errorf("entry does not exist for key %q", key)
+		return nil, &fs.PathError{Op: "open", Path: key, Err: fs.ErrNotExist}
 	}
 	return io.NopCloser(bytes.NewReader(value)), nil
 }
@@ -1579,36 +1580,79 @@ func (storage *InMemoryStorage) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-// TODO: how do we multiplex? First two significant digits or last 2 digits? Or
-// last 3 digits? Assuming a standard image size of 600kB, how many images are
-// we looking to store in 1TB and will it fit inside 256 or 4096 buckets? Just
-// let people dump *all* images into one directory?
-// I'm leaning towards 2 digits. If it's good enough for git it's good enough
-// for me.
-type LocalStorage struct {
-	mu      sync.RWMutex
-	entries map[string][]byte
+type FileStorage struct {
+	rootDir string
+	tempDir string
 }
 
-func (fsys *LocalFS) Get(ctx context.Context, key string) (io.ReadCloser, error) {
-	return fsys.Open(key)
+func NewFileStorage(rootDir, tempDir string) *FileStorage {
+	return &FileStorage{
+		rootDir: filepath.FromSlash(rootDir),
+		tempDir: filepath.FromSlash(tempDir),
+	}
 }
 
-func (fsys *LocalFS) Put(ctx context.Context, key string, reader io.Reader) error {
-	writer, err := fsys.OpenWriter(key, 0644)
+func (storage *FileStorage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	err := ctx.Err()
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(filepath.Join(storage.rootDir, key))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, &fs.PathError{Op: "open", Path: key, Err: fs.ErrNotExist}
+		}
+		return nil, err
+	}
+	return file, nil
+}
+
+func (storage *FileStorage) Put(ctx context.Context, key string, reader io.Reader) error {
+	err := ctx.Err()
 	if err != nil {
 		return err
 	}
-	defer writer.Close()
-	_, err = io.Copy(writer, reader)
+	tempDir := storage.tempDir
+	if tempDir == "" {
+		tempDir = os.TempDir()
+	}
+	tempFile, err := os.CreateTemp(tempDir, "__notebrewtemp*__")
 	if err != nil {
 		return err
 	}
-	return writer.Close()
+	fileInfo, err := tempFile.Stat()
+	if err != nil {
+		return err
+	}
+	tempFilePath := filepath.Join(tempDir, fileInfo.Name())
+	destFilePath := filepath.Join(storage.rootDir, key)
+	defer os.Remove(tempFilePath)
+	defer tempFile.Close()
+	_, err = io.Copy(tempFile, reader)
+	if err != nil {
+		return err
+	}
+	err = tempFile.Close()
+	if err != nil {
+		return err
+	}
+	err = os.Rename(tempFilePath, destFilePath)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (fsys *LocalFS) Delete(ctx context.Context, key string) error {
-	return fsys.Remove(key)
+func (storage *FileStorage) Delete(ctx context.Context, key string) error {
+	err := ctx.Err()
+	if err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(storage.rootDir, key))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func NewID() [16]byte {

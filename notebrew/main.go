@@ -66,10 +66,10 @@ func main() {
 }
 
 // static/dynamic private/public config:
-// - static private: database.json, dns01.json, smtp.json, s3.json
+// - static private: database.json, dns01.json, s3.json, smtp.json (excluded)
 // - static public: admin-folder.txt domain.txt, content-domain.txt, multisite.txt
 // - dynamic private: captcha.json
-// - dynamic public: allow-signup.txt
+// - dynamic public: allow-signup.txt, 503.html
 
 // 1. Find the config folder.
 // 2. Find the admin folder.
@@ -77,6 +77,7 @@ func main() {
 // 4.
 
 func New(configFolder string) (*nb8.Notebrew, error) {
+	var nbrew nb8.Notebrew
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -93,17 +94,37 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 	if err != nil {
 		return nil, err
 	}
+	nbrew.ConfigFS = os.DirFS(configFolder)
 
-	var adminFolder string
-	_ = adminFolder // may be "database"
-	b, err := os.ReadFile(filepath.Join(configFolder, "admin-folder.txt"))
+	b, err := os.ReadFile(filepath.Join(configFolder, "domain.txt"))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "admin-folder.txt"), err)
+		return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "domain.txt"), err)
 	}
 	if len(b) > 0 {
-		adminFolder = string(b)
+		nbrew.Domain = string(b)
 	} else {
-		adminFolder = filepath.Join(homeDir, "notebrew-admin")
+		nbrew.Domain = "localhost:6444"
+	}
+
+	b, err = os.ReadFile(filepath.Join(configFolder, "content-domain.txt"))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "content-domain.txt"), err)
+	}
+	if len(b) > 0 {
+		nbrew.ContentDomain = string(b)
+	} else {
+		nbrew.ContentDomain = nbrew.Domain
+	}
+
+	b, err = os.ReadFile(filepath.Join(configFolder, "multisite.txt"))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "multisite.txt"), err)
+	}
+	if len(b) > 0 {
+		str := string(b)
+		if str == "subdomain" || str == "subdirectory" {
+			nbrew.Multisite = str
+		}
 	}
 
 	var db *sql.DB
@@ -207,6 +228,18 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 		}
 	}
 
+	var adminFolder string
+	_ = adminFolder // may be "database"
+	b, err = os.ReadFile(filepath.Join(configFolder, "admin-folder.txt"))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("%s: %w", filepath.Join(configFolder, "admin-folder.txt"), err)
+	}
+	if len(b) > 0 {
+		adminFolder = string(b)
+	} else {
+		adminFolder = filepath.Join(homeDir, "notebrew-admin")
+	}
+
 	var dns01Solver acmez.Solver
 	_ = dns01Solver
 	b, err = os.ReadFile(filepath.Join(configFolder, "dns01.json"))
@@ -299,6 +332,5 @@ func New(configFolder string) (*nb8.Notebrew, error) {
 		}
 	}
 
-	nbrew := &nb8.Notebrew{}
-	return nbrew, nil
+	return &nbrew, nil
 }
