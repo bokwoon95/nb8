@@ -13,19 +13,10 @@ file.go
 server.go
 notebrew/main.go
 
-notebrew -dir ~/Dropbox/notebrew-admin
-notebrew -db file://path/to/file/
-notebrew -db postgres://user:pass@locahost:port/db
-notebrew -db mysql://localhost
-notebrew -db sqlite://notebrew.db
-notebrew -dir ~/Dropbox/notebrew-admin -db sqlite -multisite subdomain
-
-$XDG_CONFIG_HOME/notebrew-config => $HOME/notebrew-config
-$XDG_DATA_HOME/notebrew-admin => $HOME/notebrew-admin
-$XDG_DATA_HOME/notebrew-objects => $HOME/notebrew-objects
-$XDG_DATA_HOME/notebrew.db => $HOME/notebrew.db
-notebrew -config-folder
-sqlite3 ~/notebrew.db
+- remove the numFolders and numFiles count from the folder handler as well as the template
+- I guess it's safe to put a search icon on every page? "search this folder"
+- I don't know how to continue. I don't know how to plan. Should you be able to add notes anymore from the root folder? Or is it more like a page where it is context-dependent so you have to navigate to a folder before you can create items in it? So I can only add posts from the root folder? Should I remove that as well? Only left with create site? But people will barely create sites so is it worth putting that action so prominently?
+- I feel like a lot of problems would be alleviated if I had a more general-purpose icon that I could use to stuff all miscellaneous actions into like "create note" or "create post" or "regenerate site".
 
 notebrew-config/503.html => 503 The server is down for maintenance
 

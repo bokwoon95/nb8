@@ -29,7 +29,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		Preview    string     `json:"preview,omitempty"`
 		Size       int64      `json:"size,omitempty"`
 		ModTime    *time.Time `json:"modTime,omitempty"`
-		NumFolders int        `json:"numFolders,omitempty"`
+		NumFolders int        `json:"numFolders,omitempty"` // TODO: remove NumFolders and NumFiles, when the amount of files gets too many we can't manually count every file anymore.
 		NumFiles   int        `json:"numFiles,omitempty"`
 	}
 	type Response struct {
@@ -255,7 +255,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 			}
 		}
 	} else {
-		dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, folderPath))
+		dirEntries, err := nbrew.FS.ReadDir(path.Join(".", sitePrefix, folderPath))
 		if err != nil {
 			getLogger(r.Context()).Error(err.Error())
 			internalServerError(w, r, err)
