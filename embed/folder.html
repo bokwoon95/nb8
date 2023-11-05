@@ -40,17 +40,13 @@
     <div class="flex items-center">
         <details class="relative pointer mh1" data-disable-click-selection>
             <summary role="button" class="flex items-center br2 ph2 h2 transparent-button dashed-border hide-marker">
-                <div class="flex items-center">{{ template "heroicons-scissors" }}</div>
+                <div class="flex items-center">{{ template "heroicons-clipboard" }}</div>
                 {{ template "octicon-triangle-down" }}
             </summary>
             <div class="absolute bg-white br2 hide-marker" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                {{- if $.Path }}
+                <div class="tr ma2"><a href="" class="link linktext tr nowrap dib w-100 h-100">5 items cut</a></div>
                 <div class="tr ma2"><button type="button" class="link linktext tr nowrap dib w-100 h-100">paste</button></div>
-                <div class="tr ma2"><a href="" class="link linktext tr nowrap dib w-100 h-100">view</a></div>
                 <div class="tr ma2"><button type="button" class="link dark-red tr nowrap dib w-100 h-100">clear</button></div>
-                {{- else }}
-                <div class="tr ma2"><a href="" class="link linktext tr nowrap dib w-100 h-100">view</a></div>
-                {{- end }}
             </div>
         </details>
     </div>
@@ -93,7 +89,7 @@
     <div class="flex items-center">
         <details class="relative pointer ml1" title="create" data-disable-click-selection>
             <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker">
-                {{ template "octicon-plus" }}
+                {{ template "ellipsis-horizontal" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
             <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
@@ -370,5 +366,17 @@
 {{- define "octicon-sync" }}
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" class="ma1">
     <path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"></path>
+</svg>
+{{- end }}
+
+{{- define "heroicons-clipboard" }}
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="ma1">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+</svg>
+{{- end }}
+
+{{- define "octicon-three-bars" }}
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" class="ma1">
+    <path d="M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z"></path>
 </svg>
 {{- end }}

@@ -157,6 +157,7 @@ func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, 
 		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrInvalid}
 	}
 	file := &LocalFileWriter{
+		ctx:     fsys.ctx,
 		rootDir: fsys.rootDir,
 		tempDir: fsys.tempDir,
 		name:    filepath.FromSlash(name),
