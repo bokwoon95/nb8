@@ -23,6 +23,11 @@ notebrew/main.go
 - the universally allowed filetypes: .html .css .js .md .txt
     - however, anything other than .md and .txt is ignored in posts/
     - however, anything other than .md and .txt is ignored in posts/
+- IDEA: "Create file" -> Display a create file page where you ask for the name as well as a dropdown with .html, .css, .js or .md (you can set the default value with a query param).
+    - Change whatever the user types to be url safe, then create a post by that name as well as an output folder in output/, then redirect to the newly create page source file.
+    - Since we now know the file extension, we don't have to guess which extension to apply. The correct codemirror extension is loaded when the page renders.
+    - Since we now have an output folder in the output/ directory, any images or videos the user uploads goes straight into that output folder
+        - When they rename the post name, the output folder name is renamed as well requiring no URL change since the images are referenced locally <img src="bird.jpg">.
 
 universal addressing system: omg maybe anything that starts with /themes/**/*.html is considered to be sourced from the themes folder, while any bare *.html is sourced from the current folder. You are not allowed to reference any other page's templates.
 {{ template "/themes/common.html" }}
