@@ -20,6 +20,20 @@ notebrew/main.go
     - Maybe that's the key? At maximum we will only ever have 3 icons on top: clipboard (cut/copy/paste), sort by (plus previous/next pagination buttons below), hamburger menu (everything else).
 - each post/page has a "view post/view page" link up top.
 - remove 'admin' from file.html, now it looks like <- back | posts | view | output
+- the universally allowed filetypes: .html .css .js .md .txt
+    - however, anything other than .md and .txt is ignored in posts/
+    - however, anything other than .md and .txt is ignored in posts/
+
+universal addressing system: omg maybe anything that starts with /themes/**/*.html is considered to be sourced from the themes folder, while any bare *.html is sourced from the current folder. You are not allowed to reference any other page's templates.
+{{ template "/themes/common.html" }}
+{{ template "common.html" }} // NOT ALLOWED! Because it would violate the global addressability of templates making it impossible to cache (common.html does not mean common.html everywhere)
+{{ markdown "/themes/about-me.md" }}
+{{ markdown "content.md" }}
+<img src="/themes/bird.jpg"></img>
+<img src="bird.jpg"></img>
+![](/themes/bird.jpg)
+![](bird.jpg)
+{{ template "/themes/github.com/bokwoon95/plainsimple/file.html" }}
 
 notebrew-config/503.html => 503 The server is down for maintenance
 
