@@ -15,6 +15,19 @@ notebrew/main.go
 
 - remove the numFolders and numFiles count from the folder handler as well as the template
 - I guess it's safe to put a search icon on every page? "search this folder"
+    - search option goes into the ellipsis dropdown menu
+- updated icons
+    CLIPBOARD => view/paste/clear
+    SORT => date created/date updated/name | ascending/descending
+    root/ => CLIPBOARD, gear (regenerate site), plus (create post, create site)
+    notes/ => CLIPBOARD, SORT, plus (create note, create folder)
+    pages/ => CLIPBOARD, SORT, plus (create page, create folder) (create file, upload file option is inside the page editing page itself, which is actually linked to the output directory)
+    posts/ => CLIPBOARD, SORT, plus (create post, create folder) (create file, upload file option is inside the post editing page itself itself, which is actually linked to the output directory)
+    themes/ => CLIPBOARD, SORT, plus (create file?ext=html, upload file, create folder)
+- asset manager in the page and post editing page is a grid of files (either the image preview or a file icon and the possibly-truncated name). The last tile contains links to both "create file" and "upload file".
+    - each tile contains "insert" which inserts an <img>, <script> or <style> into where the current cursor is or the end of the document if the editor is unfocused.
+    - "rename" is an action inside of the file viewer itself, not the folder viewer. You can't apply rename to multiple files so it makes no sense
+    - It kind of sucks that you need to be redirected to a new page just to upload a file instead of doing it on the spot like funnyjunk. Should the upload page also show the available assets in a grid to let users track what they have uploaded so far?
 - I don't know how to continue. I don't know how to plan. Should you be able to add notes anymore from the root folder? Or is it more like a page where it is context-dependent so you have to navigate to a folder before you can create items in it? So I can only add posts from the root folder? Should I remove that as well? Only left with create site? But people will barely create sites so is it worth putting that action so prominently?
 - I feel like a lot of problems would be alleviated if I had a more general-purpose icon that I could use to stuff all miscellaneous actions into like "create note" or "create post" or "regenerate site".
     - Maybe that's the key? At maximum we will only ever have 3 icons on top: clipboard (cut/copy/paste), sort by (plus previous/next pagination buttons below), hamburger menu (everything else).
