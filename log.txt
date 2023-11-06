@@ -42,6 +42,7 @@ notebrew/main.go
     - Since we now know the file extension, we don't have to guess which extension to apply. The correct codemirror extension is loaded when the page renders.
     - Since we now have an output folder in the output/ directory, any images or videos the user uploads goes straight into that output folder
         - When they rename the post name, the output folder name is renamed as well requiring no URL change since the images are referenced locally <img src="bird.jpg">.
+- I suspect all of notebrew's features is sufficient to recreate https://kansai-odyssey.com
 
 universal addressing system: omg maybe anything that starts with /themes/**/*.html is considered to be sourced from the themes folder, while any bare *.html is sourced from the current folder. You are not allowed to reference any other page's templates.
 {{ template "/themes/common.html" }}
