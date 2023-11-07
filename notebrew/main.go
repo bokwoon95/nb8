@@ -391,7 +391,7 @@ func main() {
 		dirs := []string{
 			"notes",
 			"output",
-			"output/images",
+			"output/posts",
 			"output/themes",
 			"pages",
 			"posts",
