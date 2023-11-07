@@ -13,9 +13,14 @@ file.go
 server.go
 notebrew/main.go
 
-- remove the numFolders and numFiles count from the folder handler as well as the template
+/ =>
+notes/ =>
+pages/ =>
+posts/ =>
+themes/ =>
+output/ =>
+
 - I guess it's safe to put a search icon on every page? "search this folder"
-    - search option goes into the ellipsis dropdown menu
 - updated icons
     CLIPBOARD => view/paste/clear
     SORT => date created/date updated/name | ascending/descending
