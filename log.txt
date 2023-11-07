@@ -126,5 +126,5 @@ www.nbrew.io nuances
 - cdn.nbrew.io behaves identically to www.nbrew.io except cdn.nbrew.io may use a DNS CNAME record to point it to an actual CDN URL. If no CDN service is set up, cdn.nbrew.io gracefully degrades to serving files identical to www.nbrew.io.
 
 nbrew.io/themes/ => https://cdn.nbrew.io/themes/
-bokwoon.nbrew.io/themes/ => https://cdn.nbrew.io/@bokwoon/themes/
-bokwoon.com/themes/ => https://cdn.nbrew.io/bokwoon.com/themes/
+bokwoon.nbrew.io/themes/ => https://cdn.nbrew.io/@bokwoon/themes/ # Set CORS to only allow bokwoon.nbrew.io!
+bokwoon.com/themes/ => https://cdn.nbrew.io/bokwoon.com/themes/ # Set CORS to only allow bokwoon.com!
