@@ -290,12 +290,11 @@ func stripMarkdownStyles(src []byte) string {
 	// Jump to the location of each backslash found in the string.
 	for i := strings.IndexByte(str, '\\'); i >= 0; i = strings.IndexByte(str, '\\') {
 		b.WriteString(str[:i])
-		if i == len(str)-1 {
-			break
-		}
 		char, width := utf8.DecodeRuneInString(str[i+1:])
-		b.WriteRune(char)
 		str = str[i+1+width:]
+		if char != utf8.RuneError {
+			b.WriteRune(char)
+		}
 	}
 	b.WriteString(str)
 	return b.String()
