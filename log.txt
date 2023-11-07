@@ -87,13 +87,13 @@ configure database? (database currently not configured):
 domain?
 content domain? (content domain is currently not configured):
 multisite?
+dns01 (y/n)? (always show this if the domain is public and multisite is enabled. sanity check to make sure the api keys are valid or else fail this step)
 allow signups?
 captcha (y/n)?
     captcha site key?
     captcha secret key?
-smtp (y/n)?
-dns01 (y/n)?
 s3 (y/n)? (if s3 not configured and the admin-folder is the database, use ~/notebrew-objects instead)
+smtp (y/n)?
 
 dialect
 user
