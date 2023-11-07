@@ -237,46 +237,49 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 			parser.mu.Lock()
 			parser.inProgress[name] = wait
 			parser.mu.Unlock()
-			defer func() {
-				parser.mu.Lock()
-				close(wait)
-				delete(parser.inProgress, name)
-				parser.mu.Unlock()
-			}()
 			file, err := parser.nbrew.FS.WithContext(parser.ctx).Open(path.Join(parser.sitePrefix, "output/themes", name))
 			if err != nil {
 				if errors.Is(err, fs.ErrNotExist) {
 					parser.mu.Lock()
 					parser.errmsgs[name] = append(parser.errmsgs[name], fmt.Sprintf("%s calls nonexistent template %q", templateName, name))
 					parser.mu.Unlock()
+					// Need to close(wait) here? God this is so buggy.
 					continue
 				}
+				close(wait)
 				return nil, fmt.Errorf("%s: open %s: %w", templateName, name, err)
 			}
 			fileinfo, err := file.Stat()
 			if err != nil {
+				close(wait)
 				return nil, fmt.Errorf("%s: stat %s: %w", templateName, name, err)
 			}
 			var b strings.Builder
 			b.Grow(int(fileinfo.Size()))
 			_, err = io.Copy(&b, file)
 			if err != nil {
+				close(wait)
 				return nil, fmt.Errorf("%s: read %s: %w", templateName, name, err)
 			}
 			err = file.Close()
 			if err != nil {
+				close(wait)
 				return nil, fmt.Errorf("%s: close %s: %w", templateName, name, err)
 			}
 			text := b.String()
 			tmpl, err = parser.parse(name, text, append(callers, name))
 			if err != nil {
+				close(wait)
 				return nil, err
 			}
+			// WTF is going on here? Why would tmpl be nil, and why continue?
 			if tmpl == nil {
 				continue
 			}
 			parser.mu.Lock()
 			parser.cache[name] = tmpl
+			close(wait)
+			delete(parser.inProgress, name)
 			parser.mu.Unlock()
 		}
 		for _, tmpl := range tmpl.Templates() {

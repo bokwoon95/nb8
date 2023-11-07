@@ -13,9 +13,9 @@ file.go
 server.go
 notebrew/main.go
 
-/ => clipboard, search, create site
-notes/ => search, create note, create folder
-pages/ => search, create page, create folder
+/ => clipboard, search, create (site)
+notes/ => clipboard, sort, search, create (note | folder)
+pages/ => clipboard, search, create (page | folder)
 posts/ => search, create post, create category
 themes/ =>
 output/ =>
@@ -26,8 +26,23 @@ ugly child - regenerate site and search are not dropdowns, they're straight up l
     - search is a dropdown input
     - regenerate site is uhhh
         - I need to figure out what the UI for informing the user a template was found to be broken during rendering looks like
+        - Since createpost.html/createpage.html/createfile.html no longer have textarea inputs, almost all errors will be surfaced in file.html.
+        - file.html's alert only shows if saving the actual file was successful or not.
+        - any template rendering errors will be displayed in a separate red box that doesn't look like an alert to make it clear it isn't something dismissable -- you have to fix this now
+            - This same red box will appear in folder.html if the user selects a bunch of posts/pages and clicks "regenerate"
+            - btw, the "regenerate" option is now beside every page and post (and folders containing pages and posts). It is no longer a top level action, so no worries about what icon to use for that.
+- To make things simpler, cut/copy/paste only work within the same top-level folder (notes, pages, posts, output).
+- conservative rendering:
+    - if a page is updated, only the page is regenerated.
+    - if a post is updated, only the post is regenerated.
+    - if a post is added or deleted, only the list page is regenerated.
+    - if a list page template is updated (deleting it only means we fallback to the default posts.html), only the list page is regenerated
+    - if some rando template is updated, nothing is regenerated (we don't know which page or post will reference that template so it's up to the user to manually select the pages to regenerate)
+    - if some rando markdown file under a page is updated, nothing is regenerated (we don't know whether the page will reference a markdown file so it's up to the user to manually select the pages to regenerate (in the case of a documentation, they can select the entire folder and regenerate it).
+    - should folder regeneration be recursive? yes.
+- whether or not index.html is gzipped, we will never full-text index it! We index pages, we index templates, we index markdown files, but never the generated index.html files because it would result in duplicate entries showing up.
 
-- I guess it's safe to put a search icon on every page? "search this folder"
+
 - updated icons
     CLIPBOARD => view/paste/clear
     SORT => date created/date updated/name | ascending/descending
