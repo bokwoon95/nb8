@@ -11,8 +11,6 @@ import (
 	"mime"
 	"net/http"
 	"path"
-	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,16 +19,14 @@ import (
 
 func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, sitePrefix, folderPath string, fileInfo fs.FileInfo) {
 	type Entry struct {
-		Name       string     `json:"name,omitempty"`
-		IsDir      bool       `json:"isDir,omitempty"`
-		IsSite     bool       `json:"isSite,omitempty"`
-		IsUser     bool       `json:"isUser,omitempty"`
-		Title      string     `json:"title,omitempty"`
-		Preview    string     `json:"preview,omitempty"`
-		Size       int64      `json:"size,omitempty"`
-		ModTime    *time.Time `json:"modTime,omitempty"`
-		NumFolders int        `json:"numFolders,omitempty"` // TODO: remove NumFolders and NumFiles, when the amount of files gets too many we can't manually count every file anymore.
-		NumFiles   int        `json:"numFiles,omitempty"`
+		Name    string     `json:"name,omitempty"`
+		IsDir   bool       `json:"isDir,omitempty"`
+		IsSite  bool       `json:"isSite,omitempty"`
+		IsUser  bool       `json:"isUser,omitempty"`
+		Title   string     `json:"title,omitempty"`
+		Preview string     `json:"preview,omitempty"`
+		Size    int64      `json:"size,omitempty"`
+		ModTime *time.Time `json:"modTime,omitempty"`
 	}
 	type Response struct {
 		Status         Error      `json:"status"`
@@ -39,8 +35,6 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		IsDir          bool       `json:"isDir,omitempty"`
 		ModTime        *time.Time `json:"modTime,omitempty"`
 		Entries        []Entry    `json:"entries,omitempty"`
-		Sort           string     `json:"sort,omitempty"`
-		Order          string     `json:"order,omitempty"`
 	}
 	if r.Method != "GET" {
 		methodNotAllowed(w, r)
@@ -72,43 +66,6 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		response.Status = Success
 	}
 
-	head, _, _ := strings.Cut(folderPath, "/")
-	response.Sort = strings.ToLower(strings.TrimSpace(r.Form.Get("sort")))
-	if response.Sort == "" {
-		cookie, _ := r.Cookie("sort")
-		if cookie != nil {
-			response.Sort = cookie.Value
-		}
-	}
-	switch response.Sort {
-	case "name", "created", "edited", "title":
-		break
-	default:
-		if head == "notes" || head == "posts" {
-			response.Sort = "created"
-		} else {
-			response.Sort = "name"
-		}
-	}
-
-	response.Order = strings.ToLower(strings.TrimSpace(r.Form.Get("order")))
-	if response.Order == "" {
-		cookie, _ := r.Cookie("order")
-		if cookie != nil {
-			response.Order = cookie.Value
-		}
-	}
-	switch response.Order {
-	case "asc", "desc":
-		break
-	default:
-		if response.Sort == "created" || response.Sort == "edited" {
-			response.Order = "desc"
-		} else {
-			response.Order = "asc"
-		}
-	}
-
 	var folderEntries []Entry
 	var fileEntries []Entry
 	var authorizedForRootSite bool
@@ -130,19 +87,6 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 				modTime := fileInfo.ModTime()
 				if !modTime.IsZero() {
 					entry.ModTime = &modTime
-				}
-				dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, name))
-				if err != nil {
-					getLogger(r.Context()).Error(err.Error())
-					internalServerError(w, r, err)
-					return
-				}
-				for _, dirEntry := range dirEntries {
-					if dirEntry.IsDir() {
-						entry.NumFolders++
-					} else {
-						entry.NumFiles++
-					}
 				}
 				folderEntries = append(folderEntries, entry)
 			}
@@ -277,26 +221,14 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 			if !modTime.IsZero() {
 				entry.ModTime = &modTime
 			}
+			if entry.IsDir {
+				folderEntries = append(folderEntries, entry)
+				continue
+			}
 			ext := path.Ext(entry.Name)
+			head, _, _ := strings.Cut(folderPath, "/")
 			switch head {
 			case "notes", "posts":
-				if entry.IsDir {
-					dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, folderPath, entry.Name))
-					if err != nil {
-						getLogger(r.Context()).Error(err.Error(), slog.String("name", dirEntry.Name()))
-						internalServerError(w, r, err)
-						return
-					}
-					for _, dirEntry := range dirEntries {
-						if dirEntry.IsDir() {
-							entry.NumFolders++
-						} else {
-							entry.NumFiles++
-						}
-					}
-					folderEntries = append(folderEntries, entry)
-					continue
-				}
 				if ext != ".md" && ext != ".txt" {
 					fileEntries = append(fileEntries, entry)
 					continue
@@ -338,110 +270,9 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 					internalServerError(w, r, err)
 					return
 				}
-			case "output":
-				if !entry.IsDir {
-					fileEntries = append(fileEntries, entry)
-					continue
-				}
-				dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, folderPath, entry.Name))
-				if err != nil {
-					getLogger(r.Context()).Error(err.Error(), slog.String("name", dirEntry.Name()))
-					internalServerError(w, r, err)
-					return
-				}
-				if len(dirEntries) == 1 && (dirEntries[0].Name() == "index.html" || dirEntries[0].Name() == "index.html.gz") {
-					fileInfo, err := dirEntries[0].Info()
-					if err != nil {
-						getLogger(r.Context()).Error(err.Error(), slog.String("name", dirEntry.Name()))
-						internalServerError(w, r, err)
-						return
-					}
-					entry.Name = path.Join(entry.Name, fileInfo.Name())
-					entry.IsDir = false
-					entry.Size = fileInfo.Size()
-					modTime := fileInfo.ModTime()
-					if !modTime.IsZero() {
-						entry.ModTime = &modTime
-					}
-					fileEntries = append(fileEntries, entry)
-					continue
-				}
-				for _, dirEntry := range dirEntries {
-					if dirEntry.IsDir() {
-						entry.NumFolders++
-					} else {
-						entry.NumFiles++
-					}
-				}
-				folderEntries = append(folderEntries, entry)
-				continue
 			default:
-				if entry.IsDir {
-					dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, folderPath, entry.Name))
-					if err != nil {
-						getLogger(r.Context()).Error(err.Error(), slog.String("name", dirEntry.Name()))
-						internalServerError(w, r, err)
-						return
-					}
-					for _, dirEntry := range dirEntries {
-						if dirEntry.IsDir() {
-							entry.NumFolders++
-						} else {
-							entry.NumFiles++
-						}
-					}
-					folderEntries = append(folderEntries, entry)
-					continue
-				}
 				fileEntries = append(fileEntries, entry)
 			}
-		}
-	}
-
-	switch response.Sort {
-	case "name", "created":
-		if response.Order == "desc" {
-			slices.Reverse(fileEntries)
-		}
-	case "edited":
-		slices.SortFunc(fileEntries, func(a, b Entry) int {
-			var cmp int
-			if a.ModTime == nil && b.ModTime == nil {
-				cmp = 0
-			} else if a.ModTime == nil {
-				cmp = -1
-			} else if b.ModTime == nil {
-				cmp = 1
-			} else {
-				if a.ModTime.Equal(*b.ModTime) {
-					cmp = 0
-				} else if a.ModTime.Before(*b.ModTime) {
-					cmp = -1
-				} else {
-					cmp = 1
-				}
-			}
-			if response.Order == "asc" {
-				return cmp
-			}
-			return -cmp
-		})
-	case "title":
-		if head == "notes" || head == "posts" {
-			slices.SortFunc(fileEntries, func(a, b Entry) int {
-				var cmp int
-				if a.Title == b.Title {
-					cmp = 0
-				} else if a.Title < b.Title {
-					cmp = -1
-				} else {
-					cmp = 1
-				}
-				if response.Order == "asc" {
-					return cmp
-				}
-				return -cmp
-			})
 		}
 	}
 
@@ -481,23 +312,6 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		"tail": func(s string) string {
 			_, tail, _ := strings.Cut(s, "/")
 			return tail
-		},
-		"filecount": func(numFolders, numFiles int) string {
-			if numFolders == 0 && numFiles == 0 {
-				return "no files"
-			}
-			parts := make([]string, 0, 2)
-			if numFolders == 1 {
-				parts = append(parts, "1 folder")
-			} else if numFolders > 1 {
-				parts = append(parts, strconv.Itoa(numFolders)+" folders")
-			}
-			if numFiles == 1 {
-				parts = append(parts, "1 file")
-			} else if numFiles > 1 {
-				parts = append(parts, strconv.Itoa(numFiles)+" files")
-			}
-			return strings.Join(parts, ", ")
 		},
 		"generateBreadcrumbLinks": func(filePath string) template.HTML {
 			var b strings.Builder

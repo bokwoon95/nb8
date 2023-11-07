@@ -20,10 +20,10 @@ notebrew/main.go
     CLIPBOARD => view/paste/clear
     SORT => date created/date updated/name | ascending/descending
     root/ => CLIPBOARD, gear (regenerate site), plus (create post, create site)
-    notes/ => CLIPBOARD, SORT, plus (create note, create folder)
-    pages/ => CLIPBOARD, SORT, plus (create page, create folder) (create file, upload file option is inside the page editing page itself, which is actually linked to the output directory)
-    posts/ => CLIPBOARD, SORT, plus (create post, create folder) (create file, upload file option is inside the post editing page itself itself, which is actually linked to the output directory)
-    themes/ => CLIPBOARD, SORT, plus (create file?ext=html, upload file, create folder)
+    notes/ => CLIPBOARD, SORT, gear (search), plus (create note, create folder)
+    pages/ => CLIPBOARD, SORT, gear (search), plus (create page, create folder) (create file, upload file option is inside the page editing page itself, which is actually linked to the output directory)
+    posts/ => CLIPBOARD, SORT, gear (search), plus (create post, create folder) (create file, upload file option is inside the post editing page itself itself, which is actually linked to the output directory)
+    output/ => CLIPBOARD, SORT, gear (search), plus (create file?ext=html, upload file, create folder)
 - asset manager in the page and post editing page is a grid of files (either the image preview or a file icon and the possibly-truncated name). The last tile contains links to both "create file" and "upload file".
     - each tile contains "insert" which inserts an <img>, <script> or <style> into where the current cursor is or the end of the document if the editor is unfocused.
     - "rename" is an action inside of the file viewer itself, not the folder viewer. You can't apply rename to multiple files so it makes no sense

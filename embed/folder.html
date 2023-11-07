@@ -58,17 +58,7 @@
                 {{ template "octicon-triangle-down" }}
             </summary>
             <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                {{- if or (eq (head $.Path) "notes") (eq (head $.Path) "posts") }}
-                <div class="tr ma2"><a href="?sort=created&order={{ $.Order }}" class="link linktext tr nowrap dib w-100 h-100{{ if eq $.Sort `created` }} arrow-before{{ end }}">date created</a></div>
-                <div class="tr ma2"><a href="?sort=edited&order={{ $.Order }}" class="link linktext tr nowrap dib w-100 h-100{{ if eq $.Sort `edited` }} arrow-before{{ end }}">date edited</a></div>
-                <div class="tr ma2"><a href="?sort=title&order={{ $.Order }}" class="link linktext tr nowrap dib w-100 h-100{{ if eq $.Sort `title` }} arrow-before{{ end }}">title</a></div>
-                {{- else }}
-                <div class="tr ma2"><a href="?sort=name&order={{ $.Order }}" class="link linktext tr nowrap dib w-100 h-100{{ if eq $.Sort `name` }} arrow-before{{ end }}">name</a></div>
-                <div class="tr ma2"><a href="?sort=edited&order={{ $.Order }}" class="link linktext tr nowrap dib w-100 h-100{{ if eq $.Sort `edited` }} arrow-before{{ end }}">date edited</a></div>
-                {{- end }}
-                <hr>
-                <div class="tr ma2"><a href="?sort={{ $.Sort }}&order=asc" class="link linktext tr nowrap dib w-100 h-100{{ if eq $.Order `asc` }} arrow-before{{ end }}">ascending</a></div>
-                <div class="tr ma2"><a href="?sort={{ $.Sort }}&order=desc" class="link linktext tr nowrap dib w-100 h-100{{ if eq $.Order `desc` }} arrow-before{{ end }}">descending</a></div>
+                <div class="tr ma2"><a href="" class="link linktext tr nowrap dib w-100 h-100">no roots</a></div>
             </div>
         </details>
     </div>
@@ -136,7 +126,6 @@
             <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
                 {{ template "heroicons-dir" }}
                 <a href="/{{ join `admin` sitePrefix `notes` }}/" class="linktext ma1 dib">notes/</a>
-                <span class="f6 mid-gray">({{ filecount $entry.NumFolders $entry.NumFiles}})</span>
                 <span class="flex-grow-1"></span>
                 <span class="flex items-center ph1">
                     {{ template "octicon-triangle-down" }}
@@ -165,7 +154,6 @@
             <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
                 {{ template "heroicons-dir" }}
                 <a href="/{{ join `admin` sitePrefix `output/themes` }}/" class="linktext ma1 dib">themes/</a>
-                <span class="f6 mid-gray">({{ filecount $entry.NumFolders $entry.NumFiles}})</span>
                 <span class="flex-grow-1"></span>
                 <span class="flex items-center mh1">
                     {{ template "octicon-triangle-down" }}
@@ -182,7 +170,6 @@
             <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
                 {{ template "heroicons-dir" }}
                 <a href="/{{ join `admin` sitePrefix `pages` }}/" class="linktext ma1 dib">pages/</a>
-                <span class="f6 mid-gray">({{ filecount $entry.NumFolders $entry.NumFiles}})</span>
                 <span class="flex-grow-1"></span>
                 <span class="flex items-center ph1">
                     {{ template "octicon-triangle-down" }}
@@ -199,7 +186,6 @@
             <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
                 {{ template "heroicons-dir" }}
                 <a href="/{{ join `admin` sitePrefix `posts` }}/" class="linktext ma1 dib">posts/</a>
-                <span class="f6 mid-gray">({{ filecount $entry.NumFolders $entry.NumFiles}})</span>
                 <span class="flex-grow-1"></span>
                 <span class="flex items-center ph1">
                     {{ template "octicon-triangle-down" }}
@@ -246,9 +232,7 @@
                     {{ template "heroicons-dir" }}
                     {{- end }}
                     <a href="/{{ join `admin` sitePrefix $.Path $entry.Name }}{{ if $entry.IsDir }}/{{ end }}" class="linktext ma1 truncate">{{ $entry.Name }}{{ if $entry.IsDir }}/{{ end }}</a>
-                    {{- if $entry.IsDir }}
-                    <span class="f6 mid-gray">({{ filecount $entry.NumFolders $entry.NumFiles}})</span>
-                    {{- else }}
+                    {{- if not $entry.IsDir }}
                     <span class="ma1 f6 mid-gray">{{ fileSizeToString $entry.Size }}</span>
                     {{- end }}
                 </div>
