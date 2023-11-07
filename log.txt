@@ -128,12 +128,3 @@ www.nbrew.io nuances
 nbrew.io/themes/ => https://cdn.nbrew.io/themes/
 bokwoon.nbrew.io/themes/ => https://cdn.nbrew.io/@bokwoon/themes/
 bokwoon.com/themes/ => https://cdn.nbrew.io/bokwoon.com/themes/
-
-type Config struct{
-    FS        FS
-    DB        *sql.DB
-    Dialect   string
-    ErrorCode func(error) string
-}
-
-func New(config Config) (*Notebrew, error)
