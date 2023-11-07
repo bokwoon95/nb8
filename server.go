@@ -55,7 +55,7 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 	if nbrew.ContentDomain != nbrew.Domain {
 		domains = append(domains, nbrew.ContentDomain)
 	}
-	if nbrew.Multisite == "subdomain" {
+	if nbrew.Multisite {
 		domains = append(domains, "*."+nbrew.ContentDomain)
 	}
 	// certConfig manages the certificate for the admin domain, content domain
@@ -208,74 +208,31 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	host := getHost(r)
 	urlPath := strings.Trim(r.URL.Path, "/")
-	head, tail, _ := strings.Cut(urlPath, "/")
+	head, _, _ := strings.Cut(urlPath, "/")
 	if host == nbrew.Domain && head == "admin" {
 		nbrew.admin(w, r, ip)
 		return
 	}
 
-	var subdomainPrefix string
 	var sitePrefix string
-	var customDomain string
-	if strings.HasSuffix(host, "."+nbrew.ContentDomain) {
-		subdomainPrefix = strings.TrimSuffix(host, "."+nbrew.ContentDomain)
-	} else if host != nbrew.ContentDomain {
-		customDomain = host
-	}
-	if strings.HasPrefix(head, "@") {
-		sitePrefix = head
-	}
-	if sitePrefix != "" && (subdomainPrefix != "" || customDomain != "") {
-		http.Error(w, "404 Not Found", http.StatusNotFound)
-		return
-	}
-	if sitePrefix != "" {
-		urlPath = tail
-		siteName := strings.TrimPrefix(sitePrefix, "@")
-		for _, char := range siteName {
-			if (char >= '0' && char <= '9') || (char >= 'a' && char <= 'z') || char == '-' {
-				continue
-			}
-			http.Error(w, "404 Not Found", http.StatusNotFound)
+	if certmagic.MatchWildcard(host, "*."+nbrew.ContentDomain) {
+		subdomain := strings.TrimSuffix(host, "."+nbrew.ContentDomain)
+		switch subdomain {
+		case "cdn":
+			// TODO: nbrew.cdn()
 			return
-		}
-		if siteName == "www" || nbrew.Multisite == "subdomain" {
-			http.Redirect(w, r, nbrew.Scheme+siteName+"."+nbrew.ContentDomain+"/"+urlPath, http.StatusFound)
-			return
-		}
-	} else if subdomainPrefix != "" {
-		sitePrefix = "@" + subdomainPrefix
-		for _, char := range subdomainPrefix {
-			if (char >= '0' && char <= '9') || (char >= 'a' && char <= 'z') || char == '-' {
-				continue
-			}
-			http.Error(w, "404 Not Found", http.StatusNotFound)
-			return
-		}
-		if subdomainPrefix == "www" {
-			sitePrefix = ""
-		} else if nbrew.Multisite == "subdirectory" {
-			http.Redirect(w, r, nbrew.Scheme+nbrew.ContentDomain+"/"+path.Join(sitePrefix, urlPath), http.StatusFound)
-			return
-		}
-	} else if customDomain != "" {
-		sitePrefix = customDomain
-		fileInfo, err := fs.Stat(nbrew.FS, customDomain)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				http.Error(w, "404 Not Found", http.StatusNotFound)
+		case "www":
+			if path.Ext(urlPath) == "" {
+				http.Redirect(w, r, nbrew.Scheme+nbrew.ContentDomain+r.URL.RequestURI(), http.StatusMovedPermanently)
 				return
 			}
-			logger.Error(err.Error())
-			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
-			return
+		default:
+			sitePrefix = "@" + subdomain
 		}
-		if !fileInfo.IsDir() {
-			http.Error(w, "404 Not Found", http.StatusNotFound)
-			return
-		}
+	} else if host != nbrew.ContentDomain {
+		sitePrefix = host
 	}
-	if nbrew.Multisite == "" && sitePrefix != "" {
+	if sitePrefix != "" && !nbrew.Multisite {
 		http.Error(w, "404 Not Found", http.StatusNotFound)
 		return
 	}
@@ -328,7 +285,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := path.Join(sitePrefix, "output", urlPath)
-	ext := path.Ext(name)
+	ext := path.Ext(urlPath)
 	if ext == "" {
 		name = name + "/index.html"
 		ext = ".html"

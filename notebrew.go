@@ -73,7 +73,7 @@ type Notebrew struct {
 
 	ContentDomain string // localhost:6444, example.com
 
-	Multisite string // subdomain | subdirectory
+	Multisite bool
 
 	Logger *slog.Logger
 }
@@ -465,14 +465,10 @@ func contentSiteURL(nbrew *Notebrew, sitePrefix string) string {
 		return "https://" + sitePrefix + "/"
 	}
 	if sitePrefix != "" {
-		switch nbrew.Multisite {
-		case "subdomain":
+		if nbrew.Multisite {
 			return nbrew.Scheme + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.ContentDomain + "/"
-		case "subdirectory":
-			return nbrew.Scheme + nbrew.ContentDomain + "/" + sitePrefix + "/"
-		default:
-			return ""
 		}
+		return ""
 	}
 	return nbrew.Scheme + nbrew.ContentDomain + "/"
 }

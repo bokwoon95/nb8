@@ -150,14 +150,10 @@ func main() {
 			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "multisite.txt"), err)
 		}
 		if len(b) > 0 {
-			str := string(b)
-			if str != "" && str != "subdomain" && str != "subdirectory" {
-				return fmt.Errorf("%s: invalid value %q (possible values: subdomain, subdirectory)", filepath.Join(configFolder, "multisite.txt"), str)
-			}
-			nbrew.Multisite = str
+			nbrew.Multisite, _ = strconv.ParseBool(string(b))
 		}
-		if nbrew.Multisite == "" && domainIsLocalhost && contentDomainIsLocalhost {
-			nbrew.Multisite = "subdirectory"
+		if !nbrew.Multisite && domainIsLocalhost && contentDomainIsLocalhost {
+			nbrew.Multisite = true
 		}
 
 		b, err = os.ReadFile(filepath.Join(configFolder, "database.json"))
@@ -512,8 +508,8 @@ func main() {
 				return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configFolder, "dns.json"), dnsConfig.Provider)
 			}
 		}
-		if nbrew.Scheme == "https://" && nbrew.Multisite == "subdomain" && dns01Solver == nil {
-			return fmt.Errorf("%s: cannot use \"subdomain\" because %s has not been configured, please use \"subdirectory\" instead", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns.json"))
+		if nbrew.Scheme == "https://" && nbrew.Multisite && dns01Solver == nil {
+			return fmt.Errorf("%s: cannot enable multisite because %s has not been configured", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns.json"))
 		}
 		// Create a new server (this step will provision the certificates for
 		// serving HTTPS traffic, and will return an error if certmagic fails
