@@ -22,7 +22,7 @@ type TemplateParser struct {
 	nbrew      *Notebrew
 	sitePrefix string
 	siteURL    string
-	mu         *sync.RWMutex // protects cache and errmsgs
+	mu         *sync.Mutex // protects cache and errmsgs
 	cache      map[string]*template.Template
 	errmsgs    map[string][]string
 	inProgress map[string]chan struct{}
@@ -61,7 +61,7 @@ func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) 
 		nbrew:      nbrew,
 		sitePrefix: sitePrefix,
 		siteURL:    siteURL,
-		mu:         &sync.RWMutex{},
+		mu:         &sync.Mutex{},
 		cache:      make(map[string]*template.Template),
 		errmsgs:    make(url.Values),
 		inProgress: make(map[string]chan struct{}),
@@ -169,9 +169,9 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 			parser.mu.Unlock()
 		}
 	}
-	parser.mu.RLock()
+	parser.mu.Lock()
 	errmsgs := parser.errmsgs
-	parser.mu.RUnlock()
+	parser.mu.Unlock()
 	if len(errmsgs) > 0 {
 		return nil, TemplateError(errmsgs)
 	}
@@ -218,9 +218,9 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 			parser.mu.Unlock()
 			return nil, TemplateError(parser.errmsgs)
 		}
-		parser.mu.RLock()
+		parser.mu.Lock()
 		wait := parser.inProgress[name]
-		parser.mu.RUnlock()
+		parser.mu.Unlock()
 		if wait != nil {
 			select {
 			case <-parser.ctx.Done():
@@ -229,9 +229,9 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 				break
 			}
 		}
-		parser.mu.RLock()
+		parser.mu.Lock()
 		tmpl := parser.cache[name]
-		parser.mu.RUnlock()
+		parser.mu.Unlock()
 		if tmpl == nil {
 			wait := make(chan struct{})
 			parser.mu.Lock()
@@ -286,9 +286,9 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 			}
 		}
 	}
-	parser.mu.RLock()
+	parser.mu.Lock()
 	errmsgs = parser.errmsgs
-	parser.mu.RUnlock()
+	parser.mu.Unlock()
 	if len(errmsgs) > 0 {
 		return nil, TemplateError(errmsgs)
 	}
