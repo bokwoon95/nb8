@@ -19,6 +19,7 @@ pages/ => clipboard, search, create (page | folder)
 posts/ => search, create post, create category
 themes/ =>
 output/ =>
+I am genuinely stuck on what to do next wtf
 
 what am I conflicted about? I can't have an icon per action - not enough space (I do *not* want to overflow an iPhone SE width!)
 I don't have any good categorization
