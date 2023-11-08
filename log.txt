@@ -41,6 +41,11 @@ ugly child - regenerate site and search are not dropdowns, they're straight up l
     - if some rando markdown file under a page is updated, nothing is regenerated (we don't know whether the page will reference a markdown file so it's up to the user to manually select the pages to regenerate (in the case of a documentation, they can select the entire folder and regenerate it).
     - should folder regeneration be recursive? yes.
 - whether or not index.html is gzipped, we will never full-text index it! We index pages, we index templates, we index markdown files, but never the generated index.html files because it would result in duplicate entries showing up.
+    - maybe we should rethink the "smart" feature of auto falling back to gzipped files for users because it makes the prospect of editing them a little murky
+        - users can upload gzipped files
+        - we can let users edit gzipped files (since we will unzip them for them to see, no reason to not translate whatever they typed back into a gzipped file)
+        - do we want to act like a gzip service for files magically labelled as *.gz?
+        - how much space savings do we even think users will save by uploading a gzipped file instead of just typing it in? text consumes barely anything, images and videos contain everything.
 
 
 - updated icons
