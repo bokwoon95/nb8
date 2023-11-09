@@ -13,7 +13,7 @@ file.go
 server.go
 notebrew/main.go
 
-/ => clipboard, search, create (site)
+/ => clipboard, create (site), search
 notes/ => clipboard, sort, search, create (note | folder)
 pages/ => clipboard, search, create (page | folder)
 posts/ => search, create post, create category
