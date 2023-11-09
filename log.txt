@@ -19,7 +19,20 @@ pages/ => clipboard, search, create (page | folder)
 posts/ => search, create post, create category
 themes/ =>
 output/ =>
-I am genuinely stuck on what to do next wtf
+file.html => <input="file" name="files" multiple>, <input="text" name="file_name">
+    file.html is the body of the content followed by the asset manager, which is a grid of images and files (if it's a non-image file, the tile shows the file name instead)
+    TODO: We can do this part first! Sketch out the MVP by hardcoding the HTML!
+ooh yeah if the current file is an asset of a post or page, show a link back to the post/page source (so users can edit a script, then pop back to the page and continue editing it. they can toggle between page source and script via the asset manager/page source link)
+    for each tile in the asset grid, there is a dropdown ellipsis with an "edit" link and an "insert" button. Link and button, to clearly show one directs to a new page and the other does a thing on the page. Oh no what about the other links masquerading as buttons? It's fine they all change the page, which is like a link.
+    What if... a user uploads an image and it automatically gets appended into the file? Too much? What about css/js files? They automatically get inserted into the page? Maybe have a "copy" button and an "edit" button per tile instead?
+    No no no. What if they always upload an image, then rename it immediately? If we automatically insert img tags then the src will always be out of date. Don't do extra work, just upload the file and that's it. Then how do we make it obvious that the user can upload images?
+        Answer: they don't. it's not obvious, you can only teach them once and hope they internalize it.
+        Revised answer: Actually, remove the ability to create and upload files manually in the output directory. Creating images and scripts will be managed solely through the file.html of the page or post. Output will be a read-only directory.
+folder.html => expose forms with file/text inputs that POST to /admin/uploadfile/ and /admin/createfile/ respectively. No need for a separate /admin/uploadfile/ or /admin/createfile/ form anymore.
+    - with great convenience comes great responsibility, now if there are form errors you need to redirect to folder.html with the <details> element open so that it can show the form errors :/
+    - what kind of errors can occur anyway?
+genuinely shook at "webkitdirectory", "mozdirectory" and "multiple" attributes (how they make multi-uploads so easy)
+TODO: rename.go is a POST-only action, because it is only available in file.html as a separate dropdown next to the filename. As in, the button is next to the filename and it opens a dropdown exposing an <input> and <button> for creating a POST request to /admin/rename/.
 
 what am I conflicted about? I can't have an icon per action - not enough space (I do *not* want to overflow an iPhone SE width!)
 I don't have any good categorization
