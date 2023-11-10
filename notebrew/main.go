@@ -511,9 +511,8 @@ func main() {
 		if nbrew.Scheme == "https://" && nbrew.Multisite && dns01Solver == nil {
 			return fmt.Errorf("%s: cannot enable multisite because %s has not been configured", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns.json"))
 		}
-		// Create a new server (this step will provision the certificates for
-		// serving HTTPS traffic, and will return an error if certmagic fails
-		// to obtain the necessary certificates).
+		// Create a new server (this step will provision the HTTPS
+		// certificates, if it fails an error will be returned).
 		server, err := nbrew.NewServer(dns01Solver)
 		if err != nil {
 			return err
