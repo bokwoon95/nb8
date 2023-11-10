@@ -73,12 +73,6 @@ func main() {
 		if err != nil {
 			return err
 		}
-		nbrew := &nb8.Notebrew{
-			Logger: slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-				AddSource: true,
-			})),
-		}
-
 		var configFolder string
 		flagset := flag.NewFlagSet("", flag.ContinueOnError)
 		flagset.StringVar(&configFolder, "config-folder", "", "")
@@ -104,7 +98,12 @@ func main() {
 				return err
 			}
 		}
-		nbrew.ConfigFS = os.DirFS(configFolder)
+		nbrew := &nb8.Notebrew{
+			ConfigFS: os.DirFS(configFolder),
+			Logger: slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+				AddSource: true,
+			})),
+		}
 
 		b, err := os.ReadFile(filepath.Join(configFolder, "domain.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
