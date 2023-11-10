@@ -375,6 +375,9 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		// TODO: if fileInfo indicates the file is under 10MB, do the file
 		// hashing here too. Also do the same for serveFile().
+		// {{ join `admin` sitePrefix $.Path $entry.Name }}
+		// {{ cdnBaseURL }}{{ join `admin` sitePrefix $.Path $entry.Name }}
+		// cdn.nbrew.io/@bokwoon/path/to/file
 		http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
 		return
 	}

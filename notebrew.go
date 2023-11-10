@@ -192,6 +192,9 @@ func (nbrew *Notebrew) clearSession(w http.ResponseWriter, r *http.Request, name
 		Secure:   nbrew.Scheme == "https://",
 		HttpOnly: true,
 	})
+	if nbrew.DB == nil {
+		return
+	}
 	cookie, _ := r.Cookie(name)
 	if cookie == nil {
 		return
