@@ -381,7 +381,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer hashPool.Put(hasher)
 
 	multiWriter := io.MultiWriter(buf, hasher)
-	if isGzipped {
+	if isGzipped || extInfo.contentType == "application/gzip" {
 		_, err = io.Copy(multiWriter, file)
 		if err != nil {
 			getLogger(r.Context()).Error(err.Error())
