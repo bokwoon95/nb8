@@ -353,25 +353,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !extInfo.isGzippable {
-		fileSeeker, ok := file.(io.ReadSeeker)
-		if ok {
-			http.ServeContent(w, r, name, fileInfo.ModTime(), fileSeeker)
-			return
-		}
-		buf := bufPool.Get().(*bytes.Buffer)
-		buf.Reset()
-		defer bufPool.Put(buf)
-		_, err = buf.ReadFrom(file)
-		if err != nil {
-			getLogger(r.Context()).Error(err.Error())
-			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-		http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
-		return
-	}
-
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufPool.Put(buf)
@@ -379,6 +360,24 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hasher := hashPool.Get().(hash.Hash)
 	hasher.Reset()
 	defer hashPool.Put(hasher)
+
+	if !extInfo.isGzippable {
+		fileSeeker, ok := file.(io.ReadSeeker)
+		if ok {
+			http.ServeContent(w, r, name, fileInfo.ModTime(), fileSeeker)
+			return
+		}
+		_, err = buf.ReadFrom(file)
+		if err != nil {
+			getLogger(r.Context()).Error(err.Error())
+			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		// TODO: if fileInfo indicates the file is under 10MB, do the file
+		// hashing here too. Also do the same for serveFile().
+		http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
+		return
+	}
 
 	multiWriter := io.MultiWriter(buf, hasher)
 	if isGzipped || ext == ".gz" || ext == ".gzip" {
