@@ -57,14 +57,17 @@ ul { margin: 0; padding: 0; }
 .mh1 { margin-left: .25rem; margin-right: .25rem; }
 .mh2 { margin-left: .5rem; margin-right: .5rem; }
 
+/* margin top */
+.mt2 { margin-top: .5rem; }
+
 /* margin bottom */
 .mb4 { margin-bottom: 2rem; }
 
-/* margin right */
-.mr2 { margin-right: .5rem; }
-
 /* margin left */
 .ml1 { margin-left: .25rem; }
+
+/* margin right */
+.mr2 { margin-right: .5rem; }
 
 /* padding all */
 .pa2 { padding: .5rem; }

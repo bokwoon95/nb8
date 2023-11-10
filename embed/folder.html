@@ -96,9 +96,10 @@
                 {{ template "octicon-search" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
-            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                beep
-            </div>
+            <form class="absolute bg-white br2 pa2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                <input id="search" name="search" placeholder="search this folder" class="pa2 br2 ba">
+                <button type="submit" class="button ba br2 pa2 w-100 mt2">search</button>
+            </form>
         </details>
     </div>
 </div>
