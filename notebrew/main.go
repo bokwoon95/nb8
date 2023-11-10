@@ -539,9 +539,8 @@ func main() {
 				fmt.Println("http://" + server.Addr + "/admin/ already running")
 				open("http://" + server.Addr + "/admin/")
 				return nil
-			} else {
-				return err
 			}
+			return err
 		}
 		wait := make(chan os.Signal, 1)
 		signal.Notify(wait, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
