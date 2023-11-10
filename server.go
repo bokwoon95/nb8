@@ -316,7 +316,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var isGzipped bool
+	isGzipped := ext == ".gz" || ext == ".gzip"
 	file, err := nbrew.FS.Open(name)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
@@ -453,7 +453,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string, 
 		return
 	}
 
-	var isGzipped bool
+	isGzipped := ext == ".gz" || ext == ".gzip"
 	file, err := fsys.Open(name)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
@@ -518,7 +518,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string, 
 	defer hashPool.Put(hasher)
 
 	multiWriter := io.MultiWriter(buf, hasher)
-	if isGzipped || ext == ".gz" || ext == ".gzip" {
+	if isGzipped {
 		_, err = io.Copy(multiWriter, file)
 		if err != nil {
 			getLogger(r.Context()).Error(err.Error())
