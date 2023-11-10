@@ -176,3 +176,7 @@ www.nbrew.io nuances
 nbrew.io/themes/ => https://cdn.nbrew.io/themes/
 bokwoon.nbrew.io/themes/ => https://cdn.nbrew.io/@bokwoon/themes/ # Set CORS to only allow bokwoon.nbrew.io!
 bokwoon.com/themes/ => https://cdn.nbrew.io/bokwoon.com/themes/ # Set CORS to only allow bokwoon.com!
+
+principle: Give me compute, give me storage, I'll give you a working program
+notebrew reader (rss)
+notebrew accountant (expense tracker)

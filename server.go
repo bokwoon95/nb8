@@ -208,24 +208,41 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	host := getHost(r)
 	urlPath := strings.Trim(r.URL.Path, "/")
-	head, _, _ := strings.Cut(urlPath, "/")
+	ext := path.Ext(urlPath)
+	head, tail, _ := strings.Cut(urlPath, "/")
 	if host == nbrew.Domain && head == "admin" {
 		nbrew.admin(w, r, ip)
 		return
 	}
 
 	var sitePrefix string
+	var forcePlaintext bool
 	if certmagic.MatchWildcard(host, "*."+nbrew.ContentDomain) {
 		subdomain := strings.TrimSuffix(host, "."+nbrew.ContentDomain)
 		switch subdomain {
-		case "cdn":
-			// TODO: nbrew.cdn()
-			return
-		case "www":
-			if path.Ext(urlPath) == "" {
-				http.Redirect(w, r, nbrew.Scheme+nbrew.ContentDomain+r.URL.RequestURI(), http.StatusMovedPermanently)
+		case "cdn", "www":
+			switch ext {
+			case "":
+				if subdomain == "www" {
+					http.Redirect(w, r, nbrew.Scheme+nbrew.ContentDomain+r.URL.RequestURI(), http.StatusMovedPermanently)
+					return
+				}
+				http.Error(w, "404 Not Found", http.StatusNotFound)
 				return
+			case ".html":
+				forcePlaintext = true
 			}
+			if strings.HasPrefix(head, "@") {
+				sitePrefix, urlPath = head, tail
+			} else if strings.Contains(head, ".") {
+				_, ok := extensionInfo[ext] // differentiate between valid file extension and a TLD
+				if !ok {
+					sitePrefix, urlPath = head, tail
+				}
+			}
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		default:
 			sitePrefix = "@" + subdomain
 		}
@@ -285,7 +302,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := path.Join(sitePrefix, "output", urlPath)
-	ext := path.Ext(urlPath)
 	if ext == "" {
 		name = name + "/index.html"
 		ext = ".html"
@@ -402,7 +418,11 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	*dst = (*dst)[:encodedLen]
 	hex.Encode(*dst, *src)
 
-	w.Header().Set("Content-Type", extInfo.contentType)
+	if forcePlaintext {
+		w.Header().Set("Content-Type", "text/plain")
+	} else {
+		w.Header().Set("Content-Type", extInfo.contentType)
+	}
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("ETag", `"`+string(*dst)+`"`)
 	http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
