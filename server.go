@@ -221,24 +221,28 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		subdomain := strings.TrimSuffix(host, "."+nbrew.ContentDomain)
 		switch subdomain {
 		case "cdn", "www":
-			switch ext {
-			case "":
-				if subdomain == "www" {
+			if strings.HasPrefix(head, "@") {
+				sitePrefix, urlPath = head, tail
+			} else if strings.Contains(head, ".") {
+				if tail != "" {
+					sitePrefix, urlPath = head, tail
+				} else {
+					_, ok := extensionInfo[path.Ext(head)] // differentiate between valid file extension and a TLD
+					if !ok {
+						sitePrefix, urlPath = head, tail
+					}
+				}
+			}
+			if ext == "" {
+				if subdomain == "www" && sitePrefix == "" {
 					http.Redirect(w, r, nbrew.Scheme+nbrew.ContentDomain+r.URL.RequestURI(), http.StatusMovedPermanently)
 					return
 				}
 				http.Error(w, "404 Not Found", http.StatusNotFound)
 				return
-			case ".html":
-				forcePlaintext = true
 			}
-			if strings.HasPrefix(head, "@") {
-				sitePrefix, urlPath = head, tail
-			} else if strings.Contains(head, ".") {
-				_, ok := extensionInfo[ext] // differentiate between valid file extension and a TLD
-				if !ok {
-					sitePrefix, urlPath = head, tail
-				}
+			if ext == ".html" {
+				forcePlaintext = true
 			}
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET")
