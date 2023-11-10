@@ -55,7 +55,7 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 	if nbrew.ContentDomain != nbrew.Domain {
 		domains = append(domains, nbrew.ContentDomain)
 	}
-	if nbrew.Multisite {
+	if dns01Solver != nil {
 		domains = append(domains, "*."+nbrew.ContentDomain)
 	}
 	// certConfig manages the certificate for the admin domain, content domain
@@ -252,10 +252,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if host != nbrew.ContentDomain {
 		sitePrefix = host
-	}
-	if sitePrefix != "" && !nbrew.Multisite {
-		http.Error(w, "404 Not Found", http.StatusNotFound)
-		return
 	}
 
 	custom404 := func(w http.ResponseWriter, r *http.Request, sitePrefix string) {

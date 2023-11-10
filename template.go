@@ -42,7 +42,7 @@ func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) 
 	siteURL := nbrew.Scheme + nbrew.ContentDomain
 	if strings.Contains(siteName, ".") {
 		siteURL = "https://" + siteName
-	} else if siteName != "" && nbrew.Multisite {
+	} else if siteName != "" {
 		siteURL = nbrew.Scheme + siteName + "." + nbrew.ContentDomain
 	}
 	var shortSiteURL string

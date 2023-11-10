@@ -144,17 +144,6 @@ func main() {
 			return fmt.Errorf("%s: %s: localhost and non-localhost domains cannot be mixed", filepath.Join(configFolder, "domain.txt"), filepath.Join(configFolder, "content-domain.txt"))
 		}
 
-		b, err = os.ReadFile(filepath.Join(configFolder, "multisite.txt"))
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "multisite.txt"), err)
-		}
-		if len(b) > 0 {
-			nbrew.Multisite, _ = strconv.ParseBool(string(b))
-		}
-		if !nbrew.Multisite && domainIsLocalhost && contentDomainIsLocalhost {
-			nbrew.Multisite = true
-		}
-
 		b, err = os.ReadFile(filepath.Join(configFolder, "database.json"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "database.json"), err)
@@ -506,9 +495,6 @@ func main() {
 			default:
 				return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configFolder, "dns.json"), dnsConfig.Provider)
 			}
-		}
-		if nbrew.Scheme == "https://" && nbrew.Multisite && dns01Solver == nil {
-			return fmt.Errorf("%s: cannot enable multisite because %s has not been configured", filepath.Join(configFolder, "multisite.txt"), filepath.Join(configFolder, "dns.json"))
 		}
 		// Create a new server (this step will provision the HTTPS
 		// certificates, if it fails an error will be returned).
