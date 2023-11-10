@@ -47,25 +47,35 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 		return nil, fmt.Errorf("ContentDomain cannot be empty")
 	}
 	server.Addr = ":443"
-	domains := []string{
-		nbrew.Domain,
-		"www." + nbrew.ContentDomain,
-		"cdn." + nbrew.ContentDomain,
-	}
-	if nbrew.ContentDomain != nbrew.Domain {
-		domains = append(domains, nbrew.ContentDomain)
+	var domains []string
+	if nbrew.Domain == nbrew.ContentDomain {
+		domains = []string{
+			nbrew.Domain,
+			"www." + nbrew.Domain,
+			"cdn." + nbrew.Domain,
+			"assets." + nbrew.Domain,
+		}
+	} else {
+		domains = []string{
+			nbrew.Domain,
+			nbrew.ContentDomain,
+			"www." + nbrew.Domain,
+			"www." + nbrew.ContentDomain,
+			"cdn." + nbrew.ContentDomain,
+			"assets." + nbrew.ContentDomain,
+		}
 	}
 	if dns01Solver != nil {
 		domains = append(domains, "*."+nbrew.ContentDomain)
 	}
-	// certConfig manages the certificate for the admin domain, content domain
+	// staticCertConfig manages the certificate for the admin domain, content domain
 	// and wildcard subdomain.
-	certConfig := certmagic.NewDefault()
-	certConfig.Issuers = []certmagic.Issuer{
+	staticCertConfig := certmagic.NewDefault()
+	staticCertConfig.Issuers = []certmagic.Issuer{
 		// Create a new ACME issuer with the dns01Solver because this cert
 		// config potentially has to issue wildcard certificates which only the
 		// DNS-01 challenge solver is capable of.
-		certmagic.NewACMEIssuer(certConfig, certmagic.ACMEIssuer{
+		certmagic.NewACMEIssuer(staticCertConfig, certmagic.ACMEIssuer{
 			CA:          certmagic.DefaultACME.CA,
 			TestCA:      certmagic.DefaultACME.TestCA,
 			Logger:      certmagic.DefaultACME.Logger,
@@ -74,14 +84,17 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 		}),
 	}
 	fmt.Printf("notebrew managing domains: %v\n", strings.Join(domains, ", "))
-	err := certConfig.ManageSync(context.Background(), domains)
+	err := staticCertConfig.ManageSync(context.Background(), domains)
 	if err != nil {
 		return nil, err
 	}
-	// customDomainCertConfig manages the certificates for custom domains.
-	customDomainCertConfig := certmagic.NewDefault()
-	customDomainCertConfig.OnDemand = &certmagic.OnDemandConfig{
+	// dynamicCertConfig manages the certificates for custom domains.
+	dynamicCertConfig := certmagic.NewDefault()
+	dynamicCertConfig.OnDemand = &certmagic.OnDemandConfig{
 		DecisionFunc: func(name string) error {
+			if certmagic.MatchWildcard(name, "*."+nbrew.ContentDomain) {
+				return nil
+			}
 			fileInfo, err := fs.Stat(nbrew.FS, name)
 			if err != nil {
 				return err
@@ -117,10 +130,10 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 			}
 			for _, domain := range domains {
 				if certmagic.MatchWildcard(clientHello.ServerName, domain) {
-					return certConfig.GetCertificate(clientHello)
+					return staticCertConfig.GetCertificate(clientHello)
 				}
 			}
-			return customDomainCertConfig.GetCertificate(clientHello)
+			return dynamicCertConfig.GetCertificate(clientHello)
 		},
 		MinVersion: tls.VersionTLS12,
 		CurvePreferences: []tls.CurveID{
@@ -207,8 +220,17 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	host := getHost(r)
+	if host == "www."+nbrew.Domain {
+		http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+r.URL.RequestURI(), http.StatusMovedPermanently)
+		return
+	}
+	if host == "www."+nbrew.ContentDomain {
+		http.Redirect(w, r, nbrew.Scheme+nbrew.ContentDomain+r.URL.RequestURI(), http.StatusMovedPermanently)
+		return
+	}
+
+	ext := path.Ext(r.URL.Path)
 	urlPath := strings.Trim(r.URL.Path, "/")
-	ext := path.Ext(urlPath)
 	head, tail, _ := strings.Cut(urlPath, "/")
 	if host == nbrew.Domain && head == "admin" {
 		nbrew.admin(w, r, ip)
@@ -216,11 +238,16 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sitePrefix string
-	var forcePlaintext bool
+	var servingAssets bool
 	if certmagic.MatchWildcard(host, "*."+nbrew.ContentDomain) {
 		subdomain := strings.TrimSuffix(host, "."+nbrew.ContentDomain)
 		switch subdomain {
-		case "cdn", "www":
+		case "cdn", "assets":
+			servingAssets = true
+			if ext == "" {
+				http.Error(w, "404 Not Found", http.StatusNotFound)
+				return
+			}
 			if strings.HasPrefix(head, "@") {
 				sitePrefix, urlPath = head, tail
 			} else if strings.Contains(head, ".") {
@@ -232,17 +259,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						sitePrefix, urlPath = head, tail
 					}
 				}
-			}
-			if ext == "" {
-				if subdomain == "www" && sitePrefix == "" {
-					http.Redirect(w, r, nbrew.Scheme+nbrew.ContentDomain+r.URL.RequestURI(), http.StatusMovedPermanently)
-					return
-				}
-				http.Error(w, "404 Not Found", http.StatusNotFound)
-				return
-			}
-			if ext == ".html" {
-				forcePlaintext = true
 			}
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET")
@@ -300,6 +316,16 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "405 Method Not Allowed", http.StatusMethodNotAllowed)
 		return
+	}
+	if !servingAssets {
+		if urlPath == "index.html" {
+			http.Redirect(w, r, "/", http.StatusMovedPermanently)
+			return
+		}
+		if strings.HasSuffix(urlPath, "/index.html") {
+			http.Redirect(w, r, "/"+strings.TrimSuffix(urlPath, "index.html"), http.StatusMovedPermanently)
+			return
+		}
 	}
 	name := path.Join(sitePrefix, "output", urlPath)
 	if ext == "" {
@@ -420,7 +446,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	*dst = (*dst)[:encodedLen]
 	hex.Encode(*dst, *src)
 
-	if forcePlaintext {
+	if servingAssets && ext == ".html" {
 		w.Header().Set("Content-Type", "text/plain")
 	} else {
 		w.Header().Set("Content-Type", extInfo.contentType)

@@ -54,6 +54,7 @@ type USERS struct {
 	PASSWORD_HASH    sq.StringField `ddl:"len=500"`
 	RESET_TOKEN_HASH sq.BinaryField `ddl:"mysql:type=BINARY(40) unique"`
 	FAILED_LOGINS    sq.NumberField
+	SITE_LIMIT       sq.NumberField
 	STORAGE_LIMIT    sq.NumberField
 	STORAGE_USED     sq.NumberField
 }
