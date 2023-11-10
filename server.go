@@ -83,7 +83,7 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 			DNS01Solver: dns01Solver,
 		}),
 	}
-	fmt.Printf("notebrew managing domains: %v\n", strings.Join(domains, ", "))
+	fmt.Printf("static domains: %v\n", strings.Join(domains, ", "))
 	err := staticCertConfig.ManageSync(context.Background(), domains)
 	if err != nil {
 		return nil, err
@@ -254,8 +254,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if tail != "" {
 					sitePrefix, urlPath = head, tail
 				} else {
-					_, ok := extensionInfo[path.Ext(head)] // differentiate between file extension and TLD
-					if !ok {
+					_, isExt := extensionInfo[path.Ext(head)] // differentiate between file extension and TLD
+					if !isExt {
 						sitePrefix, urlPath = head, tail
 					}
 				}
