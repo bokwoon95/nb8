@@ -238,12 +238,10 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var sitePrefix string
-	var servingAssets bool
 	if certmagic.MatchWildcard(host, "*."+nbrew.ContentDomain) {
 		subdomain := strings.TrimSuffix(host, "."+nbrew.ContentDomain)
 		switch subdomain {
 		case "cdn", "assets":
-			servingAssets = true
 			if ext == "" {
 				http.Error(w, "404 Not Found", http.StatusNotFound)
 				return
@@ -316,16 +314,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "405 Method Not Allowed", http.StatusMethodNotAllowed)
 		return
-	}
-	if !servingAssets {
-		if urlPath == "index.html" {
-			http.Redirect(w, r, "/", http.StatusMovedPermanently)
-			return
-		}
-		if strings.HasSuffix(urlPath, "/index.html") {
-			http.Redirect(w, r, "/"+strings.TrimSuffix(urlPath, "index.html"), http.StatusMovedPermanently)
-			return
-		}
 	}
 	name := path.Join(sitePrefix, "output", urlPath)
 	if ext == "" {
@@ -446,7 +434,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	*dst = (*dst)[:encodedLen]
 	hex.Encode(*dst, *src)
 
-	if servingAssets && ext == ".html" {
+	if path.Ext(urlPath) == ".html" {
 		w.Header().Set("Content-Type", "text/plain")
 	} else {
 		w.Header().Set("Content-Type", extInfo.contentType)
