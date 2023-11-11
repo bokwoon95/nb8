@@ -110,7 +110,7 @@
     {{- end }}
     {{- range $i, $entry := $.Entries }}
     {{- if eq $.Path "" }}
-    <div class="min-h2 mv2">
+    <div>
         {{- if eq $entry.Name "notes" }}
         <div class="flex items-center">
             <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
