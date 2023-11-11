@@ -517,17 +517,19 @@ func main() {
 			// To avoid importing an entire 3rd party library just to use a constant.
 			const WSAEADDRINUSE = syscall.Errno(10048)
 			if errno == syscall.EADDRINUSE || runtime.GOOS == "windows" && errno == WSAEADDRINUSE {
-				if nbrew.Scheme == "https://" {
-					fmt.Println(server.Addr + " already in use")
+				if server.Addr == "localhost" || strings.HasPrefix(server.Addr, "localhost:") {
+					fmt.Println("http://" + server.Addr + "/admin/ already running")
+					open("http://" + server.Addr + "/admin/")
 					return nil
 				}
-				fmt.Println("http://" + server.Addr + "/admin/ already running")
-				open("http://" + server.Addr + "/admin/")
+				fmt.Println("notebrew is already running (run `notebrew stop` to stop the process)")
 				return nil
 			}
 			return err
 		}
 
+		// Swallow SIGHUP so that we can keep running even when the SSH session
+		// ends (the user will use `notebrew stop` to terminate the process).
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGHUP)
 		go func() {
