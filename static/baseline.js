@@ -10,7 +10,7 @@ document.body.parentElement.addEventListener('click', (ev) => {
         detailsClickedWithin = target;
     }
     Array.from(document.getElementsByTagName('details')).filter(
-        (details) => details.open && details != detailsClickedWithin && !details.hasAttribute("data-dont-autoclose-details")
+        (details) => details.open && details != detailsClickedWithin && details.hasAttribute("data-autoclose-details")
     ).forEach(details => details.open = false);
 });
 

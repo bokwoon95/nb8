@@ -1,17 +1,23 @@
 // https://til.simonwillison.net/javascript/dropdown-menu-with-details-summary
-document.body.parentElement.addEventListener('click', (ev) => {
+document.body.parentElement.addEventListener("click", (event) => {
     /* Close any open details elements that this click is outside of */
-    var target = ev.target;
-    var detailsClickedWithin = null;
-    while (target && target.tagName != 'DETAILS') {
+    let target = event.target;
+    while (target && target.tagName != "DETAILS") {
         target = target.parentNode;
     }
-    if (target && target.tagName == 'DETAILS') {
+    let detailsClickedWithin = null;
+    if (target && target.tagName == "DETAILS") {
         detailsClickedWithin = target;
     }
-    Array.from(document.getElementsByTagName('details')).filter(
-        (details) => details.open && details != detailsClickedWithin && !details.hasAttribute("data-dont-autoclose-details")
-    ).forEach(details => details.open = false);
+    for (element of document.querySelectorAll("details[data-autoclose-details]")) {
+        if (!details.open || details == detailsClickedWithin) {
+            continue;
+        }
+        details.open = false;
+    }
+    // Array.from(document.getElementsByTagName('details')).filter(
+    //     (details) => details.open && details != detailsClickedWithin && details.hasAttribute("data-autoclose-details")
+    // ).forEach(details => details.open = false);
 });
 
 for (const element of document.querySelectorAll("[data-dismiss-alert]")) {
@@ -33,12 +39,14 @@ for (const element of document.querySelectorAll("[data-dismiss-alert]")) {
     });
 }
 
-const element = document.querySelector("[data-go-back]");
-if (element && element.tagName == "A") {
+for (const element of document.querySelectorAll("[data-go-back]")) {
+    if (element.tagName != "A") {
+        continue;
+    }
     element.addEventListener("click", function(event) {
-        if (document.referrer) {
-            history.back();
+        if (document.referrer && history.length > 2 && !event.ctrlKey && !event.metaKey) {
             event.preventDefault();
+            history.back();
         }
     });
 }

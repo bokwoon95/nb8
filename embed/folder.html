@@ -35,7 +35,7 @@
 <div class="mv2 flex flex-wrap items-center">
     <div class="flex-grow-1"></div>
     <div class="flex items-center">
-        <details class="relative pointer mh1" data-disable-click-selection>
+        <details class="relative pointer mh1" data-disable-click-selection data-autoclose-details>
             <summary role="button" class="flex items-center br2 ph2 h2 transparent-button dashed-border hide-marker">
                 <div class="flex items-center">{{ template "heroicons-clipboard" }}</div>
                 {{ template "octicon-triangle-down" }}
@@ -49,7 +49,7 @@
     </div>
     {{- if and $.Path (ne (head $.Path) "output") }}
     <div class="flex items-center">
-        <details class="relative pointer mh1" data-disable-click-selection>
+        <details class="relative pointer mh1" data-disable-click-selection data-autoclose-details>
             <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker">
                 {{ template "octicon-sort" }}
                 {{ template "octicon-triangle-down" }}
@@ -62,7 +62,7 @@
     {{- end }}
     {{- if or (and (eq $.SitePrefix "") (eq $.Path "")) (eq (head $.Path) "notes" "pages" "posts" "output") }}
     <div class="flex items-center">
-        <details class="relative pointer mh1" title="create" data-disable-click-selection>
+        <details class="relative pointer mh1" title="create" data-disable-click-selection data-autoclose-details>
             <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker">
                 {{ template "octicon-plus" }}
                 {{ template "octicon-triangle-down" }}
@@ -88,7 +88,7 @@
     </div>
     {{- end }}
     <div class="flex items-center">
-        <details class="relative pointer ml1" title="create" data-disable-click-selection>
+        <details class="relative pointer ml1" title="create" data-disable-click-selection data-autoclose-details>
             <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker">
                 {{ template "octicon-search" }}
                 {{ template "octicon-triangle-down" }}
@@ -126,6 +126,19 @@
                 Notes are private and can only be accessed by the owner(s) of a site.
             </div>
         </details>
+        <div class="flex items-center">
+            {{ template "heroicons-dir" }}
+            <a href="/{{ join `admin` $.SitePrefix `notes` }}/" class="linktext ma1 dib">notes/</a>
+            <div class="flex-grow-1"></div>
+            <details class="relative" data-disable-click-selection>
+                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                    {{ template "octicon-triangle-down" }}
+                </summary>
+                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                    w4nker
+                </div>
+            </details>
+        </div>
         {{- else if eq $entry.Name "output" }}
         <details data-dont-autoclose-details>
             <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
