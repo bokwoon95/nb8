@@ -110,117 +110,115 @@
     {{- end }}
     {{- range $i, $entry := $.Entries }}
     {{- if eq $.Path "" }}
-    <div>
-        {{- if eq $entry.Name "notes" }}
-        <div class="flex items-center">
-            <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
-            <a href="/{{ join `admin` $.SitePrefix `notes` }}/" class="linktext">notes/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative pointer" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
-                    {{ template "heroicons-information-circle" }}
-                    {{ template "octicon-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    <div class="ma2" style="min-width: 10rem;">
-                        Notes are private files which can only be accessed by you.
-                    </div>
+    {{- if eq $entry.Name "notes" }}
+    <div class="flex items-center">
+        <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
+        <a href="/{{ join `admin` $.SitePrefix `notes` }}/" class="linktext">notes/</a>
+        <div class="flex-grow-1"></div>
+        <details class="relative pointer" data-disable-click-selection data-autoclose-details>
+            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                {{ template "heroicons-information-circle" }}
+                {{ template "octicon-triangle-down" }}
+            </summary>
+            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                <div class="ma2" style="min-width: 10rem;">
+                    Notes are private files which can only be accessed by you.
                 </div>
-            </details>
-        </div>
-        {{- else if eq $entry.Name "pages" }}
-        <div class="flex items-center">
-            <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
-            <a href="/{{ join `admin` $.SitePrefix `pages` }}/" class="linktext">pages/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative pointer" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
-                    {{ template "heroicons-information-circle" }}
-                    {{ template "octicon-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    <div class="ma2" style="min-width: 10rem;">
-                        Your pages can be viewed at <a href="{{ longURL }}" class="linktext">{{ shortURL }}</a>.
-                        <br><br>
-                        Pages may invoke other HTML templates defined in the <a href="output/themes/" class="linktext">themes</a> folder.
-                        <br><br>
-                        For the basics, visit <a href="" class="linktext">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
-                    </div>
+            </div>
+        </details>
+    </div>
+    {{- else if eq $entry.Name "pages" }}
+    <div class="flex items-center">
+        <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
+        <a href="/{{ join `admin` $.SitePrefix `pages` }}/" class="linktext">pages/</a>
+        <div class="flex-grow-1"></div>
+        <details class="relative pointer" data-disable-click-selection data-autoclose-details>
+            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                {{ template "heroicons-information-circle" }}
+                {{ template "octicon-triangle-down" }}
+            </summary>
+            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                <div class="ma2" style="min-width: 10rem;">
+                    Your pages can be viewed at <a href="{{ longURL }}" class="linktext">{{ shortURL }}</a>.
+                    <br><br>
+                    Pages may invoke other HTML templates defined in the <a href="output/themes/" class="linktext">themes</a> folder.
+                    <br><br>
+                    For the basics, visit <a href="" class="linktext">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
                 </div>
-            </details>
-        </div>
-        {{- else if eq $entry.Name "posts" }}
-        <div class="flex items-center">
-            <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
-            <a href="/{{ join `admin` $.SitePrefix `posts` }}/" class="linktext">posts/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative pointer" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
-                    {{ template "heroicons-information-circle" }}
-                    {{ template "octicon-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    <div class="ma2" style="min-width: 10rem;">
-                        Your posts can be viewed at <a href="{{ longURL }}/posts/" class="linktext">{{ shortURL }}/posts</a>.
-                    </div>
+            </div>
+        </details>
+    </div>
+    {{- else if eq $entry.Name "posts" }}
+    <div class="flex items-center">
+        <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
+        <a href="/{{ join `admin` $.SitePrefix `posts` }}/" class="linktext">posts/</a>
+        <div class="flex-grow-1"></div>
+        <details class="relative pointer" data-disable-click-selection data-autoclose-details>
+            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                {{ template "heroicons-information-circle" }}
+                {{ template "octicon-triangle-down" }}
+            </summary>
+            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                <div class="ma2" style="min-width: 10rem;">
+                    Your posts can be viewed at <a href="{{ longURL }}/posts/" class="linktext">{{ shortURL }}/posts</a>.
                 </div>
-            </details>
-        </div>
-        {{- else if eq $entry.Name "output/themes" }}
-        <div class="flex items-center">
-            <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
-            <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/" class="linktext">themes/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative pointer" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
-                    {{ template "heroicons-information-circle" }}
-                    {{ template "octicon-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    <div class="ma2" style="min-width: 10rem;">
-                        The themes folder contains HTML templates and other global site assets.
-                        <br><br>
-                        For the basics, visit <a href="" class="linktext">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
-                    </div>
+            </div>
+        </details>
+    </div>
+    {{- else if eq $entry.Name "output/themes" }}
+    <div class="flex items-center">
+        <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
+        <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/" class="linktext">themes/</a>
+        <div class="flex-grow-1"></div>
+        <details class="relative pointer" data-disable-click-selection data-autoclose-details>
+            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                {{ template "heroicons-information-circle" }}
+                {{ template "octicon-triangle-down" }}
+            </summary>
+            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                <div class="ma2" style="min-width: 10rem;">
+                    The themes folder contains HTML templates and other global site assets.
+                    <br><br>
+                    For the basics, visit <a href="" class="linktext">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
                 </div>
-            </details>
-        </div>
-        {{- else if eq $entry.Name "output" }}
-        <div class="flex items-center">
-            <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
-            <a href="/{{ join `admin` $.SitePrefix `output` }}/" class="linktext">output/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative pointer" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
-                    {{ template "heroicons-information-circle" }}
-                    {{ template "octicon-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    <div class="ma2" style="min-width: 10rem;">
-                        The output folder contains your site's output files.
-                        <br><br>
-                        <div class="f6" style="font-style: italic;">For the tech-savvy: Notebrew is a content management system (CMS) that works as a static site generator (SSG), converting your pages and posts into static files. This is where the files are kept.</div>
-                    </div>
+            </div>
+        </details>
+    </div>
+    {{- else if eq $entry.Name "output" }}
+    <div class="flex items-center">
+        <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
+        <a href="/{{ join `admin` $.SitePrefix `output` }}/" class="linktext">output/</a>
+        <div class="flex-grow-1"></div>
+        <details class="relative pointer" data-disable-click-selection data-autoclose-details>
+            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                {{ template "heroicons-information-circle" }}
+                {{ template "octicon-triangle-down" }}
+            </summary>
+            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                <div class="ma2" style="min-width: 10rem;">
+                    The output folder contains your site's output files.
+                    <br><br>
+                    <div class="f6" style="font-style: italic;">For the tech-savvy: Notebrew is a content management system (CMS) that works as a static site generator (SSG), converting your pages and posts into static files. This is where the files are kept.</div>
                 </div>
-            </details>
-        </div>
-        {{- else if $entry.IsSite }}
-        <div class="flex flex-wrap items-center">
-            <a href="{{ $entry.Name }}/" class="linktext mh2">{{ $entry.Name }}/</a>
-            {{- if not $entry.IsUser }}
-            <div class="flex-grow-1"></div>
-            <details class="relative" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="more actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
-                    {{ template "octicon-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    <div class="tr ma2"><a href="/admin/deletesite/?name={{ trimPrefix $entry.Name `@` }}" class="link dark-red tr nowrap dib w-100 h-100">delete site</a></div>
-                </div>
-            </details>
-            {{- end }}
-        </div>
+            </div>
+        </details>
+    </div>
+    {{- else if $entry.IsSite }}
+    <div class="flex flex-wrap items-center">
+        <a href="{{ $entry.Name }}/" class="linktext mh2">{{ $entry.Name }}/</a>
+        {{- if not $entry.IsUser }}
+        <div class="flex-grow-1"></div>
+        <details class="relative" data-disable-click-selection data-autoclose-details>
+            <summary role="button" title="more actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
+                {{ template "octicon-triangle-down" }}
+            </summary>
+            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                <div class="tr ma2"><a href="/admin/deletesite/?name={{ trimPrefix $entry.Name `@` }}" class="link dark-red tr nowrap dib w-100 h-100">delete site</a></div>
+            </div>
+        </details>
         {{- end }}
     </div>
+    {{- end }}
     <hr>
     {{- else }}
     <div>
