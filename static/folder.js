@@ -9,15 +9,11 @@ document.body.parentElement.addEventListener("click", (event) => {
     if (target && target.tagName == "DETAILS") {
         detailsClickedWithin = target;
     }
-    for (element of document.querySelectorAll("details[data-autoclose-details]")) {
-        if (!details.open || details == detailsClickedWithin) {
-            continue;
+    for (const details of document.querySelectorAll("details[data-autoclose-details]")) {
+        if (details.open && details != detailsClickedWithin) {
+            details.open = false;
         }
-        details.open = false;
     }
-    // Array.from(document.getElementsByTagName('details')).filter(
-    //     (details) => details.open && details != detailsClickedWithin && details.hasAttribute("data-autoclose-details")
-    // ).forEach(details => details.open = false);
 });
 
 for (const element of document.querySelectorAll("[data-dismiss-alert]")) {

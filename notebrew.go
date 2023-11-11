@@ -461,6 +461,26 @@ func fileSizeToString(size int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "kMGTPE"[exp])
 }
 
+func longURL(scheme, sitePrefix, contentDomain string) string {
+	if strings.Contains(sitePrefix, ".") {
+		return "https://" + sitePrefix
+	}
+	if sitePrefix != "" {
+		return scheme + strings.TrimPrefix(sitePrefix, "@") + "." + contentDomain
+	}
+	return scheme + contentDomain
+}
+
+func shortURL(scheme, sitePrefix, contentDomain string) string {
+	if strings.Contains(sitePrefix, ".") {
+		return sitePrefix
+	}
+	if sitePrefix != "" {
+		return strings.TrimPrefix(sitePrefix, "@") + "." + contentDomain
+	}
+	return contentDomain
+}
+
 // {{ if contains sitePrefix "." }}https://{{ sitePrefix }}/{{ else }}{{ scheme }}{{ if sitePrefix }}{{ sitePrefix }}.{{ end }}{{ $.ContentDomain }}/{{ end }}
 // {{ if contains sitePrefix "." }}{{ sitePrefix }}{{ else }}{{ if sitePrefix }}{{ sitePrefix }}.{{ end }}{{ $.ContentDomain }}{{ end }}
 

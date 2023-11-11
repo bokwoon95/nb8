@@ -10,7 +10,7 @@
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
     <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
     &bull;
-    <a href="{{ if contains $.SitePrefix `.` }}https://{{ $.SitePrefix }}/{{ else }}{{ scheme }}{{ if $.SitePrefix }}{{ $.SitePrefix }}.{{ end }}{{ $.ContentDomain }}/{{ end }}" class="ma2">{{ if contains $.SitePrefix `.` }}{{ $.SitePrefix }}{{ else }}{{ if $.SitePrefix }}{{ $.SitePrefix }}.{{ end }}{{ $.ContentDomain }}{{ end }}</a>
+    <a href="{{ longURL }}" class="ma2">{{ shortURL }}</a>
     <span class="flex-grow-1"></span>
     {{- if hasDatabase }}
     <a href="" class="ma2">{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
@@ -112,25 +112,11 @@
     {{- if eq $.Path "" }}
     <div class="min-h2 mv2">
         {{- if eq $entry.Name "notes" }}
-        <details data-dont-autoclose-details>
-            <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
-                {{ template "heroicons-dir" }}
-                <a href="/{{ join `admin` $.SitePrefix `notes` }}/" class="linktext ma1 dib">notes/</a>
-                <span class="flex-grow-1"></span>
-                <span class="flex items-center ph1">
-                    {{ template "octicon-triangle-down" }}
-                </span>
-            </summary>
-            <!-- TODO: rethink how to portray this information to people. We may be able to remove the interactive <summary>. Can we make it a floating disclosure element? -->
-            <div class="ph1 mid-gray f6">
-                Notes are private and can only be accessed by the owner(s) of a site.
-            </div>
-        </details>
         <div class="flex items-center">
             {{ template "heroicons-dir" }}
             <a href="/{{ join `admin` $.SitePrefix `notes` }}/" class="linktext ma1 dib">notes/</a>
             <div class="flex-grow-1"></div>
-            <details class="relative" data-disable-click-selection>
+            <details class="relative" data-disable-click-selection data-autoclose-details>
                 <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
                     {{ template "octicon-triangle-down" }}
                 </summary>
@@ -140,71 +126,67 @@
             </details>
         </div>
         {{- else if eq $entry.Name "output" }}
-        <details data-dont-autoclose-details>
-            <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
-                {{ template "heroicons-globe" }}
-                <a href="/{{ join `admin` $.SitePrefix `output` }}/" class="linktext ma1 dib">output/</a>
-                <span class="flex-grow-1"></span>
-                <span class="flex items-center ph1">
+        <div class="flex items-center">
+            {{ template "heroicons-dir" }}
+            <a href="/{{ join `admin` $.SitePrefix `output` }}/" class="linktext ma1 dib">output/</a>
+            <div class="flex-grow-1"></div>
+            <details class="relative" data-disable-click-selection data-autoclose-details>
+                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
                     {{ template "octicon-triangle-down" }}
-                </span>
-            </summary>
-            <div class="ph1 mid-gray f6">
-                Output folder for the generated contents of the static site.
-            </div>
-        </details>
+                </summary>
+                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                    w4nker
+                </div>
+            </details>
+        </div>
         {{- else if eq $entry.Name "output/themes" }}
-        <details data-dont-autoclose-details>
-            <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
-                {{ template "heroicons-dir" }}
-                <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/" class="linktext ma1 dib">themes/</a>
-                <span class="flex-grow-1"></span>
-                <span class="flex items-center mh1">
+        <div class="flex items-center">
+            {{ template "heroicons-dir" }}
+            <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/" class="linktext ma1 dib">themes/</a>
+            <div class="flex-grow-1"></div>
+            <details class="relative" data-disable-click-selection data-autoclose-details>
+                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
                     {{ template "octicon-triangle-down" }}
-                </span>
-            </summary>
-            <div class="ph1 mid-gray f6">
-                Contain HTML templates as well as site assets (CSS stylesheets, JavaScript scripts, images).
-                <br><br>
-                More info: <a href="" class="linktext">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
-            </div>
-        </details>
+                </summary>
+                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                    w4nker
+                </div>
+            </details>
+        </div>
         {{- else if eq $entry.Name "pages" }}
-        <details data-dont-autoclose-details>
-            <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
-                {{ template "heroicons-dir" }}
-                <a href="/{{ join `admin` $.SitePrefix `pages` }}/" class="linktext ma1 dib">pages/</a>
-                <span class="flex-grow-1"></span>
-                <span class="flex items-center ph1">
+        <div class="flex items-center">
+            {{ template "heroicons-dir" }}
+            <a href="/{{ join `admin` $.SitePrefix `pages` }}/" class="linktext ma1 dib">pages/</a>
+            <div class="flex-grow-1"></div>
+            <details class="relative" data-disable-click-selection data-autoclose-details>
+                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
                     {{ template "octicon-triangle-down" }}
-                </span>
-            </summary>
-            <div class="ph1 mid-gray f6">
-                Pages are public{{ if $.ContentSiteURL }} and can be viewed at <a href="{{ $.ContentSiteURL }}" class="linktext">{{ neatenURL $.ContentSiteURL }}</a>{{ end }}. Pages may invoke other HTML templates defined in the <a href="output/themes/" class="linktext">themes</a> folder
-                <br><br>
-                More info: <a href="" class="linktext">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
-            </div>
-        </details>
+                </summary>
+                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                    w4nker
+                </div>
+            </details>
+        </div>
         {{- else if eq $entry.Name "posts" }}
-        <details data-dont-autoclose-details>
-            <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
-                {{ template "heroicons-dir" }}
-                <a href="/{{ join `admin` $.SitePrefix `posts` }}/" class="linktext ma1 dib">posts/</a>
-                <span class="flex-grow-1"></span>
-                <span class="flex items-center ph1">
+        <div class="flex items-center">
+            {{ template "heroicons-dir" }}
+            <a href="/{{ join `admin` $.SitePrefix `posts` }}/" class="linktext ma1 dib">posts/</a>
+            <div class="flex-grow-1"></div>
+            <details class="relative" data-disable-click-selection data-autoclose-details>
+                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
                     {{ template "octicon-triangle-down" }}
-                </span>
-            </summary>
-            <div class="ph1 mid-gray f6">
-                Posts are public{{ if $.ContentSiteURL }} and can be viewed at <a href="{{ $.ContentSiteURL }}posts/" class="linktext">{{ neatenURL $.ContentSiteURL }}/posts</a>{{ end }}.
-            </div>
-        </details>
+                </summary>
+                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                    w4nker
+                </div>
+            </details>
+        </div>
         {{- else if $entry.IsSite }}
         <div class="flex flex-wrap items-center">
             <a href="{{ $entry.Name }}/" class="linktext ma1 dib">{{ $entry.Name }}/</a>
             {{- if not $entry.IsUser }}
             <div class="flex-grow-1"></div>
-            <details class="relative" data-disable-click-selection>
+            <details class="relative" data-disable-click-selection data-autoclose-details>
                 <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
                     {{ template "octicon-triangle-down" }}
                 </summary>
@@ -243,7 +225,7 @@
             </div>
             <div class="flex-grow-1"></div>
             {{- if not $readOnly }}
-            <details class="relative" data-disable-click-selection>
+            <details class="relative" data-disable-click-selection data-autoclose-details>
                 <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
                     {{ template "octicon-triangle-down" }}
                 </summary>
