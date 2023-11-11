@@ -63,7 +63,6 @@ ugly child - regenerate site and search are not dropdowns, they're straight up l
         - do we want to act like a gzip service for files magically labelled as *.gz?
         - how much space savings do we even think users will save by uploading a gzipped file instead of just typing it in? text consumes barely anything, images and videos contain everything.
 
-
 - updated icons
     CLIPBOARD => view/paste/clear
     SORT => date created/date updated/name | ascending/descending
@@ -91,6 +90,7 @@ ugly child - regenerate site and search are not dropdowns, they're straight up l
     - Since we now have an output folder in the output/ directory, any images or videos the user uploads goes straight into that output folder
         - When they rename the post name, the output folder name is renamed as well requiring no URL change since the images are referenced locally <img src="bird.jpg">.
 - I suspect all of notebrew's features is sufficient to recreate https://kansai-odyssey.com
+- notes now allow all file types (identical to themes/ but private), so .html .css .js .md .txt + any image you can upload
 
 universal addressing system: omg maybe anything that starts with /themes/**/*.html is considered to be sourced from the themes folder, while any bare *.html is sourced from the current folder. You are not allowed to reference any other page's templates.
 {{ template "/themes/common.html" }}
