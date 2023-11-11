@@ -13,6 +13,8 @@ file.go
 server.go
 notebrew/main.go
 
+TODO: for file.go, only text-based files get to access file.html. The rest should serve the file directly (images, index.html). This make it possible to directly include /admin/@bokwoon/posts/abcd/bird.jpg image links in the asset manager.
+
 / => clipboard, create (site), search
 notes/ => clipboard, sort, search, create (note | folder)
 pages/ => clipboard, search, create (page | folder)
