@@ -518,7 +518,7 @@ func main() {
 			const WSAEADDRINUSE = syscall.Errno(10048)
 			if errno == syscall.EADDRINUSE || runtime.GOOS == "windows" && errno == WSAEADDRINUSE {
 				if server.Addr == "localhost" || strings.HasPrefix(server.Addr, "localhost:") {
-					fmt.Println("http://" + server.Addr + "/admin/ already running")
+					fmt.Println("notebrew is already running on http://" + server.Addr + "/admin/")
 					open("http://" + server.Addr + "/admin/")
 					return nil
 				}
