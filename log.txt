@@ -178,5 +178,8 @@ bokwoon.nbrew.io/themes/ => https://cdn.nbrew.io/@bokwoon/themes/ # Set CORS to 
 bokwoon.com/themes/ => https://cdn.nbrew.io/bokwoon.com/themes/ # Set CORS to only allow bokwoon.com!
 
 principle: Give me compute, give me storage, I'll give you a working program
+Must be usable with JavaScript disabled (aim for a pure HTML workflow with JS enhancements)  
+Strive to be efficient so more users can be packed into a single cheap server. If a feature and server efficiency are at odds, always pick server efficiency at the expense of user convenience.
+Be as hands-off as possible. Avoid task queues because they have to be babysitted (what if a task fails? what if it takes too long? Request, response, that's it)
 notebrew reader (rss)
 notebrew accountant (expense tracker)
