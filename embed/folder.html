@@ -83,7 +83,7 @@
                 {{- if and (eq $.SitePrefix "") (eq $.Path "") }}
                 <div class="tr ma2"><a href="/admin/createsite/" class="linktext tr nowrap dib w-100 h-100">create site</a></div>
                 {{- else if eq (head $.Path) "notes" }}
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createnote` }}/?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create note</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=md" class="linktext tr nowrap dib w-100 h-100">create file</a></div>
                 <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create folder</a></div>
                 {{- else if eq (head $.Path) "pages" }}
                 <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpage` }}/?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create page</a></div>

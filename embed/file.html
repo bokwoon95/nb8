@@ -19,7 +19,7 @@
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
     <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
     &bull;
-    <a href="{{ if contains $.SitePrefix `.` }}https://{{ $.SitePrefix }}/{{ else }}{{ scheme }}{{ if $.SitePrefix }}{{ $.SitePrefix }}.{{ end }}{{ $.ContentDomain }}/{{ end }}" class="ma2">{{ if contains $.SitePrefix `.` }}{{ $.SitePrefix }}{{ else }}{{ if $.SitePrefix }}{{ $.SitePrefix }}.{{ end }}{{ $.ContentDomain }}{{ end }}</a>
+    <a href="{{ longURL }}" class="ma2">{{ shortURL }}</a>
     <span class="flex-grow-1"></span>
     {{- if hasDatabase }}
     <a href="" class="ma2">{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>

@@ -97,6 +97,8 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				"fileSizeToString": fileSizeToString,
 				"stylesCSS":        func() template.CSS { return template.CSS(stylesCSS) },
 				"baselineJS":       func() template.JS { return template.JS(baselineJS) },
+				"longURL":          func() string { return longURL(nbrew.Scheme, sitePrefix, nbrew.ContentDomain) },
+				"shortURL":         func() string { return shortURL(nbrew.Scheme, sitePrefix, nbrew.ContentDomain) },
 				"hasDatabase":      func() bool { return nbrew.DB != nil },
 				"referer":          func() string { return r.Referer() },
 				"title":            func() string { return title },
