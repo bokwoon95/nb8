@@ -10,9 +10,9 @@
 {{- end }}
 <title>
     {{- if or (eq (head $.Path) "") (eq (head $.Path) "") }}
-    {{ if title }}{{ title }}{{ else }}Untitled{{ end }}
+    {{ if title }}{{ title }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}{{ else }}Untitled{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}{{ end }}
     {{- else }}
-    {{ base $.Path }}
+    {{ base $.Path }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}
     {{- end }}
 </title>
 <body class="centered-body">
