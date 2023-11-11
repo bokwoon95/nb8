@@ -5,7 +5,13 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
 <style>{{ stylesCSS }}</style>
 <script type="module">{{ folderJS }}</script>
-<title>{{ if $.Path }}{{ base $.Path }}{{ else }}admin{{ end }}</title>
+<title>
+    {{ if $.Path }}
+    {{ base $.Path }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}
+    {{ else }}
+    admin{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}
+    {{ end }}
+</title>
 <body class="centered-body">
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
     <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
@@ -198,7 +204,7 @@
                 <div class="ma2" style="min-width: 10rem;">
                     The output folder contains your site's output files.
                     <br><br>
-                    <div class="f6" style="font-style: italic;">For the tech-savvy: Notebrew is a content management system (CMS) that works as a static site generator (SSG), converting your pages and posts into static files. This is where the files are kept.</div>
+                    <div class="f6" style="font-style: italic;">For the tech-savvy: Notebrew is a content management system (CMS) and a static site generator (SSG). It converts your pages and posts into static files. This is where the files are kept.</div>
                 </div>
             </div>
         </details>
