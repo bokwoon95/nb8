@@ -229,7 +229,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ext := path.Ext(r.URL.Path)
 	urlPath := strings.Trim(r.URL.Path, "/")
 	head, tail, _ := strings.Cut(urlPath, "/")
 	if host == nbrew.Domain && head == "admin" {
@@ -242,7 +241,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		subdomain := strings.TrimSuffix(host, "."+nbrew.ContentDomain)
 		switch subdomain {
 		case "cdn", "assets":
-			if ext == "" {
+			if path.Ext(urlPath) == "" {
 				http.Error(w, "404 Not Found", http.StatusNotFound)
 				return
 			}
@@ -316,17 +315,16 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := path.Join(sitePrefix, "output", urlPath)
-	if ext == "" {
+	if path.Ext(name) == "" {
 		name = name + "/index.html"
-		ext = ".html"
 	}
-	extInfo, ok := extensionInfo[ext]
+	extInfo, ok := extensionInfo[path.Ext(name)]
 	if !ok {
 		custom404(w, r, sitePrefix)
 		return
 	}
 
-	isGzipped := ext == ".gz" || ext == ".gzip"
+	isGzipped := path.Ext(name) == ".gz" || path.Ext(name) == ".gzip"
 	file, err := nbrew.FS.Open(name)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
