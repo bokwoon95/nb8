@@ -373,7 +373,7 @@ func internalServerError(w http.ResponseWriter, r *http.Request, serverErr error
 			"Referer":  r.Referer(),
 			"Title":    "500 internal server error",
 			"Headline": "500 internal server error",
-			"Byline":   "The server encountered an error.",
+			"Byline":   "There's a bug with notebrew.",
 			"Details":  serverErr.Error(),
 		}
 	}

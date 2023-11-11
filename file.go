@@ -65,8 +65,6 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 	switch r.Method {
 	case "GET":
 		writeResponse := func(w http.ResponseWriter, r *http.Request, response Response) {
-			response.ContentSiteURL = contentSiteURL(nbrew, sitePrefix)
-
 			accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
 			if accept == "application/json" {
 				w.Header().Set("Content-Type", "application/json")
@@ -96,14 +94,11 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				"join":             path.Join,
 				"dir":              path.Dir,
 				"base":             path.Base,
-				"neatenURL":        neatenURL,
 				"fileSizeToString": fileSizeToString,
 				"stylesCSS":        func() template.CSS { return template.CSS(stylesCSS) },
 				"baselineJS":       func() template.JS { return template.JS(baselineJS) },
 				"hasDatabase":      func() bool { return nbrew.DB != nil },
 				"referer":          func() string { return r.Referer() },
-				"username":         func() string { return username },
-				"sitePrefix":       func() string { return sitePrefix },
 				"title":            func() string { return title },
 				"safeHTML":         func(s string) template.HTML { return template.HTML(s) },
 				"head": func(s string) string {
@@ -162,6 +157,9 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			getLogger(r.Context()).Error(err.Error())
 		}
 		nbrew.clearSession(w, r, "flash")
+		response.ContentDomain = nbrew.ContentDomain
+		response.Username = username
+		response.SitePrefix = sitePrefix
 		response.Path = filePath
 		response.Type = typ
 		response.IsDir = fileInfo.IsDir()

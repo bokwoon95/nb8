@@ -18,14 +18,11 @@
 <body class="centered-body">
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
     <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
-    {{- if $.ContentSiteURL }}
     &bull;
-    <a href="{{ $.ContentSiteURL }}" class="ma2">{{ neatenURL $.ContentSiteURL }}</a>
-    {{- end }}
+    <a href="{{ if contains $.SitePrefix `.` }}https://{{ $.SitePrefix }}/{{ else }}{{ scheme }}{{ if $.SitePrefix }}{{ $.SitePrefix }}.{{ end }}{{ $.ContentDomain }}/{{ end }}" class="ma2">{{ if contains $.SitePrefix `.` }}{{ $.SitePrefix }}{{ else }}{{ if $.SitePrefix }}{{ $.SitePrefix }}.{{ end }}{{ $.ContentDomain }}{{ end }}</a>
     <span class="flex-grow-1"></span>
     {{- if hasDatabase }}
-    <a href="" class="ma2">rss reader</a>
-    <a href="" class="ma2">{{ if username }}@{{ username }}{{ else }}user{{ end }}</a>
+    <a href="" class="ma2">{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
     <a href="/admin/logout/" class="ma2">logout</a>
     {{- end }}
 </nav>
@@ -69,12 +66,12 @@
     <a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a>
     <span>&boxv;</span>
     {{- end }}
-    <a href="/{{ join `admin` sitePrefix }}/" class="linktext">admin</a>
+    <a href="/{{ join `admin` $.SitePrefix }}/" class="linktext">admin</a>
     <span>&boxv;</span>
-    <a href="/{{ join `admin` sitePrefix $head }}/" class="linktext">{{ $head }}</a>
+    <a href="/{{ join `admin` $.SitePrefix $head }}/" class="linktext">{{ $head }}</a>
     {{- if ne $parentDir $head }}
     <span>&boxv;</span>
-    <a href="/{{ join `admin` sitePrefix $parentDir }}/" class="linktext">{{ base $parentDir }}</a>
+    <a href="/{{ join `admin` $.SitePrefix $parentDir }}/" class="linktext">{{ base $parentDir }}</a>
     {{- end }}
 </div>
 <div class="mv2">

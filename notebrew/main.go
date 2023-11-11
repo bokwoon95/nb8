@@ -527,8 +527,17 @@ func main() {
 			}
 			return err
 		}
+
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGHUP)
+		go func() {
+			for {
+				<-ch
+			}
+		}()
+
 		wait := make(chan os.Signal, 1)
-		signal.Notify(wait, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+		signal.Notify(wait, syscall.SIGINT, syscall.SIGTERM)
 		if nbrew.Scheme == "https://" {
 			go http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != "GET" && r.Method != "HEAD" {
