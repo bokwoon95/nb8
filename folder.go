@@ -29,12 +29,14 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		ModTime *time.Time `json:"modTime,omitempty"`
 	}
 	type Response struct {
-		Status         Error      `json:"status"`
-		ContentSiteURL string     `json:"contentSiteURL,omitempty"`
-		Path           string     `json:"path"`
-		IsDir          bool       `json:"isDir,omitempty"`
-		ModTime        *time.Time `json:"modTime,omitempty"`
-		Entries        []Entry    `json:"entries,omitempty"`
+		Status        Error      `json:"status"`
+		ContentDomain string     `json:"contentDomain,omitempty"`
+		Username      string     `json:"username,omitempty"`
+		SitePrefix    string     `json:"sitePrefix,omitempty"`
+		Path          string     `json:"path"`
+		IsDir         bool       `json:"isDir,omitempty"`
+		ModTime       *time.Time `json:"modTime,omitempty"`
+		Entries       []Entry    `json:"entries,omitempty"`
 	}
 	if r.Method != "GET" {
 		methodNotAllowed(w, r)
@@ -60,6 +62,9 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		getLogger(r.Context()).Error(err.Error())
 	}
 	nbrew.clearSession(w, r, "flash")
+	response.ContentDomain = nbrew.ContentDomain
+	response.Username = username
+	response.SitePrefix = sitePrefix
 	response.Path = folderPath
 	response.IsDir = fileInfo.IsDir()
 	if response.Status == "" {
@@ -277,7 +282,6 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 	}
 
 	response.Entries = append(folderEntries, fileEntries...)
-	response.ContentSiteURL = contentSiteURL(nbrew, sitePrefix)
 	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
 	if accept == "application/json" {
 		w.Header().Set("Content-Type", "application/json")
@@ -294,15 +298,14 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		"join":                  path.Join,
 		"base":                  path.Base,
 		"ext":                   path.Ext,
+		"contains":              strings.Contains,
 		"trimPrefix":            strings.TrimPrefix,
-		"neatenURL":             neatenURL,
 		"fileSizeToString":      fileSizeToString,
 		"stylesCSS":             func() template.CSS { return template.CSS(stylesCSS) },
 		"folderJS":              func() template.JS { return template.JS(folderJS) },
+		"scheme":                func() string { return nbrew.Scheme },
 		"hasDatabase":           func() bool { return nbrew.DB != nil },
-		"username":              func() string { return username },
 		"referer":               func() string { return r.Referer() },
-		"sitePrefix":            func() string { return sitePrefix },
 		"safeHTML":              func(s string) template.HTML { return template.HTML(s) },
 		"authorizedForRootSite": func() bool { return authorizedForRootSite },
 		"head": func(s string) string {

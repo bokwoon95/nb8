@@ -461,22 +461,8 @@ func fileSizeToString(size int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "kMGTPE"[exp])
 }
 
-func contentSiteURL(nbrew *Notebrew, sitePrefix string) string {
-	if strings.Contains(sitePrefix, ".") {
-		return "https://" + sitePrefix + "/"
-	}
-	if sitePrefix != "" {
-		return nbrew.Scheme + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.ContentDomain + "/"
-	}
-	return nbrew.Scheme + nbrew.ContentDomain + "/"
-}
-
-func neatenURL(s string) string {
-	if strings.HasPrefix(s, "https://") {
-		return strings.TrimSuffix(strings.TrimPrefix(s, "https://"), "/")
-	}
-	return strings.TrimSuffix(strings.TrimPrefix(s, "http://"), "/")
-}
+// {{ if contains sitePrefix "." }}https://{{ sitePrefix }}/{{ else }}{{ scheme }}{{ if sitePrefix }}{{ sitePrefix }}.{{ end }}{{ $.ContentDomain }}/{{ end }}
+// {{ if contains sitePrefix "." }}{{ sitePrefix }}{{ else }}{{ if sitePrefix }}{{ sitePrefix }}.{{ end }}{{ $.ContentDomain }}{{ end }}
 
 var gzipPool = sync.Pool{
 	New: func() any {

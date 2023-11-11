@@ -9,14 +9,12 @@
 <body class="centered-body">
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
     <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
-    {{- if $.ContentSiteURL }}
     &bull;
-    <a href="{{ $.ContentSiteURL }}" class="ma2">{{ neatenURL $.ContentSiteURL }}</a>
-    {{- end }}
+    <a href="{{ if contains $.SitePrefix `.` }}https://{{ $.SitePrefix }}/{{ else }}{{ scheme }}{{ if $.SitePrefix }}{{ $.SitePrefix }}.{{ end }}{{ $.ContentDomain }}/{{ end }}" class="ma2">{{ if contains $.SitePrefix `.` }}{{ $.SitePrefix }}{{ else }}{{ if $.SitePrefix }}{{ $.SitePrefix }}.{{ end }}{{ $.ContentDomain }}{{ end }}</a>
     <span class="flex-grow-1"></span>
     {{- if hasDatabase }}
     <a href="" class="ma2">rss reader</a>
-    <a href="" class="ma2">{{ if username }}@{{ username }}{{ else }}user{{ end }}</a>
+    <a href="" class="ma2">{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
     <a href="/admin/logout/" class="ma2">logout</a>
     {{- end }}
 </nav>
@@ -63,7 +61,7 @@
         </details>
     </div>
     {{- end }}
-    {{- if or (and (eq sitePrefix "") (eq $.Path "")) (eq (head $.Path) "notes" "pages" "posts" "output") }}
+    {{- if or (and (eq $.SitePrefix "") (eq $.Path "")) (eq (head $.Path) "notes" "pages" "posts" "output") }}
     <div class="flex items-center">
         <details class="relative pointer mh1" title="create" data-disable-click-selection>
             <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker">
@@ -71,20 +69,20 @@
                 {{ template "octicon-triangle-down" }}
             </summary>
             <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                {{- if and (eq sitePrefix "") (eq $.Path "") }}
+                {{- if and (eq $.SitePrefix "") (eq $.Path "") }}
                 <div class="tr ma2"><a href="/admin/createsite/" class="linktext tr nowrap dib w-100 h-100">create site</a></div>
                 {{- else if eq (head $.Path) "notes" }}
-                <div class="tr ma2"><a href="/{{ join `admin` sitePrefix `createnote` }}/?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create note</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` sitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create folder</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createnote` }}/?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create note</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create folder</a></div>
                 {{- else if eq (head $.Path) "pages" }}
-                <div class="tr ma2"><a href="/{{ join `admin` sitePrefix `createpage` }}/?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create page</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` sitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create folder</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpage` }}/?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create page</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create folder</a></div>
                 {{- else if eq (head $.Path) "posts" }}
-                <div class="tr ma2"><a href="/{{ join `admin` sitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="linktext tr nowrap dib w-100 h-100">create post</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` sitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create category</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="linktext tr nowrap dib w-100 h-100">create post</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create category</a></div>
                 {{- else if eq (head $.Path) "output" }}
-                <div class="tr ma2"><a href="/{{ join `admin` sitePrefix `createfile` }}/?parent={{ $.Path }}&ext=html" class="linktext tr nowrap dib w-100 h-100">create file</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` sitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create folder</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=html" class="linktext tr nowrap dib w-100 h-100">create file</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create folder</a></div>
                 {{- end }}
             </div>
         </details>
@@ -118,12 +116,13 @@
         <details data-dont-autoclose-details>
             <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
                 {{ template "heroicons-dir" }}
-                <a href="/{{ join `admin` sitePrefix `notes` }}/" class="linktext ma1 dib">notes/</a>
+                <a href="/{{ join `admin` $.SitePrefix `notes` }}/" class="linktext ma1 dib">notes/</a>
                 <span class="flex-grow-1"></span>
                 <span class="flex items-center ph1">
                     {{ template "octicon-triangle-down" }}
                 </span>
             </summary>
+            <!-- TODO: rethink how to portray this information to people. We may be able to remove the interactive <summary>. Can we make it a floating disclosure element? -->
             <div class="ph1 mid-gray f6">
                 Notes are private and can only be accessed by the owner(s) of a site.
             </div>
@@ -132,7 +131,7 @@
         <details data-dont-autoclose-details>
             <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
                 {{ template "heroicons-globe" }}
-                <a href="/{{ join `admin` sitePrefix `output` }}/" class="linktext ma1 dib">output/</a>
+                <a href="/{{ join `admin` $.SitePrefix `output` }}/" class="linktext ma1 dib">output/</a>
                 <span class="flex-grow-1"></span>
                 <span class="flex items-center ph1">
                     {{ template "octicon-triangle-down" }}
@@ -146,7 +145,7 @@
         <details data-dont-autoclose-details>
             <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
                 {{ template "heroicons-dir" }}
-                <a href="/{{ join `admin` sitePrefix `output/themes` }}/" class="linktext ma1 dib">themes/</a>
+                <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/" class="linktext ma1 dib">themes/</a>
                 <span class="flex-grow-1"></span>
                 <span class="flex items-center mh1">
                     {{ template "octicon-triangle-down" }}
@@ -162,7 +161,7 @@
         <details data-dont-autoclose-details>
             <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
                 {{ template "heroicons-dir" }}
-                <a href="/{{ join `admin` sitePrefix `pages` }}/" class="linktext ma1 dib">pages/</a>
+                <a href="/{{ join `admin` $.SitePrefix `pages` }}/" class="linktext ma1 dib">pages/</a>
                 <span class="flex-grow-1"></span>
                 <span class="flex items-center ph1">
                     {{ template "octicon-triangle-down" }}
@@ -178,7 +177,7 @@
         <details data-dont-autoclose-details>
             <summary class="pointer hide-marker flex flex-wrap items-center" data-disable-click-selection>
                 {{ template "heroicons-dir" }}
-                <a href="/{{ join `admin` sitePrefix `posts` }}/" class="linktext ma1 dib">posts/</a>
+                <a href="/{{ join `admin` $.SitePrefix `posts` }}/" class="linktext ma1 dib">posts/</a>
                 <span class="flex-grow-1"></span>
                 <span class="flex items-center ph1">
                     {{ template "octicon-triangle-down" }}
@@ -220,7 +219,7 @@
                     {{- if $entry.IsDir }}
                     {{ template "heroicons-dir" }}
                     {{- end }}
-                    <a href="/{{ join `admin` sitePrefix $.Path $entry.Name }}{{ if $entry.IsDir }}/{{ end }}" class="linktext ma1 truncate">{{ $entry.Name }}{{ if $entry.IsDir }}/{{ end }}</a>
+                    <a href="/{{ join `admin` $.SitePrefix $.Path $entry.Name }}{{ if $entry.IsDir }}/{{ end }}" class="linktext ma1 truncate">{{ $entry.Name }}{{ if $entry.IsDir }}/{{ end }}</a>
                     {{- if not $entry.IsDir }}
                     <span class="ma1 f6 mid-gray">{{ fileSizeToString $entry.Size }}</span>
                     {{- end }}
@@ -246,7 +245,7 @@
                     {{- end }}
                     <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="link linktext tr nowrap dib w-100 h-100">cut</button></div>
                     <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="link linktext tr nowrap dib w-100 h-100">copy</button></div>
-                    <div class="tr ma2"><button type="submit" formaction="/{{ join `admin` sitePrefix `delete` }}/" name="name" value="{{ $entry.Name }}" class="link dark-red tr nowrap dib w-100 h-100">delete</button></div>
+                    <div class="tr ma2"><button type="submit" formaction="/{{ join `admin` $.SitePrefix `delete` }}/" name="name" value="{{ $entry.Name }}" class="link dark-red tr nowrap dib w-100 h-100">delete</button></div>
                 </div>
             </details>
             {{- end }}
@@ -256,11 +255,11 @@
     {{- end }}
     {{- else }}
     {{- if eq (head $.Path) "notes" }}
-    <div class="mv4 tc">folder is empty, <a href="/{{ join `admin` sitePrefix `createnote` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="linktext">create a new note</a></div>
+    <div class="mv4 tc">folder is empty, <a href="/{{ join `admin` $.SitePrefix `createnote` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="linktext">create a new note</a></div>
     {{- else if eq (head $.Path) "pages" }}
-    <div class="mv4 tc">folder is empty, <a href="/{{ join `admin` sitePrefix `createpage` }}/?parent={{ $.Path }}" class="linktext">create a new page</a></div>
+    <div class="mv4 tc">folder is empty, <a href="/{{ join `admin` $.SitePrefix `createpage` }}/?parent={{ $.Path }}" class="linktext">create a new page</a></div>
     {{- else if eq (head $.Path) "posts" }}
-    <div class="mv4 tc">folder is empty, <a href="/{{ join `admin` sitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="linktext">create a new post</a></div>
+    <div class="mv4 tc">folder is empty, <a href="/{{ join `admin` $.SitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="linktext">create a new post</a></div>
     {{- else }}
     <div class="mv4 tc">folder is empty</div>
     {{- end }}
