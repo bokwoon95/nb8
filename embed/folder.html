@@ -116,40 +116,15 @@
             {{ template "heroicons-dir" }}
             <a href="/{{ join `admin` $.SitePrefix `notes` }}/" class="linktext ma1 dib">notes/</a>
             <div class="flex-grow-1"></div>
-            <details class="relative" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+            <details class="relative pointer" data-disable-click-selection data-autoclose-details>
+                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                    {{ template "heroicons-information-circle" }}
                     {{ template "octicon-triangle-down" }}
                 </summary>
                 <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    w4nker
-                </div>
-            </details>
-        </div>
-        {{- else if eq $entry.Name "output" }}
-        <div class="flex items-center">
-            {{ template "heroicons-dir" }}
-            <a href="/{{ join `admin` $.SitePrefix `output` }}/" class="linktext ma1 dib">output/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
-                    {{ template "octicon-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    w4nker
-                </div>
-            </details>
-        </div>
-        {{- else if eq $entry.Name "output/themes" }}
-        <div class="flex items-center">
-            {{ template "heroicons-dir" }}
-            <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/" class="linktext ma1 dib">themes/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
-                    {{ template "octicon-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    w4nker
+                    <div class="ma2" style="min-width: 10rem;">
+                        Notes are private files which can only be accessed by you.
+                    </div>
                 </div>
             </details>
         </div>
@@ -158,12 +133,17 @@
             {{ template "heroicons-dir" }}
             <a href="/{{ join `admin` $.SitePrefix `pages` }}/" class="linktext ma1 dib">pages/</a>
             <div class="flex-grow-1"></div>
-            <details class="relative" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+            <details class="relative pointer" data-disable-click-selection data-autoclose-details>
+                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                    {{ template "heroicons-information-circle" }}
                     {{ template "octicon-triangle-down" }}
                 </summary>
                 <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    w4nker
+                    <div class="ma2" style="min-width: 10rem;">
+                        Pages are public and can be viewed at your site <a href="{{ longURL }}" class="linktext">{{ shortURL }}</a>. Pages may invoke other HTML templates defined in the <a href="output/themes/" class="linktext">themes</a> folder
+                        <br><br>
+                        For the basics, visit <a href="" class="linktext">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
+                    </div>
                 </div>
             </details>
         </div>
@@ -172,12 +152,43 @@
             {{ template "heroicons-dir" }}
             <a href="/{{ join `admin` $.SitePrefix `posts` }}/" class="linktext ma1 dib">posts/</a>
             <div class="flex-grow-1"></div>
-            <details class="relative" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+            <details class="relative pointer" data-disable-click-selection data-autoclose-details>
+                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                    {{ template "heroicons-information-circle" }}
                     {{ template "octicon-triangle-down" }}
                 </summary>
                 <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    w4nker
+                    <div class="ma2" style="min-width: 10rem;">Notes are private files which can only be accessed by you.</div>
+                </div>
+            </details>
+        </div>
+        {{- else if eq $entry.Name "output/themes" }}
+        <div class="flex items-center">
+            {{ template "heroicons-dir" }}
+            <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/" class="linktext ma1 dib">themes/</a>
+            <div class="flex-grow-1"></div>
+            <details class="relative pointer" data-disable-click-selection data-autoclose-details>
+                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                    {{ template "heroicons-information-circle" }}
+                    {{ template "octicon-triangle-down" }}
+                </summary>
+                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                    <div class="ma2" style="min-width: 10rem;">Notes are private files which can only be accessed by you.</div>
+                </div>
+            </details>
+        </div>
+        {{- else if eq $entry.Name "output" }}
+        <div class="flex items-center">
+            {{ template "heroicons-dir" }}
+            <a href="/{{ join `admin` $.SitePrefix `output` }}/" class="linktext ma1 dib">output/</a>
+            <div class="flex-grow-1"></div>
+            <details class="relative pointer" data-disable-click-selection data-autoclose-details>
+                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                    {{ template "heroicons-information-circle" }}
+                    {{ template "octicon-triangle-down" }}
+                </summary>
+                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
+                    <div class="ma2" style="min-width: 10rem;">Notes are private files which can only be accessed by you.</div>
                 </div>
             </details>
         </div>
@@ -187,7 +198,7 @@
             {{- if not $entry.IsUser }}
             <div class="flex-grow-1"></div>
             <details class="relative" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
+                <summary role="button" title="more actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
                     {{ template "octicon-triangle-down" }}
                 </summary>
                 <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
@@ -226,7 +237,7 @@
             <div class="flex-grow-1"></div>
             {{- if not $readOnly }}
             <details class="relative" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="More actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+                <summary role="button" title="more actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
                     {{ template "octicon-triangle-down" }}
                 </summary>
                 <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
@@ -318,7 +329,7 @@
 {{- end }}
 
 {{- define "ellipsis-horizontal" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" class="ma1">
     <path d="M5 12H5.01M12 12H12.01M19 12H19.01M6 12C6 12.5523 5.55228 13 5 13C4.44772 13 4 12.5523 4 12C4 11.4477 4.44772 11 5 11C5.55228 11 6 11.4477 6 12ZM13 12C13 12.5523 12.5523 13 12 13C11.4477 13 11 12.5523 11 12C11 11.4477 11.4477 11 12 11C12.5523 11 13 11.4477 13 12ZM20 12C20 12.5523 19.5523 13 19 13C18.4477 13 18 12.5523 18 12C18 11.4477 18.4477 11 19 11C19.5523 11 20 11.4477 20 12Z" stroke="#4A5568" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
 </svg>
 {{- end }}
@@ -348,7 +359,7 @@
 {{- end }}
 
 {{- define "octicon-three-bars" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" class="ma1">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
     <path d="M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z"></path>
 </svg>
 {{- end }}

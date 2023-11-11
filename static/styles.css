@@ -96,6 +96,7 @@ ul { margin: 0; padding: 0; }
 .button { background-color: #e2e2e2; }
 .button:hover, .button:focus { background-color: #eaeaea; }
 .button:active { background-color: #fafafa; }
+details[open] summary.button { background-color: white; }
 
 /* button danger */
 .button-danger { color: white; background-color: #dc3545; }
@@ -106,6 +107,7 @@ ul { margin: 0; padding: 0; }
 .transparent-button { background-color: inherit; }
 .transparent-button:hover, .transparent-button:focus { background-color: #eaeaea; }
 .transparent-button:active { background-color: #fafafa; }
+details[open] summary.transparent-button { background-color: white; }
 
 /* links */
 .linktext { color: LinkText; }
