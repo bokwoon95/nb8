@@ -13,13 +13,15 @@ file.go
 server.go
 notebrew/main.go
 
-TODO: for file.go, only text-based files get to access file.html. The rest should serve the file directly (images, index.html). This make it possible to directly include /admin/@bokwoon/posts/abcd/bird.jpg image links in the asset manager.
-    - Each tile in the asset manager has
-        - the name of the resource (in plaintext, so the user can select and copy it (also impt for HTML-only users!))
-        - "insert into page/post"
-        - "edit" (for text files), "view" (for image files)
-        - "rename"
-        - "delete"
+TODO: for file.html, if the current file is an asset (e.g. a JS script) to a post or page, include a link to that post/page.
+TODO: for file.html, if the current file is a post or page then include the asset manager
+    - TODO: first, scaffold out what the asset manager would look like in a static file e.g. /admin/static/assets.html
+TODO: Each tile in the asset manager has
+    - the name of the resource (in plaintext, so the user can select and copy it (also impt for HTML-only users!))
+    - "insert into page/post"
+    - "edit" (for text files), "view" (for image files)
+    - "rename"
+    - "delete"
 
 / => clipboard, create (site), search
 notes/ => clipboard, sort, search, create (note | folder)

@@ -64,7 +64,7 @@ type Notebrew struct {
 
 	// ErrorCode translates a database error into an dialect-specific error
 	// code. If the error is not a database error or if no underlying
-	// implementation is provided, ErrorCode returns an empty string.
+	// implementation is provided, ErrorCode should return an empty string.
 	ErrorCode func(error) string
 
 	Scheme string // http:// | https://
@@ -597,4 +597,30 @@ func contentSecurityPolicy(w http.ResponseWriter, cdnBaseURL string, allowCaptch
 		b.WriteString(" frame-src https://hcaptcha.com https://*.hcaptcha.com;")
 	}
 	w.Header().Set("Content-Security-Policy", b.String())
+}
+
+type FileType struct {
+	Ext         string
+	ContentType string
+	IsGzippable bool
+}
+
+var fileTypes = map[string]FileType{
+	".html":  {Ext: ".html", ContentType: "text/html", IsGzippable: true},
+	".css":   {Ext: ".css", ContentType: "text/css", IsGzippable: true},
+	".js":    {Ext: ".js", ContentType: "text/javascript", IsGzippable: true},
+	".md":    {Ext: ".md", ContentType: "text/markdown", IsGzippable: true},
+	".txt":   {Ext: ".txt", ContentType: "text/plain", IsGzippable: true},
+	".svg":   {Ext: ".svg", ContentType: "image/svg", IsGzippable: true},
+	".ico":   {Ext: ".ico", ContentType: "image/ico", IsGzippable: true},
+	".jpeg":  {Ext: ".jpeg", ContentType: "image/jpeg", IsGzippable: false},
+	".jpg":   {Ext: ".jpg", ContentType: "image/jpeg", IsGzippable: false},
+	".png":   {Ext: ".png", ContentType: "image/png", IsGzippable: false},
+	".webp":  {Ext: ".webp", ContentType: "image/webp", IsGzippable: false},
+	".gif":   {Ext: ".gif", ContentType: "image/gif", IsGzippable: false},
+	".eot":   {Ext: ".eot", ContentType: "font/eot", IsGzippable: true},
+	".otf":   {Ext: ".otf", ContentType: "font/otf", IsGzippable: true},
+	".ttf":   {Ext: ".ttf", ContentType: "font/ttf", IsGzippable: true},
+	".woff":  {Ext: ".woff", ContentType: "font/woff", IsGzippable: false},
+	".woff2": {Ext: ".woff2", ContentType: "font/woff2", IsGzippable: false},
 }

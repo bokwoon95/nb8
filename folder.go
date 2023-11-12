@@ -17,6 +17,9 @@ import (
 	"github.com/bokwoon95/sq"
 )
 
+// TODO: eventually we'll have to do the big headache of adding pagination
+// through interface discovery (which also requires figuring out how sorting
+// would work).
 func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, sitePrefix, folderPath string, fileInfo fs.FileInfo) {
 	type Entry struct {
 		Name    string     `json:"name,omitempty"`
@@ -69,7 +72,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 	var authorizedForRootSite bool
 
 	if folderPath == "" {
-		for _, name := range []string{"notes", "pages", "posts", "output/themes"} {
+		for _, name := range []string{"notes", "pages", "posts", "output/themes", "output"} {
 			fileInfo, err := fs.Stat(nbrew.FS, path.Join(sitePrefix, name))
 			if err != nil {
 				if !errors.Is(err, fs.ErrNotExist) {
@@ -88,24 +91,6 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 				}
 				folderEntries = append(folderEntries, entry)
 			}
-		}
-		fileInfo, err := fs.Stat(nbrew.FS, path.Join(sitePrefix, "output"))
-		if err != nil {
-			if !errors.Is(err, fs.ErrNotExist) {
-				getLogger(r.Context()).Error(err.Error())
-				internalServerError(w, r, err)
-				return
-			}
-		} else if fileInfo.IsDir() {
-			entry := Entry{
-				Name:  "output",
-				IsDir: true,
-			}
-			modTime := fileInfo.ModTime()
-			if !modTime.IsZero() {
-				entry.ModTime = &modTime
-			}
-			folderEntries = append(folderEntries, entry)
 		}
 		if sitePrefix == "" {
 			if nbrew.DB != nil {
@@ -143,7 +128,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 						authorizedForRootSite = true
 						continue
 					}
-					fileInfo, err := fs.Stat(nbrew.FS, path.Clean(result.SitePrefix))
+					fileInfo, err := fs.Stat(nbrew.FS, path.Join(".", result.SitePrefix))
 					if err != nil {
 						if !errors.Is(err, fs.ErrNotExist) {
 							getLogger(r.Context()).Error(err.Error())
@@ -164,7 +149,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 					for _, entry := range folderEntries {
 						switch entry.Name {
 						case "notes", "pages", "posts", "output/themes", "output":
-							break
+							continue
 						default:
 							folderEntries[n] = entry
 							n++
@@ -225,6 +210,10 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 			}
 			ext := path.Ext(entry.Name)
 			head, _, _ := strings.Cut(folderPath, "/")
+			// TODO: we're being more judicial here. notes and themes and
+			// output can show whatever is inside as long as it's a directory
+			// or a permitted file type, whereas pages can only show .html
+			// files and posts can only show .md files.
 			switch head {
 			case "notes", "posts":
 				if ext != ".md" && ext != ".txt" {

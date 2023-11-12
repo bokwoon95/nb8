@@ -433,9 +433,13 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hex.Encode(*dst, *src)
 
 	if path.Ext(urlPath) == ".html" {
-		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	} else {
-		w.Header().Set("Content-Type", fileType.ContentType)
+		contentType := fileType.ContentType
+		if strings.HasPrefix(contentType, "text") {
+			contentType += "; charset=utf-8"
+		}
+		w.Header().Set("Content-Type", contentType)
 	}
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("ETag", `"`+string(*dst)+`"`)

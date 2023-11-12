@@ -576,6 +576,7 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 		file.storageResult = make(chan error, 1)
 		go func() {
 			file.storageResult <- fsys.storage.Put(file.ctx, hex.EncodeToString(file.fileID[:])+path.Ext(file.filePath), pipeReader)
+			close(file.storageResult)
 		}()
 	}
 	return file, nil

@@ -17,32 +17,6 @@ import (
 	"time"
 )
 
-type FileType struct {
-	Ext         string
-	ContentType string
-	IsGzippable bool
-}
-
-var fileTypes = map[string]FileType{
-	".html":  {Ext: ".html", ContentType: "text/html", IsGzippable: true},
-	".css":   {Ext: ".css", ContentType: "text/css", IsGzippable: true},
-	".js":    {Ext: ".js", ContentType: "text/javascript", IsGzippable: true},
-	".md":    {Ext: ".md", ContentType: "text/markdown", IsGzippable: true},
-	".txt":   {Ext: ".txt", ContentType: "text/plain", IsGzippable: true},
-	".svg":   {Ext: ".svg", ContentType: "image/svg", IsGzippable: true},
-	".ico":   {Ext: ".ico", ContentType: "image/ico", IsGzippable: true},
-	".jpeg":  {Ext: ".jpeg", ContentType: "image/jpeg", IsGzippable: false},
-	".jpg":   {Ext: ".jpg", ContentType: "image/jpeg", IsGzippable: false},
-	".png":   {Ext: ".png", ContentType: "image/png", IsGzippable: false},
-	".webp":  {Ext: ".webp", ContentType: "image/webp", IsGzippable: false},
-	".gif":   {Ext: ".gif", ContentType: "image/gif", IsGzippable: false},
-	".eot":   {Ext: ".eot", ContentType: "font/eot", IsGzippable: true},
-	".otf":   {Ext: ".otf", ContentType: "font/otf", IsGzippable: true},
-	".ttf":   {Ext: ".ttf", ContentType: "font/ttf", IsGzippable: true},
-	".woff":  {Ext: ".woff", ContentType: "font/woff", IsGzippable: false},
-	".woff2": {Ext: ".woff2", ContentType: "font/woff2", IsGzippable: false},
-}
-
 func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, sitePrefix, filePath string, fileInfo fs.FileInfo) {
 	type Request struct {
 		Content string `json:"content"`
@@ -55,8 +29,9 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		Path           string     `json:"path"`
 		IsDir          bool       `json:"isDir,omitempty"`
 		ModTime        *time.Time `json:"modTime,omitempty"`
-		Content        string     `json:"content,omitempty"`
 		Size           int64      `json:"size,omitempty"`
+		Content        string     `json:"content,omitempty"`
+		ContentType    string     `json:"contentType,omitempty"`
 		TemplateErrors []string   `json:"templateErrors,omitempty"`
 	}
 	fileType, ok := fileTypes[path.Ext(filePath)]
@@ -76,67 +51,6 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 	r.Body = http.MaxBytesReader(w, r.Body, 15<<20 /* 15MB */)
 	switch r.Method {
 	case "GET":
-		writeResponse := func(w http.ResponseWriter, r *http.Request, response Response) {
-			accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-			if accept == "application/json" {
-				w.Header().Set("Content-Type", "application/json")
-				encoder := json.NewEncoder(w)
-				encoder.SetEscapeHTML(false)
-				err := encoder.Encode(&response)
-				if err != nil {
-					getLogger(r.Context()).Error(err.Error())
-				}
-				return
-			}
-			if !isEditableText {
-				// TODO: serveFile
-			}
-			funcMap := map[string]any{
-				"join":             path.Join,
-				"dir":              path.Dir,
-				"base":             path.Base,
-				"fileSizeToString": fileSizeToString,
-				"stylesCSS":        func() template.CSS { return template.CSS(stylesCSS) },
-				"baselineJS":       func() template.JS { return template.JS(baselineJS) },
-				"longURL":          func() string { return longURL(nbrew.Scheme, sitePrefix, nbrew.ContentDomain) },
-				"shortURL":         func() string { return shortURL(nbrew.Scheme, sitePrefix, nbrew.ContentDomain) },
-				"hasDatabase":      func() bool { return nbrew.DB != nil },
-				"referer":          func() string { return r.Referer() },
-				"safeHTML":         func(s string) template.HTML { return template.HTML(s) },
-				"head": func(s string) string {
-					head, _, _ := strings.Cut(s, "/")
-					return head
-				},
-				"tail": func(s string) string {
-					_, tail, _ := strings.Cut(s, "/")
-					return tail
-				},
-				"hasPrefix": func(s string, prefixes ...string) bool {
-					for _, prefix := range prefixes {
-						if strings.HasPrefix(s, prefix) {
-							return true
-						}
-					}
-					return false
-				},
-				"hasSuffix": func(s string, suffixes ...string) bool {
-					for _, suffix := range suffixes {
-						if strings.HasSuffix(s, suffix) {
-							return true
-						}
-					}
-					return false
-				},
-			}
-			tmpl, err := template.New("file.html").Funcs(funcMap).ParseFS(rootFS, "embed/file.html")
-			if err != nil {
-				getLogger(r.Context()).Error(err.Error())
-				internalServerError(w, r, err)
-				return
-			}
-			contentSecurityPolicy(w, "", false)
-			executeTemplate(w, r, fileInfo.ModTime(), tmpl, &response)
-		}
 		err := r.ParseForm()
 		if err != nil {
 			badRequest(w, r, err)
@@ -155,17 +69,79 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		response.Path = filePath
 		response.IsDir = fileInfo.IsDir()
 		response.Size = fileInfo.Size()
+		response.ContentType = fileType.ContentType
+		response.Status = Success
 		modTime := fileInfo.ModTime()
 		if !modTime.IsZero() {
 			response.ModTime = &modTime
 		}
-		if response.Status != "" {
-			writeResponse(w, r, response)
+		if isEditableText {
+			file, err := nbrew.FS.Open(path.Join(sitePrefix, filePath))
+			if err != nil {
+				getLogger(r.Context()).Error(err.Error())
+				internalServerError(w, r, err)
+				return
+			}
+			var b strings.Builder
+			b.Grow(int(fileInfo.Size()))
+			_, err = io.Copy(&b, file)
+			if err != nil {
+				getLogger(r.Context()).Error(err.Error())
+				internalServerError(w, r, err)
+				return
+			}
+			response.Content = b.String()
+		}
+
+		accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
+		if accept == "application/json" {
+			w.Header().Set("Content-Type", "application/json")
+			encoder := json.NewEncoder(w)
+			encoder.SetEscapeHTML(false)
+			err := encoder.Encode(&response)
+			if err != nil {
+				getLogger(r.Context()).Error(err.Error())
+			}
 			return
 		}
-		// TODO: if fileType.Ext one of .html .css .js .md .txt, read the file. Else, serve the file
-		response.Status = Success
-		writeResponse(w, r, response)
+
+		if !isEditableText {
+			if fileType.Ext == ".html" {
+				w.Header().Set("Content-Type", "text/plain; charset=utf8")
+			}
+			serveFile(w, r, nbrew.FS, path.Join(sitePrefix, filePath))
+			return
+		}
+
+		funcMap := map[string]any{
+			"join":             path.Join,
+			"dir":              path.Dir,
+			"base":             path.Base,
+			"fileSizeToString": fileSizeToString,
+			"stylesCSS":        func() template.CSS { return template.CSS(stylesCSS) },
+			"baselineJS":       func() template.JS { return template.JS(baselineJS) },
+			"longURL":          func() string { return longURL(nbrew.Scheme, sitePrefix, nbrew.ContentDomain) },
+			"shortURL":         func() string { return shortURL(nbrew.Scheme, sitePrefix, nbrew.ContentDomain) },
+			"hasDatabase":      func() bool { return nbrew.DB != nil },
+			"referer":          func() string { return r.Referer() },
+			"safeHTML":         func(s string) template.HTML { return template.HTML(s) },
+			"head": func(s string) string {
+				head, _, _ := strings.Cut(s, "/")
+				return head
+			},
+			"tail": func(s string) string {
+				_, tail, _ := strings.Cut(s, "/")
+				return tail
+			},
+		}
+		tmpl, err := template.New("file.html").Funcs(funcMap).ParseFS(rootFS, "embed/file.html")
+		if err != nil {
+			getLogger(r.Context()).Error(err.Error())
+			internalServerError(w, r, err)
+			return
+		}
+		contentSecurityPolicy(w, "", false)
+		executeTemplate(w, r, fileInfo.ModTime(), tmpl, &response)
 	case "POST":
 		writeResponse := func(w http.ResponseWriter, r *http.Request, response Response) {
 			accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
@@ -354,10 +330,16 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) 
 	*b = (*b)[:0]
 	defer bytesPool.Put(b)
 
+	if _, ok := w.Header()["Content-Type"]; !ok {
+		contentType := fileType.ContentType
+		if strings.HasPrefix(contentType, "text") {
+			contentType += "; charset=utf-8"
+		}
+		w.Header().Set("Content-Type", contentType)
+	}
 	if fileType.IsGzippable {
 		w.Header().Set("Content-Encoding", "gzip")
 	}
-	w.Header().Set("Content-Type", fileType.ContentType)
 	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
 	http.ServeContent(w, r, "", fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
 }
