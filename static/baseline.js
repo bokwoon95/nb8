@@ -5,12 +5,12 @@ document.body.parentElement.addEventListener("click", (event) => {
     while (target && target.tagName != "DETAILS") {
         target = target.parentNode;
     }
-    let detailsClickedWithin = null;
+    let activeDetails = null;
     if (target && target.tagName == "DETAILS") {
-        detailsClickedWithin = target;
+        activeDetails = target;
     }
     for (const details of document.querySelectorAll("details[data-autoclose-details]")) {
-        if (details.open && details != detailsClickedWithin) {
+        if (details.open && details != activeDetails) {
             details.open = false;
         }
     }
