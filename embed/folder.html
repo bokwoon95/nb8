@@ -41,8 +41,8 @@
 <div class="mv2 flex flex-wrap items-center">
     <div class="flex-grow-1"></div>
     <div class="flex items-center">
-        <details class="relative pointer ml2" title="clipboard" data-disable-click-selection data-autoclose-details>
-            <summary role="button" class="flex items-center br2 ph2 h2 transparent-button dashed-border hide-marker">
+        <details class="relative pointer ml2" title="clipboard" data-autoclose-details>
+            <summary role="button" class="flex items-center br2 ph2 h2 transparent-button dashed-border hide-marker" data-disable-click-selection>
                 <div class="flex items-center">{{ template "heroicons-clipboard" }}</div>
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -55,8 +55,8 @@
     </div>
     {{- if and $.Path (ne (head $.Path) "output") }}
     <div class="flex items-center">
-        <details class="relative pointer ml2" title="sort" data-disable-click-selection data-autoclose-details>
-            <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker">
+        <details class="relative pointer ml2" title="sort" data-autoclose-details>
+            <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
                 {{ template "octicon-sort" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -67,8 +67,8 @@
     </div>
     {{- end }}
     <div class="flex items-center">
-        <details class="relative pointer ml2" title="search" data-disable-click-selection data-autoclose-details>
-            <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker">
+        <details class="relative pointer ml2" title="search" data-autoclose-details>
+            <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
                 {{ template "octicon-search" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -80,8 +80,8 @@
     </div>
     {{- if or (and (eq $.SitePrefix "") (eq $.Path "")) (eq (head $.Path) "notes" "pages" "posts" "output") }}
     <div class="flex items-center">
-        <details class="relative pointer ml2" title="create" data-disable-click-selection data-autoclose-details>
-            <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker">
+        <details class="relative pointer ml2" title="create" data-autoclose-details>
+            <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
                 {{ template "octicon-plus" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -118,11 +118,11 @@
     {{- if eq $.Path "" }}
     {{- if eq $entry.Name "notes" }}
     <div class="flex items-center">
-        <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
+        <span class="flex items-center mr1">{{ template "heroicons-dir" }}</span>
         <a href="/{{ join `admin` $.SitePrefix `notes` }}/" class="linktext">notes/</a>
         <div class="flex-grow-1"></div>
-        <details class="relative" data-disable-click-selection data-autoclose-details>
-            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
+        <details class="relative" data-autoclose-details>
+            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
                 {{ template "heroicons-information-circle" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -135,11 +135,11 @@
     </div>
     {{- else if eq $entry.Name "pages" }}
     <div class="flex items-center">
-        <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
+        <span class="flex items-center mr1">{{ template "heroicons-dir" }}</span>
         <a href="/{{ join `admin` $.SitePrefix `pages` }}/" class="linktext">pages/</a>
         <div class="flex-grow-1"></div>
-        <details class="relative" data-disable-click-selection data-autoclose-details>
-            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
+        <details class="relative" data-autoclose-details>
+            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
                 {{ template "heroicons-information-circle" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -158,11 +158,11 @@
     </div>
     {{- else if eq $entry.Name "posts" }}
     <div class="flex items-center">
-        <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
+        <span class="flex items-center mr1">{{ template "heroicons-dir" }}</span>
         <a href="/{{ join `admin` $.SitePrefix `posts` }}/" class="linktext">posts/</a>
         <div class="flex-grow-1"></div>
-        <details class="relative" data-disable-click-selection data-autoclose-details>
-            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
+        <details class="relative" data-autoclose-details>
+            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
                 {{ template "heroicons-information-circle" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -177,11 +177,11 @@
     </div>
     {{- else if eq $entry.Name "output/themes" }}
     <div class="flex items-center">
-        <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
+        <span class="flex items-center mr1">{{ template "heroicons-dir" }}</span>
         <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/" class="linktext">themes/</a>
         <div class="flex-grow-1"></div>
-        <details class="relative" data-disable-click-selection data-autoclose-details>
-            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
+        <details class="relative" data-autoclose-details>
+            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
                 {{ template "heroicons-information-circle" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -196,11 +196,11 @@
     </div>
     {{- else if eq $entry.Name "output" }}
     <div class="flex items-center">
-        <span class="flex items-center mh1">{{ template "heroicons-dir" }}</span>
+        <span class="flex items-center mr1">{{ template "heroicons-dir" }}</span>
         <a href="/{{ join `admin` $.SitePrefix `output` }}/" class="linktext">output/</a>
         <div class="flex-grow-1"></div>
-        <details class="relative" data-disable-click-selection data-autoclose-details>
-            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
+        <details class="relative" data-autoclose-details>
+            <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
                 {{ template "heroicons-information-circle" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -215,11 +215,11 @@
     </div>
     {{- else if $entry.IsSite }}
     <div class="flex flex-wrap items-center">
-        <a href="{{ $entry.Name }}/" class="linktext mh2">{{ $entry.Name }}/</a>
+        <a href="{{ $entry.Name }}/" class="linktext">{{ $entry.Name }}/</a>
         {{- if not $entry.IsUser }}
         <div class="flex-grow-1"></div>
-        <details class="relative" data-disable-click-selection data-autoclose-details>
-            <summary role="button" title="more actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer">
+        <details class="relative" data-autoclose-details>
+            <summary role="button" title="more actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
                 {{ template "octicon-triangle-down" }}
             </summary>
             <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
@@ -235,11 +235,11 @@
         <label for="{{ $entry.Name }}" class="flex items-center pointer" data-disable-click-selection>
             {{ $readOnly := and (eq (head $.Path) "output") (ne (head (tail $.Path)) "themes") }}
             {{- if not $readOnly }}
-            <div>
+            <div class="mr1">
                 <input type="checkbox" id="{{ $entry.Name }}" name="name" value="{{ $entry.Name }}" class="pointer">
             </div>
             {{- end }}
-            <div class="br2 truncate mh1">
+            <div class="br2 truncate">
                 <div class="flex items-center">
                     {{- if $entry.IsDir }}
                     {{ template "heroicons-dir" }}
@@ -256,8 +256,8 @@
             </div>
             <div class="flex-grow-1"></div>
             {{- if not $readOnly }}
-            <details class="relative" data-disable-click-selection data-autoclose-details>
-                <summary role="button" title="more actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1">
+            <details class="relative" data-autoclose-details>
+                <summary role="button" title="more actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1" data-disable-click-selection>
                     {{ template "octicon-triangle-down" }}
                 </summary>
                 <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
@@ -301,7 +301,7 @@
 {{- end }}
 
 {{- define "heroicons-dir" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="ma1">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
 </svg>
 {{- end }}

@@ -68,6 +68,7 @@ ul { margin: 0; padding: 0; }
 .ml2 { margin-left: .5rem; }
 
 /* margin right */
+.mr1 { margin-right: .25rem; }
 .mr2 { margin-right: .5rem; }
 
 /* padding all */
