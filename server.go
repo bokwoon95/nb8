@@ -523,10 +523,10 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) 
 	*b = (*b)[:0]
 	defer bytesPool.Put(b)
 
-	w.Header().Set("Content-Type", fileType.ContentType)
 	if fileType.IsGzippable {
 		w.Header().Set("Content-Encoding", "gzip")
 	}
+	w.Header().Set("Content-Type", fileType.ContentType)
 	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
 	http.ServeContent(w, r, "", fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
 }
