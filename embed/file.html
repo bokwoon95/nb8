@@ -8,13 +8,7 @@
 {{- if le (len $.Content) 50000 }}
 <script type="module" src="/admin/static/codemirror.js"></script>
 {{- end }}
-<title>
-    {{- if or (eq (head $.Path) "") (eq (head $.Path) "") }}
-    {{ if title }}{{ title }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}{{ else }}Untitled{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}{{ end }}
-    {{- else }}
-    {{ base $.Path }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}
-    {{- end }}
-</title>
+<title>{{ base $.Path }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}</title>
 <body class="centered-body">
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
     <a href="/admin/" class="ma2">🖋️☕ notebrew</a>

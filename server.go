@@ -211,10 +211,10 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if segments[0] == "admin" {
 		switch strings.Trim(r.URL.Path, "/") {
 		case "app.webmanifest":
-			serveFile(w, r, rootFS, "static/app.webmanifest", false)
+			serveFile(w, r, rootFS, "static/app.webmanifest")
 			return
 		case "apple-touch-icon.png":
-			serveFile(w, r, rootFS, "static/icons/apple-touch-icon.png", false)
+			serveFile(w, r, rootFS, "static/icons/apple-touch-icon.png")
 			return
 		}
 	}
@@ -251,8 +251,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if tail != "" {
 					sitePrefix, urlPath = head, tail
 				} else {
-					_, isExt := extensionInfo[path.Ext(head)] // differentiate between file extension and TLD
-					if !isExt {
+					_, ok := fileTypes[path.Ext(head)] // differentiate between file extension and TLD
+					if !ok {
 						sitePrefix, urlPath = head, tail
 					}
 				}
@@ -318,13 +318,13 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if path.Ext(name) == "" {
 		name = name + "/index.html"
 	}
-	extInfo, ok := extensionInfo[path.Ext(name)]
+	fileType, ok := fileTypes[path.Ext(name)]
 	if !ok {
 		custom404(w, r, sitePrefix)
 		return
 	}
 
-	isGzipped := path.Ext(name) == ".gz" || path.Ext(name) == ".gzip"
+	isGzipped := fileType.Ext == ".gz" || fileType.Ext == ".gzip"
 	file, err := nbrew.FS.Open(name)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
@@ -332,7 +332,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		if !extInfo.isGzippable {
+		if !fileType.IsGzippable {
 			custom404(w, r, sitePrefix)
 			return
 		}
@@ -369,7 +369,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hasher.Reset()
 	defer hashPool.Put(hasher)
 
-	if !extInfo.isGzippable {
+	if !fileType.IsGzippable {
 		fileSeeker, ok := file.(io.ReadSeeker)
 		if ok {
 			http.ServeContent(w, r, name, fileInfo.ModTime(), fileSeeker)
@@ -435,14 +435,14 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if path.Ext(urlPath) == ".html" {
 		w.Header().Set("Content-Type", "text/plain")
 	} else {
-		w.Header().Set("Content-Type", extInfo.contentType)
+		w.Header().Set("Content-Type", fileType.ContentType)
 	}
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("ETag", `"`+string(*dst)+`"`)
 	http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
 }
 
-func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string, checkForGzipFallback bool) {
+func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) {
 	if r.Method != "GET" {
 		methodNotAllowed(w, r)
 		return
@@ -452,9 +452,9 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string, 
 	ext := path.Ext(name)
 	switch ext {
 	// https://www.fastly.com/blog/new-gzip-settings-and-deciding-what-compress
-	case ".html", ".css", ".js", ".md", ".txt", ".csv", ".tsv", ".json", ".xml", ".toml", ".yaml", ".yml", ".svg", ".ico", ".eot", ".otf", ".ttf":
+	case ".html", ".css", ".js", ".md", ".txt", ".svg", ".ico", ".eot", ".otf", ".ttf":
 		isGzippable = true
-	case ".jpeg", ".jpg", ".png", ".gif", ".woff", ".woff2":
+	case ".jpeg", ".jpg", ".png", ".webp", ".gif", ".woff", ".woff2":
 		isGzippable = false
 	case ".webmanifest":
 		isGzippable = true
@@ -463,29 +463,15 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string, 
 		return
 	}
 
-	isGzipped := ext == ".gz" || ext == ".gzip"
 	file, err := fsys.Open(name)
 	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			getLogger(r.Context()).Error(err.Error())
-			internalServerError(w, r, err)
-			return
-		}
-		if !isGzippable || !checkForGzipFallback {
+		if errors.Is(err, fs.ErrNotExist) {
 			notFound(w, r)
 			return
 		}
-		file, err = fsys.Open(name + ".gz")
-		if err != nil {
-			if !errors.Is(err, fs.ErrNotExist) {
-				getLogger(r.Context()).Error(err.Error())
-				internalServerError(w, r, err)
-				return
-			}
-			notFound(w, r)
-			return
-		}
-		isGzipped = true
+		getLogger(r.Context()).Error(err.Error())
+		internalServerError(w, r, err)
+		return
 	}
 	defer file.Close()
 
@@ -500,25 +486,6 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string, 
 		return
 	}
 
-	if !isGzippable {
-		fileSeeker, ok := file.(io.ReadSeeker)
-		if ok {
-			http.ServeContent(w, r, name, fileInfo.ModTime(), fileSeeker)
-			return
-		}
-		buf := bufPool.Get().(*bytes.Buffer)
-		buf.Reset()
-		defer bufPool.Put(buf)
-		_, err = buf.ReadFrom(file)
-		if err != nil {
-			getLogger(r.Context()).Error(err.Error())
-			internalServerError(w, r, err)
-			return
-		}
-		http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
-		return
-	}
-
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufPool.Put(buf)
@@ -528,7 +495,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string, 
 	defer hashPool.Put(hasher)
 
 	multiWriter := io.MultiWriter(buf, hasher)
-	if isGzipped {
+	if !isGzippable {
 		_, err = io.Copy(multiWriter, file)
 		if err != nil {
 			getLogger(r.Context()).Error(err.Error())
@@ -553,65 +520,49 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string, 
 		}
 	}
 
-	src := bytesPool.Get().(*[]byte)
-	*src = (*src)[:0]
-	defer bytesPool.Put(src)
-
-	dst := bytesPool.Get().(*[]byte)
-	*dst = (*dst)[:0]
-	defer bytesPool.Put(dst)
-
-	*src = hasher.Sum(*src)
-	encodedLen := hex.EncodedLen(len(*src))
-	if cap(*dst) < encodedLen {
-		*dst = make([]byte, encodedLen)
-	}
-	*dst = (*dst)[:encodedLen]
-	hex.Encode(*dst, *src)
+	b := bytesPool.Get().(*[]byte)
+	*b = (*b)[:0]
+	defer bytesPool.Put(b)
 
 	if ext == ".webmanifest" {
 		w.Header().Set("Content-Type", "application/manifest+json")
 	}
 	w.Header().Set("Content-Encoding", "gzip")
-	w.Header().Set("ETag", `"`+string(*dst)+`"`)
+	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
 	http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
 }
 
-var extensionInfo = map[string]struct {
-	contentType string
-	isGzippable bool
-}{
-	".html":  {"text/html", true},
-	".css":   {"text/css", true},
-	".js":    {"text/javascript", true},
-	".md":    {"text/markdown", true},
-	".txt":   {"text/plain", true},
-	".csv":   {"text/csv", true},
-	".tsv":   {"text/tsv", true},
-	".json":  {"application/json", true},
-	".xml":   {"application/xml", true},
-	".toml":  {"application/toml", true},
-	".yaml":  {"application/yaml", true},
-	".svg":   {"image/svg", true},
-	".ico":   {"image/ico", true},
-	".jpeg":  {"image/jpeg", false},
-	".jpg":   {"image/jpeg", false},
-	".png":   {"image/png", false},
-	".gif":   {"image/gif", false},
-	".eot":   {"font/eot", false},
-	".otf":   {"font/otf", false},
-	".ttf":   {"font/ttf", false},
-	".woff":  {"font/woff", false},
-	".woff2": {"font/woff2", false},
-	".gzip":  {"application/gzip", false},
-	".gz":    {"application/gzip", false},
+type FileType struct {
+	Ext         string
+	ContentType string
+	IsGzippable bool
+}
+
+var fileTypes = map[string]FileType{
+	".html":  {Ext: ".html", ContentType: "text/html", IsGzippable: true},
+	".css":   {Ext: ".css", ContentType: "text/css", IsGzippable: true},
+	".js":    {Ext: ".js", ContentType: "text/javascript", IsGzippable: true},
+	".md":    {Ext: ".md", ContentType: "text/markdown", IsGzippable: true},
+	".txt":   {Ext: ".txt", ContentType: "text/plain", IsGzippable: true},
+	".svg":   {Ext: ".svg", ContentType: "image/svg", IsGzippable: true},
+	".ico":   {Ext: ".ico", ContentType: "image/ico", IsGzippable: true},
+	".jpeg":  {Ext: ".jpeg", ContentType: "image/jpeg", IsGzippable: false},
+	".jpg":   {Ext: ".jpg", ContentType: "image/jpeg", IsGzippable: false},
+	".png":   {Ext: ".png", ContentType: "image/png", IsGzippable: false},
+	".webp":  {Ext: ".webp", ContentType: "image/webp", IsGzippable: false},
+	".gif":   {Ext: ".gif", ContentType: "image/gif", IsGzippable: false},
+	".eot":   {Ext: ".eot", ContentType: "font/eot", IsGzippable: true},
+	".otf":   {Ext: ".otf", ContentType: "font/otf", IsGzippable: true},
+	".ttf":   {Ext: ".ttf", ContentType: "font/ttf", IsGzippable: true},
+	".woff":  {Ext: ".woff", ContentType: "font/woff", IsGzippable: false},
+	".woff2": {Ext: ".woff2", ContentType: "font/woff2", IsGzippable: false},
 }
 
 func (nbrew *Notebrew) admin(w http.ResponseWriter, r *http.Request, ip string) {
 	urlPath := strings.Trim(strings.TrimPrefix(r.URL.Path, "/admin"), "/")
 	head, tail, _ := strings.Cut(urlPath, "/")
 	if head == "static" {
-		serveFile(w, r, rootFS, urlPath, true)
+		serveFile(w, r, rootFS, urlPath)
 		return
 	}
 	if head == "signup" || head == "login" || head == "logout" || head == "resetpassword" {
@@ -634,11 +585,6 @@ func (nbrew *Notebrew) admin(w http.ResponseWriter, r *http.Request, ip string) 
 	if strings.HasPrefix(head, "@") || strings.Contains(head, ".") {
 		sitePrefix, urlPath = head, tail
 		head, tail, _ = strings.Cut(urlPath, "/")
-	}
-
-	if head == "themes" || head == "images" {
-		serveFile(w, r, nbrew.FS, path.Join(sitePrefix, "output", urlPath), true)
-		return
 	}
 
 	var username string

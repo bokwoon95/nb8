@@ -27,6 +27,7 @@ require (
 )
 
 require (
+	github.com/alfg/mp4 v0.0.0-20210728035756-55ea58c08aeb // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.14 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.43 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.37 // indirect

@@ -12,55 +12,36 @@ import (
 	"time"
 )
 
-var extensionTypes = map[string]string{
-	".html":  "text/html",
-	".css":   "text/css",
-	".js":    "text/javascript",
-	".md":    "text/markdown",
-	".txt":   "text/plain",
-	".csv":   "text/csv",
-	".tsv":   "text/tsv",
-	".json":  "text/json",
-	".xml":   "text/xml",
-	".toml":  "text/toml",
-	".yaml":  "text/yaml",
-	".svg":   "image/svg",
-	".ico":   "image/ico",
-	".jpeg":  "image/jpeg",
-	".jpg":   "image/jpeg",
-	".png":   "image/png",
-	".gif":   "image/gif",
-	".eot":   "font/eot",
-	".otf":   "font/otf",
-	".ttf":   "font/ttf",
-	".woff":  "font/woff",
-	".woff2": "font/woff2",
-	".gzip":  "gzip",
-	".gz":    "gzip",
-}
-
 func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, sitePrefix, filePath string, fileInfo fs.FileInfo) {
 	type Request struct {
 		Content string `json:"content"`
 	}
 	type Response struct {
-		Status        Error              `json:"status"`
-		ContentDomain string             `json:"contentDomain,omitempty"`
-		Username      string             `json:"username,omitempty"`
-		SitePrefix    string             `json:"sitePrefix,omitempty"`
-		Path          string             `json:"path"`
-		IsDir         bool               `json:"isDir,omitempty"`
-		ModTime       *time.Time         `json:"modTime,omitempty"`
-		Type          string             `json:"type,omitempty"`
-		Content       string             `json:"content,omitempty"`
-		Location      string             `json:"location,omitempty"`
-		Errors        map[string][]Error `json:"errors,omitempty"`
-		StorageUsed   int64              `json:"storageUsed,omitempty"`
-		StorageLimit  int64              `json:"storageLimit,omitempty"`
+		Status         Error      `json:"status"`
+		ContentDomain  string     `json:"contentDomain,omitempty"`
+		Username       string     `json:"username,omitempty"`
+		SitePrefix     string     `json:"sitePrefix,omitempty"`
+		Path           string     `json:"path"`
+		IsDir          bool       `json:"isDir,omitempty"`
+		ModTime        *time.Time `json:"modTime,omitempty"`
+		Content        string     `json:"content,omitempty"`
+		Size           int64      `json:"size,omitempty"`
+		TemplateErrors []string   `json:"templateErrors,omitempty"`
+	}
+	fileType, ok := fileTypes[path.Ext(filePath)]
+	if !ok {
+		notFound(w, r)
+		return
+	}
+	segments := strings.Split(filePath, "/")
+	isEditableText := false
+	switch fileType.Ext {
+	case ".html", ".css", ".js", ".md", ".txt":
+		if segments[0] != "output" || (len(segments) > 1 && segments[1] == "themes") {
+			isEditableText = true
+		}
 	}
 
-	ext := path.Ext(filePath)
-	typ := extensionTypes[ext]
 	r.Body = http.MaxBytesReader(w, r.Body, 15<<20 /* 15MB */)
 	switch r.Method {
 	case "GET":
@@ -76,19 +57,8 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				}
 				return
 			}
-			var title string
-			str := response.Content
-			for {
-				if str == "" {
-					break
-				}
-				title, str, _ = strings.Cut(str, "\n")
-				title = strings.TrimSpace(title)
-				if title == "" {
-					continue
-				}
-				title = stripMarkdownStyles([]byte(title))
-				break
+			if !isEditableText {
+				// TODO: serveFile
 			}
 			funcMap := map[string]any{
 				"join":             path.Join,
@@ -101,7 +71,6 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				"shortURL":         func() string { return shortURL(nbrew.Scheme, sitePrefix, nbrew.ContentDomain) },
 				"hasDatabase":      func() bool { return nbrew.DB != nil },
 				"referer":          func() string { return r.Referer() },
-				"title":            func() string { return title },
 				"safeHTML":         func(s string) template.HTML { return template.HTML(s) },
 				"head": func(s string) string {
 					head, _, _ := strings.Cut(s, "/")
@@ -142,16 +111,6 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			badRequest(w, r, err)
 			return
 		}
-		if fileInfo == nil {
-			fileInfo, err = fs.Stat(nbrew.FS, path.Join(".", sitePrefix, filePath))
-			if err != nil {
-				getLogger(r.Context()).Error(err.Error())
-				internalServerError(w, r, err)
-				return
-			}
-		}
-
-		_, tail, _ := strings.Cut(filePath, "/")
 
 		var response Response
 		_, err = nbrew.getSession(r, "flash", &response)
@@ -163,8 +122,8 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		response.Username = username
 		response.SitePrefix = sitePrefix
 		response.Path = filePath
-		response.Type = typ
 		response.IsDir = fileInfo.IsDir()
+		response.Size = fileInfo.Size()
 		modTime := fileInfo.ModTime()
 		if !modTime.IsZero() {
 			response.ModTime = &modTime
@@ -173,29 +132,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			writeResponse(w, r, response)
 			return
 		}
-		if strings.HasPrefix(response.Type, "image") || strings.HasPrefix(response.Type, "font") || response.Type == "gzip" {
-			response.Location = nbrew.Scheme + nbrew.Domain + "/" + path.Join("admin", sitePrefix, tail)
-		} else if strings.HasPrefix(response.Type, "text") {
-			file, err := nbrew.FS.Open(path.Join(sitePrefix, filePath))
-			if err != nil {
-				getLogger(r.Context()).Error(err.Error())
-				internalServerError(w, r, err)
-				return
-			}
-			defer file.Close()
-			var b strings.Builder
-			b.Grow(int(fileInfo.Size()))
-			_, err = io.Copy(&b, file)
-			if err != nil {
-				getLogger(r.Context()).Error(err.Error())
-				internalServerError(w, r, err)
-				return
-			}
-			response.Content = b.String()
-		} else {
-			notFound(w, r)
-			return
-		}
+		// TODO: if fileType.Ext one of .html .css .js .md .txt, read the file. Else, serve the file
 		response.Status = Success
 		writeResponse(w, r, response)
 	case "POST":
@@ -219,15 +156,14 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			}
 			http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/"+path.Join("admin", sitePrefix, filePath), http.StatusFound)
 		}
+		if !isEditableText {
+		}
+		// would you allow updating non-text files?
 
 		var request Request
 		contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		switch contentType {
 		case "application/json":
-			if typ != "text" {
-				unsupportedContentType(w, r)
-				return
-			}
 			err := json.NewDecoder(r.Body).Decode(&request)
 			if err != nil {
 				badRequest(w, r, err)
@@ -241,10 +177,6 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 					return
 				}
 			} else {
-				if typ != "text" {
-					unsupportedContentType(w, r)
-					return
-				}
 				err := r.ParseForm()
 				if err != nil {
 					badRequest(w, r, err)
@@ -260,9 +192,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		response := Response{
 			Path:    filePath,
 			IsDir:   fileInfo.IsDir(),
-			Type:    typ,
 			Content: request.Content,
-			Errors:  make(map[string][]Error),
 		}
 		modTime := fileInfo.ModTime()
 		if !modTime.IsZero() {

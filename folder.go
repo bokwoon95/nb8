@@ -29,14 +29,15 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		ModTime *time.Time `json:"modTime,omitempty"`
 	}
 	type Response struct {
-		Status        Error      `json:"status"`
-		ContentDomain string     `json:"contentDomain,omitempty"`
-		Username      string     `json:"username,omitempty"`
-		SitePrefix    string     `json:"sitePrefix,omitempty"`
-		Path          string     `json:"path"`
-		IsDir         bool       `json:"isDir,omitempty"`
-		ModTime       *time.Time `json:"modTime,omitempty"`
-		Entries       []Entry    `json:"entries,omitempty"`
+		Status         Error      `json:"status"`
+		ContentDomain  string     `json:"contentDomain,omitempty"`
+		Username       string     `json:"username,omitempty"`
+		SitePrefix     string     `json:"sitePrefix,omitempty"`
+		Path           string     `json:"path"`
+		IsDir          bool       `json:"isDir,omitempty"`
+		ModTime        *time.Time `json:"modTime,omitempty"`
+		Entries        []Entry    `json:"entries,omitempty"`
+		TemplateErrors []string   `json:"templateErrors,omitempty"`
 	}
 	if r.Method != "GET" {
 		methodNotAllowed(w, r)
@@ -47,14 +48,6 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 	if err != nil {
 		badRequest(w, r, err)
 		return
-	}
-	if fileInfo == nil {
-		fileInfo, err = fs.Stat(nbrew.FS, path.Join(".", sitePrefix, folderPath))
-		if err != nil {
-			getLogger(r.Context()).Error(err.Error())
-			internalServerError(w, r, err)
-			return
-		}
 	}
 	var response Response
 	_, err = nbrew.getSession(r, "flash", &response)
