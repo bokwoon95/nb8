@@ -27,9 +27,7 @@ for (const element of document.querySelectorAll("[data-dismiss-alert]")) {
             }
             parentElement.style.transition = "opacity 100ms linear";
             parentElement.style.opacity = "0";
-            setTimeout(function() {
-                parentElement.style.display = "none";
-            }, 100);
+            setTimeout(function() { parentElement.style.display = "none" }, 100);
             return;
         }
     });
