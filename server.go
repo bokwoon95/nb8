@@ -448,17 +448,16 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) 
 		return
 	}
 
-	var isGzippable bool
+	var fileType FileType
 	ext := path.Ext(name)
-	switch ext {
-	// https://www.fastly.com/blog/new-gzip-settings-and-deciding-what-compress
-	case ".html", ".css", ".js", ".md", ".txt", ".svg", ".ico", ".eot", ".otf", ".ttf":
-		isGzippable = true
-	case ".jpeg", ".jpg", ".png", ".webp", ".gif", ".woff", ".woff2":
-		isGzippable = false
-	case ".webmanifest":
-		isGzippable = true
-	default:
+	if ext == ".webmanifest" {
+		fileType.Ext = ".webmanifest"
+		fileType.ContentType = "application/manifest+json"
+		fileType.IsGzippable = true
+	} else {
+		fileType = fileTypes[ext]
+	}
+	if fileType.ContentType == "" {
 		notFound(w, r)
 		return
 	}
@@ -495,7 +494,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) 
 	defer hashPool.Put(hasher)
 
 	multiWriter := io.MultiWriter(buf, hasher)
-	if !isGzippable {
+	if !fileType.IsGzippable {
 		_, err = io.Copy(multiWriter, file)
 		if err != nil {
 			getLogger(r.Context()).Error(err.Error())
@@ -524,9 +523,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) 
 	*b = (*b)[:0]
 	defer bytesPool.Put(b)
 
-	if ext == ".webmanifest" {
-		w.Header().Set("Content-Type", "application/manifest+json")
-	}
+	w.Header().Set("Content-Type", fileType.ContentType)
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
 	http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
