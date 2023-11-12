@@ -538,26 +538,14 @@ func executeTemplate(w http.ResponseWriter, r *http.Request, modtime time.Time, 
 		return
 	}
 
-	src := bytesPool.Get().(*[]byte)
-	*src = (*src)[:0]
-	defer bytesPool.Put(src)
-
-	dst := bytesPool.Get().(*[]byte)
-	*dst = (*dst)[:0]
-	defer bytesPool.Put(dst)
-
-	*src = hasher.Sum(*src)
-	encodedLen := hex.EncodedLen(len(*src))
-	if cap(*dst) < encodedLen {
-		*dst = make([]byte, encodedLen)
-	}
-	*dst = (*dst)[:encodedLen]
-	hex.Encode(*dst, *src)
+	b := bytesPool.Get().(*[]byte)
+	*b = (*b)[:0]
+	defer bytesPool.Put(b)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("ETag", `"`+string(*dst)+`"`)
+	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
 	http.ServeContent(w, r, "", modtime, bytes.NewReader(buf.Bytes()))
 }
 
