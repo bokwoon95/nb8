@@ -14,6 +14,12 @@ server.go
 notebrew/main.go
 
 TODO: for file.go, only text-based files get to access file.html. The rest should serve the file directly (images, index.html). This make it possible to directly include /admin/@bokwoon/posts/abcd/bird.jpg image links in the asset manager.
+    - Each tile in the asset manager has
+        - the name of the resource (in plaintext, so the user can select and copy it (also impt for HTML-only users!))
+        - "insert into page/post"
+        - "edit" (for text files), "view" (for image files)
+        - "rename"
+        - "delete"
 
 / => clipboard, create (site), search
 notes/ => clipboard, sort, search, create (note | folder)
@@ -180,7 +186,7 @@ bokwoon.nbrew.io/themes/ => https://cdn.nbrew.io/@bokwoon/themes/ # Set CORS to 
 bokwoon.com/themes/ => https://cdn.nbrew.io/bokwoon.com/themes/ # Set CORS to only allow bokwoon.com!
 
 principle: Give me compute, give me storage, I'll give you a working program
-Must be usable with JavaScript disabled (aim for a pure HTML workflow with JS enhancements)  
+Must be usable with JavaScript disabled (aim for a pure HTML workflow with JS enhancements)
 Strive to be efficient so more users can be packed into a single cheap server. If a feature and server efficiency are at odds, always pick server efficiency at the expense of user convenience.
 Be as hands-off as possible. Avoid task queues because they have to be babysitted (what if a task fails? what if it takes too long? Request, response, that's it)
 notebrew reader (rss)
