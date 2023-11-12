@@ -1,13 +1,13 @@
-// https://til.simonwillison.net/javascript/dropdown-menu-with-details-summary
 document.body.parentElement.addEventListener("click", (event) => {
-    /* Close any open details elements that this click is outside of */
-    let target = event.target;
-    while (target && target.tagName != "DETAILS") {
-        target = target.parentNode;
-    }
     let activeDetails = null;
-    if (target && target.tagName == "DETAILS") {
-        activeDetails = target;
+    let element = event.target;
+    while (element != null) {
+        if (element.tagName != "DETAILS") {
+            element = element.parentElement;
+            continue;
+        }
+        activeDetails = element;
+        break;
     }
     for (const details of document.querySelectorAll("details[data-autoclose-details]")) {
         if (details.open && details != activeDetails) {

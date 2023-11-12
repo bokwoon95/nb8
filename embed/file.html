@@ -5,7 +5,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
 <style>{{ stylesCSS }}</style>
 <script type="module">{{ baselineJS }}</script>
-{{- if le (len $.Content) 50000 }}
+{{- if le $.Size 50000 }}
 <script type="module" src="/admin/static/codemirror.js"></script>
 {{- end }}
 <title>{{ base $.Path }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}</title>

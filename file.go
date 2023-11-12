@@ -1,7 +1,12 @@
 package nb8
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"hash"
 	"html/template"
 	"io"
 	"io/fs"
@@ -11,6 +16,32 @@ import (
 	"strings"
 	"time"
 )
+
+type FileType struct {
+	Ext         string
+	ContentType string
+	IsGzippable bool
+}
+
+var fileTypes = map[string]FileType{
+	".html":  {Ext: ".html", ContentType: "text/html", IsGzippable: true},
+	".css":   {Ext: ".css", ContentType: "text/css", IsGzippable: true},
+	".js":    {Ext: ".js", ContentType: "text/javascript", IsGzippable: true},
+	".md":    {Ext: ".md", ContentType: "text/markdown", IsGzippable: true},
+	".txt":   {Ext: ".txt", ContentType: "text/plain", IsGzippable: true},
+	".svg":   {Ext: ".svg", ContentType: "image/svg", IsGzippable: true},
+	".ico":   {Ext: ".ico", ContentType: "image/ico", IsGzippable: true},
+	".jpeg":  {Ext: ".jpeg", ContentType: "image/jpeg", IsGzippable: false},
+	".jpg":   {Ext: ".jpg", ContentType: "image/jpeg", IsGzippable: false},
+	".png":   {Ext: ".png", ContentType: "image/png", IsGzippable: false},
+	".webp":  {Ext: ".webp", ContentType: "image/webp", IsGzippable: false},
+	".gif":   {Ext: ".gif", ContentType: "image/gif", IsGzippable: false},
+	".eot":   {Ext: ".eot", ContentType: "font/eot", IsGzippable: true},
+	".otf":   {Ext: ".otf", ContentType: "font/otf", IsGzippable: true},
+	".ttf":   {Ext: ".ttf", ContentType: "font/ttf", IsGzippable: true},
+	".woff":  {Ext: ".woff", ContentType: "font/woff", IsGzippable: false},
+	".woff2": {Ext: ".woff2", ContentType: "font/woff2", IsGzippable: false},
+}
 
 func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, sitePrefix, filePath string, fileInfo fs.FileInfo) {
 	type Request struct {
@@ -240,4 +271,93 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 	default:
 		methodNotAllowed(w, r)
 	}
+}
+
+func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) {
+	if r.Method != "GET" {
+		methodNotAllowed(w, r)
+		return
+	}
+
+	var fileType FileType
+	ext := path.Ext(name)
+	if ext == ".webmanifest" {
+		fileType.Ext = ".webmanifest"
+		fileType.ContentType = "application/manifest+json"
+		fileType.IsGzippable = true
+	} else {
+		fileType = fileTypes[ext]
+	}
+	if fileType.Ext == "" {
+		notFound(w, r)
+		return
+	}
+
+	file, err := fsys.Open(name)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			notFound(w, r)
+			return
+		}
+		getLogger(r.Context()).Error(err.Error())
+		internalServerError(w, r, err)
+		return
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		getLogger(r.Context()).Error(err.Error())
+		internalServerError(w, r, err)
+		return
+	}
+	if fileInfo.IsDir() {
+		notFound(w, r)
+		return
+	}
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	hasher := hashPool.Get().(hash.Hash)
+	hasher.Reset()
+	defer hashPool.Put(hasher)
+
+	multiWriter := io.MultiWriter(buf, hasher)
+	if !fileType.IsGzippable {
+		_, err = io.Copy(multiWriter, file)
+		if err != nil {
+			getLogger(r.Context()).Error(err.Error())
+			internalServerError(w, r, err)
+			return
+		}
+	} else {
+		gzipWriter := gzipPool.Get().(*gzip.Writer)
+		gzipWriter.Reset(multiWriter)
+		defer gzipPool.Put(gzipWriter)
+		_, err = io.Copy(gzipWriter, file)
+		if err != nil {
+			getLogger(r.Context()).Error(err.Error())
+			internalServerError(w, r, err)
+			return
+		}
+		err = gzipWriter.Close()
+		if err != nil {
+			getLogger(r.Context()).Error(err.Error())
+			internalServerError(w, r, err)
+			return
+		}
+	}
+
+	b := bytesPool.Get().(*[]byte)
+	*b = (*b)[:0]
+	defer bytesPool.Put(b)
+
+	if fileType.IsGzippable {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
+	w.Header().Set("Content-Type", fileType.ContentType)
+	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
+	http.ServeContent(w, r, "", fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
 }
