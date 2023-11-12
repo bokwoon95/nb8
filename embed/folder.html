@@ -47,9 +47,9 @@
                 {{ template "octicon-triangle-down" }}
             </summary>
             <div class="absolute bg-white br2 hide-marker" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                <div class="tr ma2"><a href="" class="link linktext tr nowrap dib w-100 h-100">5 items cut</a></div>
-                <div class="tr ma2"><button type="button" class="link linktext tr nowrap dib w-100 h-100">paste</button></div>
-                <div class="tr ma2"><button type="button" class="link dark-red tr nowrap dib w-100 h-100">clear</button></div>
+                <div class="tr ma2"><a href="" class="link linktext tr nowrap dib w-100 h-100">5 items copied</a></div>
+                <div class="tr ma2"><button type="button" class="button ba br2 pa2 w-100">paste</button></div>
+                <div class="tr ma2"><button type="button" class="button-danger ba br2 b--dark-red pa2 w-100">clear</button></div>
             </div>
         </details>
     </div>
@@ -152,7 +152,7 @@
                     For the basics, visit <a href="" class="linktext">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
                 </div>
                 <hr>
-                <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="button ba br2">regenerate pages</button></div>
+                <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="button ba br2 pa2 w-100">regenerate</button></div>
             </div>
         </details>
     </div>
@@ -166,10 +166,12 @@
                 {{ template "heroicons-information-circle" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
-            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                <div class="ma2" style="min-width: 10rem;">
+            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem;">
+                <div class="ma2">
                     Your posts can be viewed at <a href="{{ longURL }}/posts/" class="linktext">{{ shortURL }}/posts</a>.
                 </div>
+                <hr>
+                <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="button ba br2 pa2 w-100">regenerate</button></div>
             </div>
         </details>
     </div>
@@ -259,16 +261,10 @@
                     {{ template "octicon-triangle-down" }}
                 </summary>
                 <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    {{ $head := head $.Path }}
-                    {{ $ext := ext $entry.Name }}
-                    {{- if or (and (eq $head "pages") (eq $ext ".html")) (and (eq $head "posts") (or (eq $ext ".md" ".txt"))) }}
-                    <div class="tr ma2"><a href="" class="link linktext tr nowrap dib w-100 h-100">view</a></div>
-                    <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="link linktext tr nowrap dib w-100 h-100">regenerate</button></div>
-                    <hr>
-                    {{- end }}
-                    <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="link linktext tr nowrap dib w-100 h-100">cut</button></div>
-                    <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="link linktext tr nowrap dib w-100 h-100">copy</button></div>
-                    <div class="tr ma2"><button type="submit" formaction="/{{ join `admin` $.SitePrefix `delete` }}/" name="name" value="{{ $entry.Name }}" class="link dark-red tr nowrap dib w-100 h-100">delete</button></div>
+                    <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="button ba br2 pa2 w-100">regenerate</button></div>
+                    <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="button ba br2 pa2 w-100">cut</button></div>
+                    <div class="tr ma2"><button type="submit" name="name" value="{{ $entry.Name }}" class="button ba br2 pa2 w-100">copy</button></div>
+                    <div class="tr ma2"><button type="submit" formaction="/{{ join `admin` $.SitePrefix `delete` }}/" name="name" value="{{ $entry.Name }}" class="button-danger ba br2 b--dark-red pa2 w-100">delete</button></div>
                 </div>
             </details>
             {{- end }}
