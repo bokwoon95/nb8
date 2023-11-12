@@ -457,7 +457,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) 
 	} else {
 		fileType = fileTypes[ext]
 	}
-	if fileType.ContentType == "" {
+	if fileType.Ext == "" {
 		notFound(w, r)
 		return
 	}
@@ -524,9 +524,11 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) 
 	defer bytesPool.Put(b)
 
 	w.Header().Set("Content-Type", fileType.ContentType)
-	w.Header().Set("Content-Encoding", "gzip")
+	if fileType.IsGzippable {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
 	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
-	http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
+	http.ServeContent(w, r, "", fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
 }
 
 type FileType struct {
