@@ -13,6 +13,7 @@ import (
 	"mime"
 	"net/http"
 	"path"
+	"slices"
 	"strings"
 	"time"
 )
@@ -32,6 +33,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		Size           int64      `json:"size,omitempty"`
 		Content        string     `json:"content,omitempty"`
 		ContentType    string     `json:"contentType,omitempty"`
+		AssetDir       string     `json:"assetDir,omitempty"`
 		TemplateErrors []string   `json:"templateErrors,omitempty"`
 	}
 	fileType, ok := fileTypes[path.Ext(filePath)]
@@ -40,13 +42,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		return
 	}
 	segments := strings.Split(filePath, "/")
-	isEditableText := false
-	switch fileType.Ext {
-	case ".html", ".css", ".js", ".md", ".txt":
-		if segments[0] != "output" || (len(segments) > 1 && segments[1] == "themes") {
-			isEditableText = true
-		}
-	}
+	isEditableText := (fileType.Ext == ".html" || fileType.Ext == ".css" || fileType.Ext == ".js" || fileType.Ext == ".md" || fileType.Ext == ".txt") && (segments[0] != "output" || (fileType.Ext == ".css" || fileType.Ext == ".js"))
 
 	r.Body = http.MaxBytesReader(w, r.Body, 15<<20 /* 15MB */)
 	switch r.Method {
@@ -113,6 +109,20 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			return
 		}
 
+		var pagePath string
+		if len(segments) > 2 && segments[0] == "output" && segments[1] != "posts" && (fileType.Ext == ".css" || fileType.Ext == ".js") {
+			pageSegments := slices.Clone(segments[:len(segments)-1])
+			pageSegments[0] = "pages"
+			pageSegments[len(pageSegments)-1] += ".html"
+			pagePath = strings.Join(pageSegments, "/")
+		}
+
+		// name, path
+		// script.js, join admin sitePrefix output/abcd script.js
+
+		// posts => .jpeg, .jpg, .png, .webp, .gif
+		// pages => .jpeg, .jpg, .png, .webp, .gif, .css, .js
+
 		funcMap := map[string]any{
 			"join":             path.Join,
 			"dir":              path.Dir,
@@ -125,6 +135,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			"hasDatabase":      func() bool { return nbrew.DB != nil },
 			"referer":          func() string { return r.Referer() },
 			"safeHTML":         func(s string) template.HTML { return template.HTML(s) },
+			"pagePath":         func() string { return pagePath },
 			"head": func(s string) string {
 				head, _, _ := strings.Cut(s, "/")
 				return head

@@ -18,9 +18,8 @@ TODO: for file.html, if the current file is a post or page then include the asse
     - TODO: first, scaffold out what the asset manager would look like in a static file e.g. /admin/static/assets.html
 TODO: Each tile in the asset manager has
     - the name of the resource (in plaintext, so the user can select and copy it (also impt for HTML-only users!))
-    - "insert into page/post"
     - "edit" (for text files), "view" (for image files)
-    - "rename"
+    - "insert into page/post"
     - "delete"
 
 / => clipboard, create (site), search

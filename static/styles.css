@@ -113,7 +113,7 @@ details[open] summary.transparent-button { background-color: white; }
 
 /* links */
 .linktext { color: LinkText; }
-.link { background: none; border: none; padding: 0; text-decoration: none; }
+.link { background: none; border: none; text-decoration: none; }
 .link:hover, link:focus { text-decoration: underline; }
 
 /* alerts */
