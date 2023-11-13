@@ -182,6 +182,10 @@ func (nbrew *Notebrew) getSession(r *http.Request, name string, valuePtr any) (o
 }
 
 func (nbrew *Notebrew) clearSession(w http.ResponseWriter, r *http.Request, name string) {
+	cookie, _ := r.Cookie(name)
+	if cookie == nil {
+		return
+	}
 	http.SetCookie(w, &http.Cookie{
 		Path:     "/",
 		Name:     name,
@@ -191,10 +195,6 @@ func (nbrew *Notebrew) clearSession(w http.ResponseWriter, r *http.Request, name
 		HttpOnly: true,
 	})
 	if nbrew.DB == nil {
-		return
-	}
-	cookie, _ := r.Cookie(name)
-	if cookie == nil {
 		return
 	}
 	sessionToken, err := hex.DecodeString(fmt.Sprintf("%048s", cookie.Value))

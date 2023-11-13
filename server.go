@@ -14,7 +14,6 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -24,10 +23,6 @@ import (
 	"github.com/klauspost/cpuid/v2"
 	"github.com/mholt/acmez"
 )
-
-var defaultLogger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-	AddSource: true,
-}))
 
 func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error) {
 	server := &http.Server{
@@ -181,7 +176,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Inject the request method and url into the logger.
 	logger := nbrew.Logger
 	if logger == nil {
-		logger = defaultLogger
+		logger = slog.Default()
 	}
 	scheme := "https://"
 	if r.TLS == nil {

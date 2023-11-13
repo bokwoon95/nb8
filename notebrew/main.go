@@ -100,7 +100,7 @@ func main() {
 		}
 		nbrew := &nb8.Notebrew{
 			ConfigFS: os.DirFS(configFolder),
-			Logger: slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+			Logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 				AddSource: true,
 			})),
 		}
