@@ -326,7 +326,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	isGzipped := fileType.Ext == ".gz" || fileType.Ext == ".gzip"
+	var isGzipped bool
 	file, err := nbrew.FS.Open(name)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
