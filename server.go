@@ -269,6 +269,10 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sitePrefix = host
 	}
 
+	// custom404 will use the user's custom 404 page if present, otherwise it
+	// will fall back to http.Error(404). We don't use notFound() because it
+	// depends on static files in the main domain and the content domain should
+	// not depend on the main domain.
 	custom404 := func(w http.ResponseWriter, r *http.Request, sitePrefix string) {
 		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output/themes/404.html"))
 		if err != nil {
@@ -334,7 +338,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		if !fileType.IsGzippable {
+		if !fileType.IsGzippable || !strings.HasSuffix(name, "/index.html") {
 			custom404(w, r, sitePrefix)
 			return
 		}
