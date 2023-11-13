@@ -573,6 +573,7 @@ func contentSecurityPolicy(w http.ResponseWriter, cdnBaseURL string, allowCaptch
 	b.WriteString(";")
 	// img-src
 	b.WriteString(" img-src 'self' data:")
+	b.WriteString(" https://www.jpl.nasa.gov")
 	if cdnBaseURL != "" {
 		b.WriteString(" " + cdnBaseURL)
 	}

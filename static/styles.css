@@ -94,6 +94,11 @@ ul { margin: 0; padding: 0; }
 .justify-center { justify-content: center; }
 .flex-wrap { flex-wrap: wrap; }
 
+/* grid */
+.grid { display: grid; }
+.grid-cols-auto-150px { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.grid-gap-3 { grid-gap: 1rem; }
+
 /* button */
 .button { background-color: #e2e2e2; }
 .button:hover, .button:focus { background-color: #eaeaea; }
@@ -158,6 +163,7 @@ details[open] summary.transparent-button { background-color: white; }
 .b--moon-gray { border-color: #ccc; }
 
 /* height */
+.h-100 { height: 100% }
 .min-h5 { min-height: 16rem; }
 .h2 { height: 2rem; }
 
