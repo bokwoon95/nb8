@@ -42,7 +42,17 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		return
 	}
 	segments := strings.Split(filePath, "/")
-	isEditableText := (fileType.Ext == ".html" || fileType.Ext == ".css" || fileType.Ext == ".js" || fileType.Ext == ".md" || fileType.Ext == ".txt") && (segments[0] != "output" || (len(segments) > 1 && segments[1] == "themes") || (fileType.Ext == ".css" || fileType.Ext == ".js"))
+	isEditableText := false
+	switch fileType.Ext {
+	case ".html", ".css", ".js", ".md", ".txt":
+		if segments[0] != "output" {
+			isEditableText = true
+		} else if len(segments) > 1 && segments[0] == "output" && segments[1] == "themes" {
+			isEditableText = true
+		} else if fileType.Ext == ".css" || fileType.Ext == ".js" {
+			isEditableText = true
+		}
+	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, 15<<20 /* 15MB */)
 	switch r.Method {
