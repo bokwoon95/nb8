@@ -84,6 +84,13 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 		return nil, err
 	}
 	// dynamicCertConfig manages the certificates for custom domains.
+	//
+	// If dns01Solver hasn't been configured, dynamicCertConfig will also be
+	// responsible for getting the certificates for subdomains. This approach
+	// will not scale and may exceed the rate limits of Let's Encrypt (50
+	// certificates per week, a certificate lasts for 3 months). The safest way
+	// is to configure dns01Solver so that the wildcard certificate is
+	// available.
 	dynamicCertConfig := certmagic.NewDefault()
 	dynamicCertConfig.OnDemand = &certmagic.OnDemandConfig{
 		DecisionFunc: func(name string) error {
