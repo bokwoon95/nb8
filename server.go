@@ -78,7 +78,7 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 			DNS01Solver: dns01Solver,
 		}),
 	}
-	fmt.Printf("static domains: %v\n", strings.Join(domains, ", "))
+	fmt.Printf("notebrew static domains: %v\n", strings.Join(domains, ", "))
 	err := staticCertConfig.ManageSync(context.Background(), domains)
 	if err != nil {
 		return nil, err
