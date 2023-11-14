@@ -20,7 +20,7 @@
     <a href="/admin/logout/" class="ma2">logout</a>
     {{- end }}
 </nav>
-<div>
+<div class="mv2">
     {{- if and referer (ne $.Status.Code "NB-00060") }}
     <a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a>
     <span>&boxv;</span>
@@ -42,7 +42,7 @@
     <span class="b">{{ base $.Path }}</span>
     <a href="" class="f6 mh2 linktext">rename</a>
 </div>
-<form method="post" enctype="multipart/form-data" class="mv1">
+<form method="post" enctype="multipart/form-data" class="mv2">
     <div class="flex mv2">
         <label for="content" class="b">Content:</label>
         <div class="flex-grow-1"></div>
@@ -64,9 +64,9 @@
     {{- end }}
 </div>
 {{- if $.AssetEntries }}
-<div class="grid grid-cols-auto-150px grid-gap-3 mv2">
+<ul class="grid grid-cols-auto-150px grid-gap-3 mv2">
     {{- range $i, $assetEntry := $.AssetEntries }}
-    <div class="h-100">
+    <li class="h-100">
         {{- if eq (head $assetEntry.ContentType) "image" }}
         <img src="/{{ join `admin` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="w-100" loading="lazy">
         {{- else }}
@@ -93,9 +93,9 @@
             <button type="button" value="{{ $assetEntry.Name }}" class="button ba br2 pa2 w-100">insert into page</button>
             {{- end }}
         </div>
-    </div>
+    </li>
     {{- end }}
-</div>
+</ul>
 {{- else }}
 <div class="mv2 tc">{{ if eq (head $.Path) "posts" }}- No images -{{ else }}- No assets -{{ end }}</div>
 {{- end }}
