@@ -324,9 +324,11 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			}
 			http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/"+path.Join("admin", sitePrefix, filePath), http.StatusFound)
 		}
+
 		if !isEditableText {
+			methodNotAllowed(w, r)
+			return
 		}
-		// would you allow updating non-text files?
 
 		var request struct {
 			Content string `json:"content"`
