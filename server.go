@@ -24,7 +24,12 @@ import (
 	"github.com/mholt/acmez"
 )
 
-func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error) {
+type ServerConfig struct {
+	DNS01Solver acmez.Solver
+	CertStorage certmagic.Storage
+}
+
+func (nbrew *Notebrew) NewServer(config ServerConfig) (*http.Server, error) {
 	server := &http.Server{
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
@@ -60,12 +65,13 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 			"assets." + nbrew.ContentDomain,
 		}
 	}
-	if dns01Solver != nil {
+	if config.DNS01Solver != nil {
 		domains = append(domains, "*."+nbrew.ContentDomain)
 	}
 	// staticCertConfig manages the certificate for the admin domain, content domain
 	// and wildcard subdomain.
 	staticCertConfig := certmagic.NewDefault()
+	staticCertConfig.Storage = config.CertStorage
 	staticCertConfig.Issuers = []certmagic.Issuer{
 		// Create a new ACME issuer with the dns01Solver because this cert
 		// config potentially has to issue wildcard certificates which only the
@@ -75,7 +81,7 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 			TestCA:      certmagic.DefaultACME.TestCA,
 			Logger:      certmagic.DefaultACME.Logger,
 			HTTPProxy:   certmagic.DefaultACME.HTTPProxy,
-			DNS01Solver: dns01Solver,
+			DNS01Solver: config.DNS01Solver,
 		}),
 	}
 	fmt.Printf("notebrew static domains: %v\n", strings.Join(domains, ", "))
@@ -92,6 +98,7 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 	// to avoid being rate limited is to configure dns01Solver so that the
 	// wildcard certificate is available.
 	dynamicCertConfig := certmagic.NewDefault()
+	dynamicCertConfig.Storage = config.CertStorage
 	dynamicCertConfig.OnDemand = &certmagic.OnDemandConfig{
 		DecisionFunc: func(name string) error {
 			if certmagic.MatchWildcard(name, "*."+nbrew.ContentDomain) {

@@ -59,7 +59,7 @@ var (
 
 // static/dynamic private/public config:
 // - static private: database.json, dns.json, s3.json, smtp.json (excluded)
-// - static public: admin-folder.txt domain.txt, content-domain.txt, multisite.txt
+// - static public: admin-dir.txt domain.txt, content-domain.txt, multisite.txt
 // - dynamic private: captcha.json
 // - dynamic public: allow-signup.txt, 503.html
 
@@ -73,41 +73,55 @@ func main() {
 		if err != nil {
 			return err
 		}
-		var configFolder string
+		var configDir, certDir string
 		flagset := flag.NewFlagSet("", flag.ContinueOnError)
-		flagset.StringVar(&configFolder, "config-folder", "", "")
+		flagset.StringVar(&configDir, "config-dir", "", "")
+		flagset.StringVar(&certDir, "cert-dir", "", "")
 		err = flagset.Parse(os.Args[1:])
 		if err != nil {
 			return err
 		}
-		if configFolder == "" {
+		if configDir == "" {
 			XDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
 			if XDGConfigHome != "" {
-				configFolder = filepath.Join(XDGConfigHome, "notebrew-config")
+				configDir = filepath.Join(XDGConfigHome, "notebrew-config")
 			} else {
-				configFolder = filepath.Join(homeDir, "notebrew-config")
+				configDir = filepath.Join(homeDir, "notebrew-config")
 			}
-			err := os.MkdirAll(configFolder, 0755)
+			err := os.MkdirAll(configDir, 0755)
 			if err != nil {
 				return err
 			}
 		} else {
-			configFolder = filepath.Clean(configFolder)
-			_, err := os.Stat(configFolder)
+			configDir = filepath.Clean(configDir)
+			_, err := os.Stat(configDir)
+			if err != nil {
+				return err
+			}
+		}
+		if certDir == "" {
+			certDir = filepath.Join(configDir, "certificates")
+			err := os.MkdirAll(certDir, 0755)
+			if err != nil {
+				return err
+			}
+		} else {
+			certDir = filepath.Clean(certDir)
+			_, err := os.Stat(certDir)
 			if err != nil {
 				return err
 			}
 		}
 		nbrew := &nb8.Notebrew{
-			ConfigFS: os.DirFS(configFolder),
+			ConfigFS: os.DirFS(configDir),
 			Logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 				AddSource: true,
 			})),
 		}
 
-		b, err := os.ReadFile(filepath.Join(configFolder, "domain.txt"))
+		b, err := os.ReadFile(filepath.Join(configDir, "domain.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "domain.txt"), err)
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "domain.txt"), err)
 		}
 		if len(b) > 0 {
 			nbrew.Domain = string(b)
@@ -115,12 +129,12 @@ func main() {
 			nbrew.Domain = "localhost:6444"
 		}
 		if strings.Contains(nbrew.Domain, "127.0.0.1") {
-			return fmt.Errorf("%s: don't use 127.0.0.1, use localhost instead", filepath.Join(configFolder, "domain.txt"))
+			return fmt.Errorf("%s: don't use 127.0.0.1, use localhost instead", filepath.Join(configDir, "domain.txt"))
 		}
 
-		b, err = os.ReadFile(filepath.Join(configFolder, "content-domain.txt"))
+		b, err = os.ReadFile(filepath.Join(configDir, "content-domain.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "content-domain.txt"), err)
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "content-domain.txt"), err)
 		}
 		if len(b) > 0 {
 			nbrew.ContentDomain = string(b)
@@ -128,7 +142,7 @@ func main() {
 			nbrew.ContentDomain = nbrew.Domain
 		}
 		if strings.Contains(nbrew.ContentDomain, "127.0.0.1") {
-			return fmt.Errorf("%s: don't use 127.0.0.1, use localhost instead", filepath.Join(configFolder, "content-domain.txt"))
+			return fmt.Errorf("%s: don't use 127.0.0.1, use localhost instead", filepath.Join(configDir, "content-domain.txt"))
 		}
 
 		domainIsLocalhost := nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:")
@@ -136,17 +150,17 @@ func main() {
 		if domainIsLocalhost && contentDomainIsLocalhost {
 			nbrew.Scheme = "http://"
 			if nbrew.Domain != nbrew.ContentDomain {
-				return fmt.Errorf("%s: %s: if localhost, domains must be the same", filepath.Join(configFolder, "domain.txt"), filepath.Join(configFolder, "content-domain.txt"))
+				return fmt.Errorf("%s: %s: if localhost, domains must be the same", filepath.Join(configDir, "domain.txt"), filepath.Join(configDir, "content-domain.txt"))
 			}
 		} else if !domainIsLocalhost && !contentDomainIsLocalhost {
 			nbrew.Scheme = "https://"
 		} else {
-			return fmt.Errorf("%s: %s: localhost and non-localhost domains cannot be mixed", filepath.Join(configFolder, "domain.txt"), filepath.Join(configFolder, "content-domain.txt"))
+			return fmt.Errorf("%s: %s: localhost and non-localhost domains cannot be mixed", filepath.Join(configDir, "domain.txt"), filepath.Join(configDir, "content-domain.txt"))
 		}
 
-		b, err = os.ReadFile(filepath.Join(configFolder, "database.json"))
+		b, err = os.ReadFile(filepath.Join(configDir, "database.json"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "database.json"), err)
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "database.json"), err)
 		}
 		if len(b) > 0 {
 			var databaseConfig struct {
@@ -163,26 +177,26 @@ func main() {
 			decoder.DisallowUnknownFields()
 			err := decoder.Decode(&databaseConfig)
 			if err != nil {
-				return fmt.Errorf("%s: %w", filepath.Join(configFolder, "database.json"), err)
+				return fmt.Errorf("%s: %w", filepath.Join(configDir, "database.json"), err)
 			}
 			switch databaseConfig.Dialect {
 			case "sqlite":
 				if databaseConfig.Filepath == "" {
-					return fmt.Errorf("%s: sqlite: missing filepath field", filepath.Join(configFolder, "database.json"))
+					return fmt.Errorf("%s: sqlite: missing filepath field", filepath.Join(configDir, "database.json"))
 				}
 				databaseConfig.Filepath, err = filepath.Abs(databaseConfig.Filepath)
 				if err != nil {
-					return fmt.Errorf("%s: sqlite: %w", filepath.Join(configFolder, "database.json"), err)
+					return fmt.Errorf("%s: sqlite: %w", filepath.Join(configDir, "database.json"), err)
 				}
 				dataSourceName := databaseConfig.Filepath + "?" + sqliteQueryString(databaseConfig.Params)
 				nbrew.Dialect = "sqlite"
 				nbrew.DB, err = sql.Open(sqliteDriverName, dataSourceName)
 				if err != nil {
-					return fmt.Errorf("%s: sqlite: open %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
+					return fmt.Errorf("%s: sqlite: open %s: %w", filepath.Join(configDir, "database.json"), dataSourceName, err)
 				}
 				err = nbrew.DB.Ping()
 				if err != nil {
-					return fmt.Errorf("%s: sqlite: ping %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
+					return fmt.Errorf("%s: sqlite: ping %s: %w", filepath.Join(configDir, "database.json"), dataSourceName, err)
 				}
 			case "postgres":
 				values := make(url.Values)
@@ -209,11 +223,11 @@ func main() {
 				nbrew.Dialect = "postgres"
 				nbrew.DB, err = sql.Open("pgx", dataSourceName)
 				if err != nil {
-					return fmt.Errorf("%s: postgres: open %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
+					return fmt.Errorf("%s: postgres: open %s: %w", filepath.Join(configDir, "database.json"), dataSourceName, err)
 				}
 				err = nbrew.DB.Ping()
 				if err != nil {
-					return fmt.Errorf("%s: postgres: ping %s: %w", filepath.Join(configFolder, "database.json"), dataSourceName, err)
+					return fmt.Errorf("%s: postgres: ping %s: %w", filepath.Join(configDir, "database.json"), dataSourceName, err)
 				}
 				nbrew.ErrorCode = func(err error) string {
 					var pgErr *pgconn.PgError
@@ -256,11 +270,11 @@ func main() {
 				nbrew.Dialect = "mysql"
 				nbrew.DB = sql.OpenDB(driver)
 				if err != nil {
-					return fmt.Errorf("%s: mysql: open %s: %w", filepath.Join(configFolder, "database.json"), config.FormatDSN(), err)
+					return fmt.Errorf("%s: mysql: open %s: %w", filepath.Join(configDir, "database.json"), config.FormatDSN(), err)
 				}
 				err = nbrew.DB.Ping()
 				if err != nil {
-					return fmt.Errorf("%s: mysql: ping %s: %w", filepath.Join(configFolder, "database.json"), config.FormatDSN(), err)
+					return fmt.Errorf("%s: mysql: ping %s: %w", filepath.Join(configDir, "database.json"), config.FormatDSN(), err)
 				}
 				nbrew.ErrorCode = func(err error) string {
 					var mysqlErr *mysql.MySQLError
@@ -270,9 +284,9 @@ func main() {
 					return ""
 				}
 			case "":
-				return fmt.Errorf("%s: missing dialect field", filepath.Join(configFolder, "database.json"))
+				return fmt.Errorf("%s: missing dialect field", filepath.Join(configDir, "database.json"))
 			default:
-				return fmt.Errorf("%s: unsupported dialect %q (possible values: sqlite, postgres, mysql)", filepath.Join(configFolder, "database.json"), databaseConfig.Dialect)
+				return fmt.Errorf("%s: unsupported dialect %q (possible values: sqlite, postgres, mysql)", filepath.Join(configDir, "database.json"), databaseConfig.Dialect)
 			}
 			err = nb8.Automigrate(nbrew.Dialect, nbrew.DB)
 			if err != nil {
@@ -280,30 +294,30 @@ func main() {
 			}
 		}
 
-		b, err = os.ReadFile(filepath.Join(configFolder, "admin-folder.txt"))
+		b, err = os.ReadFile(filepath.Join(configDir, "admin-dir.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "admin-folder.txt"), err)
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "admin-dir.txt"), err)
 		}
-		adminFolder := string(b)
-		if adminFolder == "" {
+		adminDir := string(b)
+		if adminDir == "" {
 			XDGDataHome := os.Getenv("XDG_DATA_HOME")
 			if XDGDataHome != "" {
-				adminFolder = filepath.Join(XDGDataHome, "notebrew-admin")
+				adminDir = filepath.Join(XDGDataHome, "notebrew-admin")
 			} else {
-				adminFolder = filepath.Join(homeDir, "notebrew-admin")
+				adminDir = filepath.Join(homeDir, "notebrew-admin")
 			}
-			err := os.MkdirAll(adminFolder, 0755)
+			err := os.MkdirAll(adminDir, 0755)
 			if err != nil {
 				return err
 			}
-			nbrew.FS = nb8.NewLocalFS(adminFolder, os.TempDir())
-		} else if adminFolder == "database" {
+			nbrew.FS = nb8.NewLocalFS(adminDir, os.TempDir())
+		} else if adminDir == "database" {
 			if nbrew.DB == nil {
-				return fmt.Errorf("%s: cannot use database as filesystem because %s is missing", filepath.Join(configFolder, "admin-folder.txt"), filepath.Join(configFolder, "database.json"))
+				return fmt.Errorf("%s: cannot use database as filesystem because %s is missing", filepath.Join(configDir, "admin-dir.txt"), filepath.Join(configDir, "database.json"))
 			}
-			b, err = os.ReadFile(filepath.Join(configFolder, "s3.json"))
+			b, err = os.ReadFile(filepath.Join(configDir, "s3.json"))
 			if err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return fmt.Errorf("%s: %w", filepath.Join(configFolder, "s3.json"), err)
+				return fmt.Errorf("%s: %w", filepath.Join(configDir, "s3.json"), err)
 			}
 			if len(b) > 0 {
 				var s3Config struct {
@@ -317,22 +331,22 @@ func main() {
 				decoder.DisallowUnknownFields()
 				err := decoder.Decode(&s3Config)
 				if err != nil {
-					return fmt.Errorf("%s: %w", filepath.Join(configFolder, "s3.json"), err)
+					return fmt.Errorf("%s: %w", filepath.Join(configDir, "s3.json"), err)
 				}
 				if s3Config.Endpoint == "" {
-					return fmt.Errorf("%s: missing endpoint field", filepath.Join(configFolder, "s3.json"))
+					return fmt.Errorf("%s: missing endpoint field", filepath.Join(configDir, "s3.json"))
 				}
 				if s3Config.Region == "" {
-					return fmt.Errorf("%s: missing region field", filepath.Join(configFolder, "s3.json"))
+					return fmt.Errorf("%s: missing region field", filepath.Join(configDir, "s3.json"))
 				}
 				if s3Config.Bucket == "" {
-					return fmt.Errorf("%s: missing bucket field", filepath.Join(configFolder, "s3.json"))
+					return fmt.Errorf("%s: missing bucket field", filepath.Join(configDir, "s3.json"))
 				}
 				if s3Config.AccessKeyID == "" {
-					return fmt.Errorf("%s: missing accessKeyID field", filepath.Join(configFolder, "s3.json"))
+					return fmt.Errorf("%s: missing accessKeyID field", filepath.Join(configDir, "s3.json"))
 				}
 				if s3Config.SecretAccessKey == "" {
-					return fmt.Errorf("%s: missing secretAccessKey field", filepath.Join(configFolder, "s3.json"))
+					return fmt.Errorf("%s: missing secretAccessKey field", filepath.Join(configDir, "s3.json"))
 				}
 				nbrew.FS = nb8.NewRemoteFS(nbrew.Dialect, nbrew.DB, nbrew.ErrorCode, &nb8.S3Storage{
 					Client: s3.New(s3.Options{
@@ -343,9 +357,9 @@ func main() {
 					Bucket: s3Config.Bucket,
 				})
 			} else {
-				b, err = os.ReadFile(filepath.Join(configFolder, "objects-folder.txt"))
+				b, err = os.ReadFile(filepath.Join(configDir, "objects-folder.txt"))
 				if err != nil && !errors.Is(err, fs.ErrNotExist) {
-					return fmt.Errorf("%s: %w", filepath.Join(configFolder, "objects-folder.txt"), err)
+					return fmt.Errorf("%s: %w", filepath.Join(configDir, "objects-folder.txt"), err)
 				}
 				objectsFolder := string(b)
 				if objectsFolder == "" {
@@ -369,12 +383,12 @@ func main() {
 				nbrew.FS = nb8.NewRemoteFS(nbrew.Dialect, nbrew.DB, nbrew.ErrorCode, nb8.NewFileStorage(objectsFolder, os.TempDir()))
 			}
 		} else {
-			adminFolder = filepath.Clean(adminFolder)
-			_, err := os.Stat(adminFolder)
+			adminDir = filepath.Clean(adminDir)
+			_, err := os.Stat(adminDir)
 			if err != nil {
 				return err
 			}
-			nbrew.FS = nb8.NewLocalFS(adminFolder, os.TempDir())
+			nbrew.FS = nb8.NewLocalFS(adminDir, os.TempDir())
 		}
 		dirs := []string{
 			"notes",
@@ -403,9 +417,9 @@ func main() {
 		}
 
 		var dns01Solver acmez.Solver
-		b, err = os.ReadFile(filepath.Join(configFolder, "dns.json"))
+		b, err = os.ReadFile(filepath.Join(configDir, "dns.json"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns.json"), err)
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "dns.json"), err)
 		}
 		if len(b) > 0 {
 			var dnsConfig struct {
@@ -419,15 +433,15 @@ func main() {
 			decoder.DisallowUnknownFields()
 			err := decoder.Decode(&dnsConfig)
 			if err != nil {
-				return fmt.Errorf("%s: %w", filepath.Join(configFolder, "dns.json"), err)
+				return fmt.Errorf("%s: %w", filepath.Join(configDir, "dns.json"), err)
 			}
 			switch dnsConfig.Provider {
 			case "namecheap":
 				if dnsConfig.Username == "" {
-					return fmt.Errorf("%s: namecheap: missing username field", filepath.Join(configFolder, "dns.json"))
+					return fmt.Errorf("%s: namecheap: missing username field", filepath.Join(configDir, "dns.json"))
 				}
 				if dnsConfig.APIKey == "" {
-					return fmt.Errorf("%s: namecheap: missing apiKey field", filepath.Join(configFolder, "dns.json"))
+					return fmt.Errorf("%s: namecheap: missing apiKey field", filepath.Join(configDir, "dns.json"))
 				}
 				resp, err := http.Get("https://ipv4.icanhazip.com")
 				if err != nil {
@@ -461,7 +475,7 @@ func main() {
 				}
 			case "cloudflare":
 				if dnsConfig.APIToken == "" {
-					return fmt.Errorf("%s: cloudflare: missing apiToken field", filepath.Join(configFolder, "dns.json"))
+					return fmt.Errorf("%s: cloudflare: missing apiToken field", filepath.Join(configDir, "dns.json"))
 				}
 				dns01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &cloudflare.Provider{
@@ -470,10 +484,10 @@ func main() {
 				}
 			case "porkbun":
 				if dnsConfig.APIKey == "" {
-					return fmt.Errorf("%s: porkbun: missing apiKey field", filepath.Join(configFolder, "dns.json"))
+					return fmt.Errorf("%s: porkbun: missing apiKey field", filepath.Join(configDir, "dns.json"))
 				}
 				if dnsConfig.SecretKey == "" {
-					return fmt.Errorf("%s: porkbun: missing secretKey field", filepath.Join(configFolder, "dns.json"))
+					return fmt.Errorf("%s: porkbun: missing secretKey field", filepath.Join(configDir, "dns.json"))
 				}
 				dns01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &porkbun.Provider{
@@ -483,7 +497,7 @@ func main() {
 				}
 			case "godaddy":
 				if dnsConfig.APIToken == "" {
-					return fmt.Errorf("%s: godaddy: missing apiToken field", filepath.Join(configFolder, "dns.json"))
+					return fmt.Errorf("%s: godaddy: missing apiToken field", filepath.Join(configDir, "dns.json"))
 				}
 				dns01Solver = &certmagic.DNS01Solver{
 					DNSProvider: &godaddy.Provider{
@@ -491,14 +505,17 @@ func main() {
 					},
 				}
 			case "":
-				return fmt.Errorf("%s: missing provider field", filepath.Join(configFolder, "dns.json"))
+				return fmt.Errorf("%s: missing provider field", filepath.Join(configDir, "dns.json"))
 			default:
-				return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configFolder, "dns.json"), dnsConfig.Provider)
+				return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configDir, "dns.json"), dnsConfig.Provider)
 			}
 		}
 		// Create a new server (this step will provision the HTTPS
 		// certificates, if it fails an error will be returned).
-		server, err := nbrew.NewServer(dns01Solver)
+		server, err := nbrew.NewServer(nb8.ServerConfig{
+			DNS01Solver: dns01Solver,
+			CertStorage: &certmagic.FileStorage{Path: certDir},
+		})
 		if err != nil {
 			return err
 		}
