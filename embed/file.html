@@ -67,13 +67,9 @@
         {{- end }}
     {{- end }}
 </div>
-<div class="mv2">
-    <span class="b">{{ base $.Path }}</span>
-    <a href="" class="f6 mh2">rename</a>
-</div>
 <form method="post" enctype="multipart/form-data" class="mv2">
     <div class="flex mv2">
-        <label for="content" class="b">Content:</label>
+        <label for="content" class="b">{{ base $.Path }}</label>
         <div class="flex-grow-1"></div>
         <button id="bottom" type="submit" class="button ba br2">Save</button>
     </div>
