@@ -554,6 +554,16 @@ func main() {
 			return err
 		}
 
+		// TODO: check $CONFIG_DIR/certificates for custom certificates, if
+		// present we want to wrap server.TLSConfig.GetCertificate by
+		// intercepting the server name and if it matches any of custom
+		// certificates serve it, else defer to the old
+		// TLSConfig.GetCertificate. Reading from customCertConfig should be
+		// atomic (use atomic.Pointer), so that when we reload custom
+		// certificates it can atomically replace the old config (and
+		// subsequent request all use the new certificates without needing a
+		// server restart).
+
 		// Swallow SIGHUP so that we can keep running even when the (SSH)
 		// session ends (the user should use `notebrew stop` to stop the
 		// process).
@@ -561,6 +571,11 @@ func main() {
 		signal.Notify(ch, syscall.SIGHUP)
 		go func() {
 			for {
+				// TODO: upon receiving SIGHUP, we can reload our list of
+				// custom certificates. If there are any errors, we print it
+				// out and keep using the old customCertConfig pointer.
+				// Otherwise we atomically replace the old customCertConfig
+				// pointer with the new customCertConfig pointer.
 				<-ch
 			}
 		}()
