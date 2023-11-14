@@ -22,14 +22,14 @@ import (
 // would work).
 func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, sitePrefix, folderPath string, fileInfo fs.FileInfo) {
 	type FileEntry struct {
-		Name    string     `json:"name,omitempty"`
-		IsDir   bool       `json:"isDir,omitempty"`
-		IsSite  bool       `json:"isSite,omitempty"`
-		IsUser  bool       `json:"isUser,omitempty"`
-		Title   string     `json:"title,omitempty"`
-		Preview string     `json:"preview,omitempty"`
-		Size    int64      `json:"size,omitempty"`
-		ModTime *time.Time `json:"modTime,omitempty"`
+		Name    string    `json:"name,omitempty"`
+		IsDir   bool      `json:"isDir,omitempty"`
+		IsSite  bool      `json:"isSite,omitempty"`
+		IsUser  bool      `json:"isUser,omitempty"`
+		Title   string    `json:"title,omitempty"`
+		Preview string    `json:"preview,omitempty"`
+		Size    int64     `json:"size,omitempty"`
+		ModTime time.Time `json:"modTime,omitempty"`
 	}
 	type Response struct {
 		Status         Error       `json:"status"`
@@ -38,7 +38,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		SitePrefix     string      `json:"sitePrefix,omitempty"`
 		Path           string      `json:"path"`
 		IsDir          bool        `json:"isDir,omitempty"`
-		ModTime        *time.Time  `json:"modTime,omitempty"`
+		ModTime        time.Time   `json:"modTime,omitempty"`
 		FileEntries    []FileEntry `json:"fileEntries,omitempty"`
 		TemplateErrors []string    `json:"templateErrors,omitempty"`
 	}
@@ -82,12 +82,9 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 				}
 			} else if fileInfo.IsDir() {
 				fileEntry := FileEntry{
-					Name:  name,
-					IsDir: true,
-				}
-				modTime := fileInfo.ModTime()
-				if !modTime.IsZero() {
-					fileEntry.ModTime = &modTime
+					Name:    name,
+					IsDir:   true,
+					ModTime: fileInfo.ModTime(),
 				}
 				folderEntries = append(folderEntries, fileEntry)
 			}
@@ -196,13 +193,10 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 				return
 			}
 			fileEntry := FileEntry{
-				Name:  dirEntry.Name(),
-				IsDir: dirEntry.IsDir(),
-				Size:  fileInfo.Size(),
-			}
-			modTime := fileInfo.ModTime()
-			if !modTime.IsZero() {
-				fileEntry.ModTime = &modTime
+				Name:    dirEntry.Name(),
+				IsDir:   dirEntry.IsDir(),
+				Size:    fileInfo.Size(),
+				ModTime: fileInfo.ModTime(),
 			}
 			if fileEntry.IsDir {
 				folderEntries = append(folderEntries, fileEntry)

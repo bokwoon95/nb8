@@ -19,8 +19,10 @@ import (
 )
 
 func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, sitePrefix, filePath string, fileInfo fs.FileInfo) {
-	type Request struct {
-		Content string `json:"content"`
+	type FileEntry struct {
+		Name    string     `json:"name"`
+		Size    int64      `json:"size"`
+		ModTime time.Time `json:"modTime"`
 	}
 	type Response struct {
 		Status         Error      `json:"status"`
@@ -29,7 +31,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		SitePrefix     string     `json:"sitePrefix,omitempty"`
 		Path           string     `json:"path"`
 		IsDir          bool       `json:"isDir,omitempty"`
-		ModTime        *time.Time `json:"modTime,omitempty"`
+		ModTime        time.Time `json:"modTime,omitempty"`
 		Size           int64      `json:"size,omitempty"`
 		Content        string     `json:"content,omitempty"`
 		ContentType    string     `json:"contentType,omitempty"`
@@ -75,13 +77,10 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		response.SitePrefix = sitePrefix
 		response.Path = filePath
 		response.IsDir = fileInfo.IsDir()
+		response.ModTime = fileInfo.ModTime()
 		response.Size = fileInfo.Size()
 		response.ContentType = fileType.ContentType
 		response.Status = Success
-		modTime := fileInfo.ModTime()
-		if !modTime.IsZero() {
-			response.ModTime = &modTime
-		}
 		if isEditableText {
 			file, err := nbrew.FS.Open(path.Join(sitePrefix, filePath))
 			if err != nil {
@@ -191,7 +190,9 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		}
 		// would you allow updating non-text files?
 
-		var request Request
+		var request struct {
+			Content string `json:"content"`
+		}
 		contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		switch contentType {
 		case "application/json":
@@ -223,11 +224,8 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		response := Response{
 			Path:    filePath,
 			IsDir:   fileInfo.IsDir(),
+			ModTime: fileInfo.ModTime(),
 			Content: request.Content,
-		}
-		modTime := fileInfo.ModTime()
-		if !modTime.IsZero() {
-			response.ModTime = &modTime
 		}
 
 		if nbrew.DB != nil {
