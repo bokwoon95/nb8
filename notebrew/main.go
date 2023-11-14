@@ -503,7 +503,7 @@ func main() {
 		}
 		certDir := string(b)
 		if certDir == "" {
-			certDir = filepath.Join(configDir, "certificates")
+			certDir = filepath.Join(configDir, "certmagic")
 			err := os.MkdirAll(certDir, 0755)
 			if err != nil {
 				return err
