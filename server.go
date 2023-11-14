@@ -276,9 +276,11 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			if subdomain == "cdn" {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				w.Header().Set("Access-Control-Allow-Methods", "GET")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			}
 		default:
 			sitePrefix = "@" + subdomain
 		}
@@ -287,9 +289,11 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// custom404 will use the user's custom 404 page if present, otherwise it
-	// will fall back to http.Error(404). We don't use notFound() because it
-	// depends on static files in the main domain and stuff in the content
-	// domain should not depend on stuff in the main domain.
+	// will fall back to http.Error().
+	//
+	// We use http.Error() instead of notFound() because notFound() depends on
+	// CSS/JS files hosted on the main domain, and we don't want that
+	// dependency (the content domain should be self-sufficient).
 	custom404 := func(w http.ResponseWriter, r *http.Request, sitePrefix string) {
 		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output/404/index.html"))
 		if err != nil {
@@ -392,7 +396,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			custom404(w, r, sitePrefix)
 			return
 		}
-		modTime = fileInfo.ModTime()
 		reader := readerPool.Get().(*bufio.Reader)
 		reader.Reset(file)
 		defer readerPool.Put(reader)
@@ -404,6 +407,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		contentType := http.DetectContentType(b)
 		isGzipped = contentType == "application/x-gzip" || contentType == "application/gzip"
+		modTime = fileInfo.ModTime()
 		src = reader
 	} else {
 		fileType, ok := fileTypes[ext]
@@ -432,25 +436,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if fileInfo.Size() > 15<<20 /* 15MB */ {
-			if !fileType.IsGzippable {
-				w.Header().Set("Content-Type", fileType.ContentType)
-				_, err := io.Copy(w, src)
-				if err != nil {
-					logger.Error(err.Error())
-					return
-				}
-			}
-			gzipWriter := gzipPool.Get().(*gzip.Writer)
-			gzipWriter.Reset(w)
-			defer gzipPool.Put(gzipWriter)
-			w.Header().Set("Content-Encoding", "gzip")
 			w.Header().Set("Content-Type", fileType.ContentType)
-			_, err := io.Copy(gzipWriter, src)
-			if err != nil {
-				logger.Error(err.Error())
-				return
-			}
-			err = gzipWriter.Close()
+			_, err := io.Copy(w, src)
 			if err != nil {
 				logger.Error(err.Error())
 				return

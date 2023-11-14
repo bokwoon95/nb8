@@ -426,7 +426,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) 
 	} else {
 		fileType = fileTypes[ext]
 	}
-	if fileType.Ext == "" {
+	if fileType == (FileType{}) {
 		notFound(w, r)
 		return
 	}
