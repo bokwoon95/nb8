@@ -44,7 +44,7 @@ func init() {
 
   Press Ctrl+C (not Cmd+C) to exit. If you close this window
  without exiting, notebrew will keep running in the background
-      (run the command "notebrew stop" to stop notebrew).
+     (run the command "notebrew stop" to stop notebrew).
 `
 	default:
 		startmsg = `
