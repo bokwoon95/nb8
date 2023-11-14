@@ -83,8 +83,8 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				isEditableText = true
 				// output/foo/bar/baz.js => pages/foo/bar.html
 				segmentsCopy := slices.Clone(segments[:len(segments)-1])
-				last := len(segmentsCopy) - 1
 				segmentsCopy[0] = "pages"
+				last := len(segmentsCopy) - 1
 				segmentsCopy[last] += ".html"
 				pagePath = path.Join(segmentsCopy...)
 			}
@@ -139,9 +139,13 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		case "pages":
 			// (page) pages/foo/bar.html => (assetDir) output/foo/bar
 			newSegments := slices.Clone(segments)
-			last := len(newSegments) - 1
 			newSegments[0] = "output"
-			newSegments[last] = strings.TrimSuffix(newSegments[last], ".html")
+			if len(segments) == 2 && segments[1] == "index.html" {
+				newSegments = newSegments[:1]
+			} else {
+				last := len(newSegments) - 1
+				newSegments[last] = strings.TrimSuffix(newSegments[last], ".html")
+			}
 			response.AssetDir = path.Join(newSegments...)
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
 			if err != nil {
@@ -177,8 +181,8 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		case "posts":
 			// (post) posts/foo/bar.md => (assetDir) output/posts/foo/bar
 			newSegments := slices.Clone(segments)
-			last := len(newSegments) - 1
 			newSegments[0] = "output/posts"
+			last := len(newSegments) - 1
 			newSegments[last] = strings.TrimSuffix(newSegments[last], ".md")
 			response.AssetDir = path.Join(newSegments...)
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))

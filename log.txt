@@ -15,7 +15,6 @@ notebrew/main.go
 
 TODO: for file.html, if the current file is a post or page then include the asset manager
 - how do I know if the current file in file.html has assets or not? How to expose it to the template? I need to hide the assets segment for all files without assets.
-TODO: convert repeating elements to all use <ul> and <li> (if it make sense for a screen reader to be able to tell how many items are in the list).
 
 / => clipboard, create (site), search
 notes/ => clipboard, sort, search, create (note | folder)
