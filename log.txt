@@ -67,8 +67,6 @@ ugly child - regenerate site and search are not dropdowns, they're straight up l
         - do we want to act like a gzip service for files magically labelled as *.gz?
         - how much space savings do we even think users will save by uploading a gzipped file instead of just typing it in? text consumes barely anything, images and videos contain everything.
 
-TODO: figure out where certmagic places its certificates so that it would solve the problem of people complaining that they cannot install their own custom certificates. By default main.go will configure this to be inside the config directory, instead
-
 - updated icons
     CLIPBOARD => view/paste/clear
     SORT => date created/date updated/name | ascending/descending
