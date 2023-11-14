@@ -73,10 +73,9 @@ func main() {
 		if err != nil {
 			return err
 		}
-		var configDir, certDir string
+		var configDir string
 		flagset := flag.NewFlagSet("", flag.ContinueOnError)
 		flagset.StringVar(&configDir, "config-dir", "", "")
-		flagset.StringVar(&certDir, "cert-dir", "", "")
 		err = flagset.Parse(os.Args[1:])
 		if err != nil {
 			return err
@@ -95,19 +94,6 @@ func main() {
 		} else {
 			configDir = filepath.Clean(configDir)
 			_, err := os.Stat(configDir)
-			if err != nil {
-				return err
-			}
-		}
-		if certDir == "" {
-			certDir = filepath.Join(configDir, "certificates")
-			err := os.MkdirAll(certDir, 0755)
-			if err != nil {
-				return err
-			}
-		} else {
-			certDir = filepath.Clean(certDir)
-			_, err := os.Stat(certDir)
 			if err != nil {
 				return err
 			}
@@ -510,11 +496,34 @@ func main() {
 				return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configDir, "dns.json"), dnsConfig.Provider)
 			}
 		}
+
+		b, err = os.ReadFile(filepath.Join(configDir, "cert-dir.txt"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "cert-dir.txt"), err)
+		}
+		certDir := string(b)
+		if certDir == "" {
+			certDir = filepath.Join(configDir, "certificates")
+			err := os.MkdirAll(certDir, 0755)
+			if err != nil {
+				return err
+			}
+		} else {
+			certDir = filepath.Clean(certDir)
+			_, err := os.Stat(certDir)
+			if err != nil {
+				return err
+			}
+		}
+		certStorage := &certmagic.FileStorage{
+			Path: certDir,
+		}
+
 		// Create a new server (this step will provision the HTTPS
 		// certificates, if it fails an error will be returned).
 		server, err := nbrew.NewServer(&nb8.ServerConfig{
 			DNS01Solver: dns01Solver,
-			CertStorage: &certmagic.FileStorage{Path: certDir},
+			CertStorage: certStorage,
 		})
 		if err != nil {
 			return err
