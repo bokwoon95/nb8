@@ -282,6 +282,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// depends on static files in the main domain and stuff in the content
 	// domain should not depend on stuff in the main domain.
 	custom404 := func(w http.ResponseWriter, r *http.Request, sitePrefix string) {
+		_ = http.DetectContentType
 		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output/themes/404.html"))
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
@@ -312,7 +313,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		tmpl, err := templateParser.Parse(b.String())
+		tmpl, err := templateParser.Parse("/themes/404.html", b.String())
 		if err != nil {
 			http.Error(w, "404 Not Found\n"+err.Error(), http.StatusNotFound)
 			return

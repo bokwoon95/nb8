@@ -326,45 +326,6 @@ type RemoteFS struct {
 	storage   Storage
 }
 
-var textExtensions = map[string]struct{}{
-	".html": {}, ".css": {}, ".js": {}, ".md": {}, ".txt": {}, ".json": {},
-	".toml": {}, ".yaml": {}, ".yml": {}, ".xml": {},
-}
-
-func isStoredInDB(filePath string) bool {
-	var ext string
-	if strings.HasSuffix(filePath, ".gzip") {
-		ext = path.Ext(strings.TrimSuffix(filePath, ".gzip"))
-	} else if strings.HasSuffix(filePath, ".gz") {
-		ext = path.Ext(strings.TrimSuffix(filePath, ".gz"))
-	} else {
-		ext = path.Ext(filePath)
-	}
-	_, ok := textExtensions[ext]
-	return ok
-}
-
-func isFulltextIndexed(filePath string) bool {
-	ext := path.Ext(filePath)
-	head, tail, _ := strings.Cut(filePath, "/")
-	switch head {
-	case "notes", "posts":
-		if ext == ".txt" || ext == ".md" {
-			return true
-		}
-	case "pages":
-		if ext == ".html" || ext == ".md" {
-			return true
-		}
-	case "output":
-		next, _, _ := strings.Cut(tail, "/")
-		if next == "themes" && (ext == ".html" || ext == ".css" || ext == ".js") {
-			return true
-		}
-	}
-	return false
-}
-
 func NewRemoteFS(dialect string, db *sql.DB, errorCode func(error) string, storage Storage) *RemoteFS {
 	return &RemoteFS{
 		ctx:       context.Background(),
@@ -418,6 +379,35 @@ func (fileInfo *RemoteFileInfo) Sys() any { return nil }
 func (fileInfo *RemoteFileInfo) Type() fs.FileMode { return fileInfo.Mode().Type() }
 
 func (fileInfo *RemoteFileInfo) Info() (fs.FileInfo, error) { return fileInfo, nil }
+
+var textExtensions = map[string]bool{
+	".html": true, ".css": true, ".js": true, ".md": true, ".txt": true,
+	".json": true, ".xml": true,
+}
+
+func isFulltextIndexed(filePath string) bool {
+	ext := path.Ext(filePath)
+	head, tail, _ := strings.Cut(filePath, "/")
+	switch head {
+	case "notes":
+		return ext == ".html" || ext == ".css" || ext == ".js" || ext == ".md" || ext == ".txt"
+	case "pages":
+		return ext == ".html"
+	case "posts":
+		return ext == ".md"
+	case "output":
+		next, _, _ := strings.Cut(tail, "/")
+		switch next {
+		case "posts":
+			return false
+		case "themes":
+			return ext == ".html" || ext == ".css" || ext == ".js" || ext == ".md" || ext == ".txt"
+		default:
+			return ext == ".css" || ext == ".js"
+		}
+	}
+	return false
+}
 
 type RemoteFile struct {
 	ctx        context.Context
@@ -476,7 +466,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		fileInfo: &result.RemoteFileInfo,
 	}
 	if !result.isDir {
-		if isStoredInDB(result.filePath) {
+		if textExtensions[path.Ext(result.filePath)] {
 			if isFulltextIndexed(result.filePath) {
 				file.readCloser = io.NopCloser(strings.NewReader(result.text))
 				file.fileInfo.size = int64(len(result.text))
@@ -645,7 +635,7 @@ func (file *RemoteFileWriter) Close() error {
 
 	// if file exists, just have to update the file entry in the database.
 	if file.fileID != [16]byte{} {
-		if isStoredInDB(file.filePath) {
+		if textExtensions[path.Ext(file.filePath)] {
 			if isFulltextIndexed(file.filePath) {
 				_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 					Dialect: file.dialect,
@@ -691,7 +681,7 @@ func (file *RemoteFileWriter) Close() error {
 	}
 
 	// file doesn't exist, insert a new file entry into the database.
-	if isStoredInDB(file.filePath) {
+	if textExtensions[path.Ext(file.filePath)] {
 		if isFulltextIndexed(file.filePath) {
 			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
 				Dialect: file.dialect,
@@ -1123,7 +1113,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		}
 		return err
 	}
-	if !oldnameIsDir && isStoredInDB(oldname) != isStoredInDB(newname) {
+	if !oldnameIsDir && textExtensions[path.Ext(oldname)] != textExtensions[path.Ext(newname)] {
 		return fmt.Errorf("cannot rename file from %q to %q because of incompatible storage locations", oldname, newname)
 	}
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
@@ -1137,7 +1127,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		return err
 	}
 	updateTextOrData := sq.Expr("")
-	if !oldnameIsDir && isStoredInDB(oldname) && isStoredInDB(newname) {
+	if !oldnameIsDir && textExtensions[path.Ext(oldname)] && textExtensions[path.Ext(newname)] {
 		if !isFulltextIndexed(oldname) && isFulltextIndexed(newname) {
 			switch fsys.dialect {
 			case "sqlite":

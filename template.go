@@ -144,8 +144,8 @@ func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) 
 // TODO: remove this now that we have a global addressing system, we can
 // always use names like "abcd.html" because it' won't clash with
 // "/themes/abcd.html".
-func (parser *TemplateParser) Parse(templateText string) (*template.Template, error) {
-	return parser.parse("", templateText, nil)
+func (parser *TemplateParser) Parse(templateName string, templateText string) (*template.Template, error) {
+	return parser.parse(templateName, templateText, nil)
 }
 
 func (parser *TemplateParser) parse(templateName, templateText string, callers []string) (*template.Template, error) {
