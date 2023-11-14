@@ -21,7 +21,7 @@ import (
 // through interface discovery (which also requires figuring out how sorting
 // would work).
 func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, sitePrefix, folderPath string, fileInfo fs.FileInfo) {
-	type Entry struct {
+	type FileEntry struct {
 		Name    string     `json:"name,omitempty"`
 		IsDir   bool       `json:"isDir,omitempty"`
 		IsSite  bool       `json:"isSite,omitempty"`
@@ -32,15 +32,15 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		ModTime *time.Time `json:"modTime,omitempty"`
 	}
 	type Response struct {
-		Status         Error      `json:"status"`
-		ContentDomain  string     `json:"contentDomain,omitempty"`
-		Username       string     `json:"username,omitempty"`
-		SitePrefix     string     `json:"sitePrefix,omitempty"`
-		Path           string     `json:"path"`
-		IsDir          bool       `json:"isDir,omitempty"`
-		ModTime        *time.Time `json:"modTime,omitempty"`
-		Entries        []Entry    `json:"entries,omitempty"`
-		TemplateErrors []string   `json:"templateErrors,omitempty"`
+		Status         Error       `json:"status"`
+		ContentDomain  string      `json:"contentDomain,omitempty"`
+		Username       string      `json:"username,omitempty"`
+		SitePrefix     string      `json:"sitePrefix,omitempty"`
+		Path           string      `json:"path"`
+		IsDir          bool        `json:"isDir,omitempty"`
+		ModTime        *time.Time  `json:"modTime,omitempty"`
+		FileEntries    []FileEntry `json:"fileEntries,omitempty"`
+		TemplateErrors []string    `json:"templateErrors,omitempty"`
 	}
 	if r.Method != "GET" {
 		methodNotAllowed(w, r)
@@ -67,8 +67,8 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		response.Status = Success
 	}
 
-	var folderEntries []Entry
-	var fileEntries []Entry
+	var folderEntries []FileEntry
+	var fileEntries []FileEntry
 	var authorizedForRootSite bool
 
 	if folderPath == "" {
@@ -81,15 +81,15 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 					return
 				}
 			} else if fileInfo.IsDir() {
-				entry := Entry{
+				fileEntry := FileEntry{
 					Name:  name,
 					IsDir: true,
 				}
 				modTime := fileInfo.ModTime()
 				if !modTime.IsZero() {
-					entry.ModTime = &modTime
+					fileEntry.ModTime = &modTime
 				}
-				folderEntries = append(folderEntries, entry)
+				folderEntries = append(folderEntries, fileEntry)
 			}
 		}
 		if sitePrefix == "" {
@@ -136,7 +136,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 							return
 						}
 					} else if fileInfo.IsDir() {
-						folderEntries = append(folderEntries, Entry{
+						folderEntries = append(folderEntries, FileEntry{
 							Name:   result.SitePrefix,
 							IsDir:  true,
 							IsSite: true,
@@ -146,12 +146,12 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 				}
 				if !authorizedForRootSite {
 					n := 0
-					for _, entry := range folderEntries {
-						switch entry.Name {
+					for _, fileEntry := range folderEntries {
+						switch fileEntry.Name {
 						case "notes", "pages", "posts", "output/themes", "output":
 							continue
 						default:
-							folderEntries[n] = entry
+							folderEntries[n] = fileEntry
 							n++
 						}
 					}
@@ -173,7 +173,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 					if !strings.Contains(name, ".") && !strings.HasPrefix(name, "@") {
 						continue
 					}
-					folderEntries = append(folderEntries, Entry{
+					folderEntries = append(folderEntries, FileEntry{
 						Name:   name,
 						IsDir:  true,
 						IsSite: true,
@@ -195,20 +195,20 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 				internalServerError(w, r, err)
 				return
 			}
-			entry := Entry{
+			fileEntry := FileEntry{
 				Name:  dirEntry.Name(),
 				IsDir: dirEntry.IsDir(),
 				Size:  fileInfo.Size(),
 			}
 			modTime := fileInfo.ModTime()
 			if !modTime.IsZero() {
-				entry.ModTime = &modTime
+				fileEntry.ModTime = &modTime
 			}
-			if entry.IsDir {
-				folderEntries = append(folderEntries, entry)
+			if fileEntry.IsDir {
+				folderEntries = append(folderEntries, fileEntry)
 				continue
 			}
-			ext := path.Ext(entry.Name)
+			ext := path.Ext(fileEntry.Name)
 			head, _, _ := strings.Cut(folderPath, "/")
 			// TODO: we're being more judicial here. notes and themes and
 			// output can show whatever is inside as long as it's a directory
@@ -217,12 +217,12 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 			switch head {
 			case "notes", "posts":
 				if ext != ".md" && ext != ".txt" {
-					fileEntries = append(fileEntries, entry)
+					fileEntries = append(fileEntries, fileEntry)
 					continue
 				}
-				file, err := nbrew.FS.Open(path.Join(sitePrefix, folderPath, entry.Name))
+				file, err := nbrew.FS.Open(path.Join(sitePrefix, folderPath, fileEntry.Name))
 				if err != nil {
-					getLogger(r.Context()).Error(err.Error(), slog.String("name", entry.Name))
+					getLogger(r.Context()).Error(err.Error(), slog.String("name", fileEntry.Name))
 					internalServerError(w, r, err)
 					return
 				}
@@ -240,30 +240,30 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 					if len(line) == 0 {
 						continue
 					}
-					if entry.Title == "" {
-						entry.Title = stripMarkdownStyles(line)
+					if fileEntry.Title == "" {
+						fileEntry.Title = stripMarkdownStyles(line)
 						continue
 					}
-					if entry.Preview == "" {
-						entry.Preview = stripMarkdownStyles(line)
+					if fileEntry.Preview == "" {
+						fileEntry.Preview = stripMarkdownStyles(line)
 						continue
 					}
 					break
 				}
-				fileEntries = append(fileEntries, entry)
+				fileEntries = append(fileEntries, fileEntry)
 				err = file.Close()
 				if err != nil {
-					getLogger(r.Context()).Error(err.Error(), slog.String("name", entry.Name))
+					getLogger(r.Context()).Error(err.Error(), slog.String("name", fileEntry.Name))
 					internalServerError(w, r, err)
 					return
 				}
 			default:
-				fileEntries = append(fileEntries, entry)
+				fileEntries = append(fileEntries, fileEntry)
 			}
 		}
 	}
 
-	response.Entries = append(folderEntries, fileEntries...)
+	response.FileEntries = append(folderEntries, fileEntries...)
 	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
 	if accept == "application/json" {
 		w.Header().Set("Content-Type", "application/json")

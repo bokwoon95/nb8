@@ -36,6 +36,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		AssetDir       string     `json:"assetDir,omitempty"`
 		TemplateErrors []string   `json:"templateErrors,omitempty"`
 	}
+	// asset: name size modtime
 	fileType, ok := fileTypes[path.Ext(filePath)]
 	if !ok {
 		notFound(w, r)
