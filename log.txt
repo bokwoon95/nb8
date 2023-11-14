@@ -13,9 +13,8 @@ file.go
 server.go
 notebrew/main.go
 
-TODO: for file.html, if the current file is an asset (e.g. a JS script) to a post or page, include a link to that post/page.
 TODO: for file.html, if the current file is a post or page then include the asset manager
-TODO: how do I know if the current file in file.html has assets or not? How to expose it to the template? I need to hide the assets segment for all files without assets.
+- how do I know if the current file in file.html has assets or not? How to expose it to the template? I need to hide the assets segment for all files without assets.
 TODO: convert repeating elements to all use <ul> and <li> (if it make sense for a screen reader to be able to tell how many items are in the list).
 
 / => clipboard, create (site), search
