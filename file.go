@@ -135,6 +135,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			}
 			response.Content = b.String()
 		}
+		var pageURL, postURL string
 		switch segments[0] {
 		case "pages":
 			// (page) pages/foo/bar.html => (assetDir) output/foo/bar
@@ -147,6 +148,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				newSegments[last] = strings.TrimSuffix(newSegments[last], ".html")
 			}
 			response.AssetDir = path.Join(newSegments...)
+			pageURL = nbrew.Scheme + nbrew.ContentDomain + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
 			if err != nil {
 				getLogger(r.Context()).Error(err.Error())
@@ -185,6 +187,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			last := len(newSegments) - 1
 			newSegments[last] = strings.TrimSuffix(newSegments[last], ".md")
 			response.AssetDir = path.Join(newSegments...)
+			postURL = nbrew.Scheme + nbrew.ContentDomain + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
 			if err != nil {
 				getLogger(r.Context()).Error(err.Error())
@@ -253,6 +256,8 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			"referer":          func() string { return r.Referer() },
 			"safeHTML":         func(s string) template.HTML { return template.HTML(s) },
 			"pagePath":         func() string { return pagePath },
+			"pageURL":          func() string { return pageURL },
+			"postURL":          func() string { return postURL },
 			"head": func(s string) string {
 				head, _, _ := strings.Cut(s, "/")
 				return head

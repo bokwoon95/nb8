@@ -36,6 +36,13 @@
     <span>&boxv;</span>
     <a href="/{{ join `admin` $.SitePrefix (dir $.Path) }}/" class="linktext">{{ base (dir $.Path) }}</a>
     {{- end }}
+    {{- if pageURL }}
+    <span>&boxv;</span>
+    view: <a href="{{ pageURL }}" class="linktext">page</a>
+    {{- else if postURL }}
+    <span>&boxv;</span>
+    view: <a href="{{ postURL }}" class="linktext">post</a>
+    {{- end }}
     {{- end }}
 </div>
 <div class="mv2">
