@@ -529,9 +529,9 @@ func main() {
 			return err
 		}
 
-		// Manually acquire a listener instead of using the convenient
-		// ListenAndServe() so that we can report back to the user if the port
-		// is already in use.
+		// Manually acquire a listener instead of using the more convenient
+		// ListenAndServe() just so that we can report back to the user if the
+		// port is already in use.
 		listener, err := net.Listen("tcp", server.Addr)
 		if err != nil {
 			var errno syscall.Errno
@@ -554,8 +554,9 @@ func main() {
 			return err
 		}
 
-		// Swallow SIGHUP so that we can keep running even when the SSH session
-		// ends (the user will use `notebrew stop` to stop the process).
+		// Swallow SIGHUP so that we can keep running even when the (SSH)
+		// session ends (the user should use `notebrew stop` to stop the
+		// process).
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGHUP)
 		go func() {
