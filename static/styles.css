@@ -39,7 +39,7 @@ body { background-color: #fafafa; font-family: Helvetica, Arial, sans-serif; lin
 a { text-decoration: none; cursor: pointer; color: inherit; }
 a:hover, a:focus { text-decoration: underline; }
 button { color:inherit; cursor: pointer; }
-ul { margin: 0; padding: 0; }
+ul { margin: 0; padding: 0; list-style: none; }
 
 /* margin all */
 .ma0 { margin: 0; }
@@ -85,6 +85,9 @@ ul { margin: 0; padding: 0; }
 .ph1 { padding-left: .25rem; padding-right: .25rem; }
 .ph2 { padding-left: .5rem; padding-right: .5rem; }
 .ph3 { padding-left: 1rem; padding-right: 1rem; }
+
+/* padding bottom */
+.pb2 { padding-bottom: .5rem; }
 
 /* flexbox */
 .flex { display: flex; }
@@ -137,6 +140,7 @@ details[open] summary.transparent-button { background-color: white; }
 /* border */
 .dashed-border { border: 1px dashed #0c0c0c; }
 .ba { border-style: solid; border-width: 1px; }
+.bb { border-bottom-style: solid; border-bottom-width: 1px; }
 .bn { border-style: none; border-width: 0; }
 
 /* border radius */
