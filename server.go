@@ -291,46 +291,71 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// depends on static files in the main domain and stuff in the content
 	// domain should not depend on stuff in the main domain.
 	custom404 := func(w http.ResponseWriter, r *http.Request, sitePrefix string) {
-		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output/themes/404.html"))
+		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output/404/index.html"))
 		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				http.Error(w, "404 Not Found", http.StatusNotFound)
-				return
+			if !errors.Is(err, fs.ErrNotExist) {
+				logger.Error(err.Error())
 			}
-			logger.Error(err.Error())
-			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+			http.Error(w, "404 Not Found", http.StatusNotFound)
 			return
 		}
 		fileInfo, err := file.Stat()
 		if err != nil {
 			logger.Error(err.Error())
-			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+			http.Error(w, "404 Not Found", http.StatusNotFound)
 			return
 		}
-		var b strings.Builder
-		b.Grow(int(fileInfo.Size()))
-		_, err = io.Copy(&b, file)
+
+		buf := bufPool.Get().(*bytes.Buffer)
+		buf.Reset()
+		defer bufPool.Put(buf)
+
+		hasher := hashPool.Get().(hash.Hash)
+		hasher.Reset()
+		defer hashPool.Put(hasher)
+
+		reader := readerPool.Get().(*bufio.Reader)
+		reader.Reset(file)
+		defer readerPool.Put(reader)
+
+		b, err := reader.Peek(512)
 		if err != nil {
 			logger.Error(err.Error())
-			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+			http.Error(w, "404 Not Found", http.StatusNotFound)
 			return
 		}
-		templateParser, err := NewTemplateParser(r.Context(), nbrew, sitePrefix)
-		if err != nil {
-			logger.Error(err.Error())
-			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
-			return
+		contentType := http.DetectContentType(b)
+		multiWriter := io.MultiWriter(buf, hasher)
+		if contentType == "application/x-gzip" || contentType == "application/gzip" {
+			_, err := io.Copy(multiWriter, reader)
+			if err != nil {
+				logger.Error(err.Error())
+				http.Error(w, "404 Not Found", http.StatusNotFound)
+				return
+			}
+		} else {
+			gzipWriter := gzipPool.Get().(*gzip.Writer)
+			gzipWriter.Reset(multiWriter)
+			defer gzipPool.Put(gzipWriter)
+			_, err := io.Copy(gzipWriter, reader)
+			if err != nil {
+				logger.Error(err.Error())
+				http.Error(w, "404 Not Found", http.StatusNotFound)
+				return
+			}
+			err = gzipWriter.Close()
+			if err != nil {
+				logger.Error(err.Error())
+				http.Error(w, "404 Not Found", http.StatusNotFound)
+				return
+			}
 		}
-		tmpl, err := templateParser.Parse("/themes/404.html", b.String())
-		if err != nil {
-			http.Error(w, "404 Not Found\n"+err.Error(), http.StatusNotFound)
-			return
-		}
+
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(b[:0]))+`"`)
 		w.WriteHeader(http.StatusNotFound)
-		err = tmpl.Execute(w, nil)
-		if err != nil {
-			io.WriteString(w, err.Error())
-		}
+		http.ServeContent(w, r, "", fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
 	}
 
 	if r.Method != "GET" {
@@ -340,7 +365,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var fileType FileType
 	var isGzipped bool
-	var size int64
 	var modTime time.Time
 	var src io.Reader
 	if ext == "" {
@@ -368,7 +392,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			custom404(w, r, sitePrefix)
 			return
 		}
-		size = fileInfo.Size()
 		modTime = fileInfo.ModTime()
 		reader := readerPool.Get().(*bufio.Reader)
 		reader.Reset(file)
@@ -408,41 +431,34 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		if fileInfo.IsDir() {
-			custom404(w, r, sitePrefix)
-			return
-		}
-		size = fileInfo.Size()
-		modTime = fileInfo.ModTime()
-		src = file
-	}
-
-	if size > 15<<20 /* 15MB */ {
-		if isGzipped {
+		if fileInfo.Size() > 15<<20 /* 15MB */ {
+			if !fileType.IsGzippable {
+				w.Header().Set("Content-Type", fileType.ContentType)
+				_, err := io.Copy(w, src)
+				if err != nil {
+					logger.Error(err.Error())
+					return
+				}
+			}
+			gzipWriter := gzipPool.Get().(*gzip.Writer)
+			gzipWriter.Reset(w)
+			defer gzipPool.Put(gzipWriter)
 			w.Header().Set("Content-Encoding", "gzip")
-		}
-		w.Header().Set("Content-Type", fileType.ContentType)
-		if !fileType.IsGzippable || isGzipped {
-			_, err := io.Copy(w, src)
+			w.Header().Set("Content-Type", fileType.ContentType)
+			_, err := io.Copy(gzipWriter, src)
 			if err != nil {
 				logger.Error(err.Error())
 				return
 			}
-		}
-		gzipWriter := gzipPool.Get().(*gzip.Writer)
-		gzipWriter.Reset(w)
-		defer gzipPool.Put(gzipWriter)
-		_, err := io.Copy(gzipWriter, src)
-		if err != nil {
-			logger.Error(err.Error())
+			err = gzipWriter.Close()
+			if err != nil {
+				logger.Error(err.Error())
+				return
+			}
 			return
 		}
-		err = gzipWriter.Close()
-		if err != nil {
-			logger.Error(err.Error())
-			return
-		}
-		return
+		modTime = fileInfo.ModTime()
+		src = file
 	}
 
 	buf := bufPool.Get().(*bytes.Buffer)
