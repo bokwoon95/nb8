@@ -137,7 +137,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		}
 		switch segments[0] {
 		case "pages":
-			// pages/foo/bar.html => output/foo/bar
+			// (page) pages/foo/bar.html => (assetDir) output/foo/bar
 			newSegments := slices.Clone(segments)
 			last := len(newSegments) - 1
 			newSegments[0] = "output"
@@ -175,7 +175,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				})
 			}
 		case "posts":
-			// posts/foo/bar.md => output/posts/foo/bar
+			// (post) posts/foo/bar.md => (assetDir) output/posts/foo/bar
 			newSegments := slices.Clone(segments)
 			last := len(newSegments) - 1
 			newSegments[0] = "output"
