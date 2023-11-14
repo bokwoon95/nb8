@@ -20,41 +20,78 @@ import (
 
 func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, sitePrefix, filePath string, fileInfo fs.FileInfo) {
 	type FileEntry struct {
-		Name    string     `json:"name"`
-		Size    int64      `json:"size"`
-		ModTime time.Time `json:"modTime"`
+		Name        string    `json:"name,omitempty"`
+		ContentType string    `json:"contentType,omitempty"`
+		Size        int64     `json:"size,omitempty"`
+		ModTime     time.Time `json:"modTime,omitempty"`
 	}
 	type Response struct {
-		Status         Error      `json:"status"`
-		ContentDomain  string     `json:"contentDomain,omitempty"`
-		Username       string     `json:"username,omitempty"`
-		SitePrefix     string     `json:"sitePrefix,omitempty"`
-		Path           string     `json:"path"`
-		IsDir          bool       `json:"isDir,omitempty"`
-		ModTime        time.Time `json:"modTime,omitempty"`
-		Size           int64      `json:"size,omitempty"`
-		Content        string     `json:"content,omitempty"`
-		ContentType    string     `json:"contentType,omitempty"`
-		AssetDir       string     `json:"assetDir,omitempty"`
-		TemplateErrors []string   `json:"templateErrors,omitempty"`
+		Status         Error       `json:"status"`
+		ContentDomain  string      `json:"contentDomain,omitempty"`
+		Username       string      `json:"username,omitempty"`
+		SitePrefix     string      `json:"sitePrefix,omitempty"`
+		Path           string      `json:"path"`
+		IsDir          bool        `json:"isDir,omitempty"`
+		ModTime        time.Time   `json:"modTime,omitempty"`
+		Size           int64       `json:"size,omitempty"`
+		Content        string      `json:"content,omitempty"`
+		ContentType    string      `json:"contentType,omitempty"`
+		AssetDir       string      `json:"assetDir,omitempty"`
+		AssetEntries   []FileEntry `json:"assetEntries,omitempty"`
+		TemplateErrors []string    `json:"templateErrors,omitempty"`
 	}
-	// asset: name size modtime
 	fileType, ok := fileTypes[path.Ext(filePath)]
 	if !ok {
 		notFound(w, r)
 		return
 	}
 	segments := strings.Split(filePath, "/")
-	isEditableText := false
-	switch fileType.Ext {
-	case ".html", ".css", ".js", ".md", ".txt":
-		if segments[0] != "output" {
-			isEditableText = true
-		} else if len(segments) > 1 && segments[0] == "output" && segments[1] == "themes" {
-			isEditableText = true
-		} else if fileType.Ext == ".css" || fileType.Ext == ".js" {
-			isEditableText = true
+	if len(segments) <= 1 {
+		notFound(w, r)
+		return
+	}
+
+	// If the current file is a CSS or JS asset for a page, pagePath is the
+	// path to that page.
+	var pagePath string
+	// isEditableText is true if the current file is a text file that can be
+	// edited by the user.
+	var isEditableText bool
+	switch segments[0] {
+	case "notes":
+		isEditableText = fileType.Ext == ".html" || fileType.Ext == ".css" || fileType.Ext == ".js" || fileType.Ext == ".md" || fileType.Ext == ".txt"
+	case "pages":
+		if fileType.Ext != ".html" {
+			notFound(w, r)
+			return
 		}
+		isEditableText = true
+	case "posts":
+		if fileType.Ext != ".md" {
+			notFound(w, r)
+			return
+		}
+		isEditableText = true
+	case "output":
+		switch segments[1] {
+		case "posts":
+			isEditableText = false
+		case "themes":
+			isEditableText = fileType.Ext == ".html" || fileType.Ext == ".css" || fileType.Ext == ".js" || fileType.Ext == ".md" || fileType.Ext == ".txt"
+		default:
+			if fileType.Ext == ".css" || fileType.Ext == ".js" {
+				isEditableText = true
+				// output/foo/bar/baz.js => pages/foo/bar.html
+				segmentsCopy := slices.Clone(segments[:len(segments)-1])
+				last := len(segmentsCopy) - 1
+				segmentsCopy[0] = "pages"
+				segmentsCopy[last] += ".html"
+				pagePath = path.Join(segmentsCopy...)
+			}
+		}
+	default:
+		notFound(w, r)
+		return
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, 15<<20 /* 15MB */)
@@ -98,6 +135,83 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			}
 			response.Content = b.String()
 		}
+		switch segments[0] {
+		case "pages":
+			// pages/foo/bar.html => output/foo/bar
+			newSegments := slices.Clone(segments)
+			last := len(newSegments) - 1
+			newSegments[0] = "output"
+			newSegments[last] = strings.TrimSuffix(newSegments[last], ".html")
+			response.AssetDir = path.Join(newSegments...)
+			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
+			if err != nil {
+				getLogger(r.Context()).Error(err.Error())
+				internalServerError(w, r, err)
+				return
+			}
+			for _, dirEntry := range dirEntries {
+				if dirEntry.IsDir() {
+					continue
+				}
+				name := dirEntry.Name()
+				fileType, ok := fileTypes[path.Ext(name)]
+				if !ok {
+					continue
+				}
+				if fileType.Ext != ".css" && fileType.Ext != ".js" && !strings.HasPrefix(fileType.ContentType, "image") {
+					continue
+				}
+				fileInfo, err := fs.Stat(nbrew.FS, path.Join(sitePrefix, response.AssetDir, name))
+				if err != nil {
+					getLogger(r.Context()).Error(err.Error())
+					internalServerError(w, r, err)
+					return
+				}
+				response.AssetEntries = append(response.AssetEntries, FileEntry{
+					Name:        name,
+					Size:        fileInfo.Size(),
+					ModTime:     fileInfo.ModTime(),
+					ContentType: fileType.ContentType,
+				})
+			}
+		case "posts":
+			// posts/foo/bar.md => output/posts/foo/bar
+			newSegments := slices.Clone(segments)
+			last := len(newSegments) - 1
+			newSegments[0] = "output"
+			newSegments[last] = strings.TrimSuffix(newSegments[last], ".md")
+			response.AssetDir = path.Join(newSegments...)
+			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
+			if err != nil {
+				getLogger(r.Context()).Error(err.Error())
+				internalServerError(w, r, err)
+				return
+			}
+			for _, dirEntry := range dirEntries {
+				if dirEntry.IsDir() {
+					continue
+				}
+				name := dirEntry.Name()
+				fileType, ok := fileTypes[path.Ext(name)]
+				if !ok {
+					continue
+				}
+				if !strings.HasPrefix(fileType.ContentType, "image") {
+					continue
+				}
+				fileInfo, err := fs.Stat(nbrew.FS, path.Join(sitePrefix, response.AssetDir, name))
+				if err != nil {
+					getLogger(r.Context()).Error(err.Error())
+					internalServerError(w, r, err)
+					return
+				}
+				response.AssetEntries = append(response.AssetEntries, FileEntry{
+					Name:    name,
+					Size:    fileInfo.Size(),
+					ModTime: fileInfo.ModTime(),
+				})
+			}
+		}
 
 		accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
 		if accept == "application/json" {
@@ -121,24 +235,11 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			return
 		}
 
-		var pagePath string
-		if len(segments) > 2 && segments[0] == "output" && segments[1] != "posts" && (fileType.Ext == ".css" || fileType.Ext == ".js") {
-			pageSegments := slices.Clone(segments[:len(segments)-1])
-			pageSegments[0] = "pages"
-			pageSegments[len(pageSegments)-1] += ".html"
-			pagePath = strings.Join(pageSegments, "/")
-		}
-
-		// name, path
-		// script.js, join admin sitePrefix output/abcd script.js
-
-		// posts => .jpeg, .jpg, .png, .webp, .gif
-		// pages => .jpeg, .jpg, .png, .webp, .gif, .css, .js
-
 		funcMap := map[string]any{
 			"join":             path.Join,
 			"dir":              path.Dir,
 			"base":             path.Base,
+			"ext":              path.Ext,
 			"fileSizeToString": fileSizeToString,
 			"stylesCSS":        func() template.CSS { return template.CSS(stylesCSS) },
 			"baselineJS":       func() template.JS { return template.JS(baselineJS) },
