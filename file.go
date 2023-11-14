@@ -79,7 +79,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		case "themes":
 			isEditableText = fileType.Ext == ".html" || fileType.Ext == ".css" || fileType.Ext == ".js" || fileType.Ext == ".md" || fileType.Ext == ".txt"
 		default:
-			if fileType.Ext == ".css" || fileType.Ext == ".js" {
+			if fileType.Ext == ".css" || fileType.Ext == ".js" || fileType.Ext == ".md" {
 				isEditableText = true
 				// output/foo/bar/baz.js => pages/foo/bar.html
 				segmentsCopy := slices.Clone(segments[:len(segments)-1])
@@ -178,7 +178,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				if !ok {
 					continue
 				}
-				if fileType.Ext != ".css" && fileType.Ext != ".js" && !strings.HasPrefix(fileType.ContentType, "image") {
+				if fileType.Ext != ".css" && fileType.Ext != ".js" && fileType.Ext != ".md" && !strings.HasPrefix(fileType.ContentType, "image") {
 					continue
 				}
 				fileInfo, err := fs.Stat(nbrew.FS, path.Join(sitePrefix, response.AssetDir, name))

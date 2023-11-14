@@ -453,7 +453,7 @@ func isFulltextIndexed(filePath string) bool {
 		case "themes":
 			return ext == ".html" || ext == ".css" || ext == ".js" || ext == ".md" || ext == ".txt"
 		default:
-			return ext == ".css" || ext == ".js"
+			return ext == ".css" || ext == ".js" || ext == ".md"
 		}
 	}
 	return false
