@@ -187,8 +187,6 @@ details[open] summary.transparent-button { background-color: white; }
 .centered-body { max-width: 100ch; padding: 0 0.5rem 0 0.5rem; margin: 0.5rem auto; }
 .absolute { position: absolute; }
 .center { margin-right: auto; margin-left: auto; }
-.db { display: block; }
-.dib { display: inline-block; }
 .relative { position: relative; }
 
 /* text */
