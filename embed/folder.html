@@ -41,13 +41,13 @@
 <div class="mv2 flex flex-wrap items-center">
     <div class="flex-grow-1"></div>
     <div class="flex items-center">
-        <details class="relative pointer ml2" title="clipboard" data-autoclose-details>
-            <summary role="button" class="flex items-center br2 ph2 h2 transparent-button dashed-border hide-marker" data-disable-click-selection>
+        <details class="relative ml2" title="clipboard" data-autoclose-details>
+            <summary role="button" class="pointer flex items-center br2 ph2 h2 transparent-button dashed-border hide-marker" data-disable-click-selection>
                 <div class="flex items-center">{{ template "heroicons-clipboard" }}</div>
                 {{ template "octicon-triangle-down" }}
             </summary>
             <div class="absolute bg-white br2 hide-marker" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                <div class="tr ma2"><a href="" class="tr nowrap db w-100 pa2">5 items copied</a></div>
+                <div class="tc ma2"><a href="" class="nowrap">5 items copied</a></div>
                 <div class="tr ma2"><button type="button" class="button ba br2 pa2 w-100">paste</button></div>
                 <div class="tr ma2"><button type="button" class="button-danger ba br2 b--dark-red pa2 w-100">clear</button></div>
             </div>
@@ -55,8 +55,8 @@
     </div>
     {{- if and $.Path (ne (head $.Path) "output") }}
     <div class="flex items-center">
-        <details class="relative pointer ml2" title="sort" data-autoclose-details>
-            <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
+        <details class="relative ml2" title="sort" data-autoclose-details>
+            <summary role="button" class="pointer flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
                 {{ template "octicon-sort" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -67,8 +67,8 @@
     </div>
     {{- end }}
     <div class="flex items-center">
-        <details class="relative pointer ml2" title="search" data-autoclose-details>
-            <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
+        <details class="relative ml2" title="search" data-autoclose-details>
+            <summary role="button" class="pointer flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
                 {{ template "octicon-search" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
@@ -80,26 +80,26 @@
     </div>
     {{- if or (and (eq $.SitePrefix "") (eq $.Path "")) (eq (head $.Path) "notes" "pages" "posts" "output") }}
     <div class="flex items-center">
-        <details class="relative pointer ml2" title="create" data-autoclose-details>
-            <summary role="button" class="flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
+        <details class="relative ml2" title="create" data-autoclose-details>
+            <summary role="button" class="pointer flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
                 {{ template "octicon-plus" }}
                 {{ template "octicon-triangle-down" }}
             </summary>
             <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
                 {{- if and (eq $.SitePrefix "") (eq $.Path "") }}
-                <div class="tr ma2"><a href="/admin/createsite/" class="tr nowrap dib w-100 h-100">create site</a></div>
+                <div class="tr ma2"><a href="/admin/createsite/" class="nowrap">create site</a></div>
                 {{- else if eq (head $.Path) "notes" }}
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=md" class="tr nowrap dib w-100 h-100">create file</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="tr nowrap dib w-100 h-100">create folder</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=md" class="nowrap">create file</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="nowrap">create folder</a></div>
                 {{- else if eq (head $.Path) "pages" }}
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpage` }}/?parent={{ $.Path }}" class="tr nowrap dib w-100 h-100">create page</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="tr nowrap dib w-100 h-100">create folder</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpage` }}/?parent={{ $.Path }}" class="nowrap">create page</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="nowrap">create folder</a></div>
                 {{- else if eq (head $.Path) "posts" }}
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="tr nowrap dib w-100 h-100">create post</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="tr nowrap dib w-100 h-100">create category</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="nowrap">create post</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="nowrap">create category</a></div>
                 {{- else if eq (head $.Path) "output" }}
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=html" class="tr nowrap dib w-100 h-100">create file</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="tr nowrap dib w-100 h-100">create folder</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=html" class="nowrap">create file</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="nowrap">create folder</a></div>
                 {{- end }}
             </div>
         </details>
@@ -273,10 +273,11 @@
                         {{ template "octicon-triangle-down" }}
                     </summary>
                     <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                        <div class="tr ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">regenerate</button></div>
-                        <div class="tr ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">cut</button></div>
-                        <div class="tr ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">copy</button></div>
-                        <div class="tr ma2"><button type="submit" formaction="/{{ join `admin` $.SitePrefix `delete` }}/" name="name" value="{{ $fileEntry.Name }}" class="button-danger ba br2 b--dark-red pa2 w-100">delete</button></div>
+                        <div class="ma2 tc"><a href="">rename</a></div>
+                        <div class="ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">regenerate</button></div>
+                        <div class="ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">cut</button></div>
+                        <div class="ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">copy</button></div>
+                        <div class="ma2"><button type="submit" formaction="/{{ join `admin` $.SitePrefix `delete` }}/" name="name" value="{{ $fileEntry.Name }}" class="button-danger ba br2 b--dark-red pa2 w-100">delete</button></div>
                     </div>
                 </details>
                 {{- end }}
