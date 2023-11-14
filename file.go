@@ -113,7 +113,9 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 
 		if !isEditableText {
 			if fileType.Ext == ".html" {
-				w.Header().Set("Content-Type", "text/plain; charset=utf8")
+				// Serve .html files as text/plain so that users can see its
+				// raw value.
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			}
 			serveFile(w, r, nbrew.FS, path.Join(sitePrefix, filePath))
 			return

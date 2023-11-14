@@ -430,13 +430,14 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hex.Encode(*dst, *src)
 
 	if path.Ext(urlPath) == ".html" {
+		// Serve URLs ending with .html as text/plain so that users can see its
+		// raw value. Actual pages have extensionless URLs (e.g. foo/bar vs
+		// foo/bar.html), those would be served as text/html instead.
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	} else if strings.HasPrefix(fileType.ContentType, "text") {
+		w.Header().Set("Content-Type", fileType.ContentType+"; charset=utf-8")
 	} else {
-		contentType := fileType.ContentType
-		if strings.HasPrefix(contentType, "text") {
-			contentType += "; charset=utf-8"
-		}
-		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Content-Type", fileType.ContentType)
 	}
 	w.Header().Set("Content-Encoding", "gzip")
 	w.Header().Set("ETag", `"`+string(*dst)+`"`)
