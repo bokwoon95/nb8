@@ -178,7 +178,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			// (post) posts/foo/bar.md => (assetDir) output/posts/foo/bar
 			newSegments := slices.Clone(segments)
 			last := len(newSegments) - 1
-			newSegments[0] = "output"
+			newSegments[0] = "output/posts"
 			newSegments[last] = strings.TrimSuffix(newSegments[last], ".md")
 			response.AssetDir = path.Join(newSegments...)
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))

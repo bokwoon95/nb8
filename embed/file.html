@@ -53,14 +53,14 @@
     </div>
     <button id="bottom" type="submit" class="button ba br2 pa2 mv2 w-100">Save</button>
 </form>
-<div class="mv2 b">assets</div>
-<div>
+<div class="mv2">
     {{- if eq (head $.Path) "posts" }}
-    <a href="" class="linktext">upload image</a>
+    <span class="b">images</span>
+    <a href="" class="linktext ml2">upload image</a>
     {{- else }}
-    <a href="" class="linktext">create file</a>
-    &boxv;
-    <a href="" class="linktext">upload file</a>
+    <span class="b">assets</span>
+    <a href="" class="linktext ml2">create file</a>
+    <a href="" class="linktext ml2">upload file</a>
     {{- end }}
 </div>
 {{- if $.AssetEntries }}
@@ -97,5 +97,5 @@
     {{- end }}
 </div>
 {{- else }}
-<div class="mv2 tc">No assets</div>
+<div class="mv2 tc">{{ if eq (head $.Path) "posts" }}- No images -{{ else }}- No assets -{{ end }}</div>
 {{- end }}
