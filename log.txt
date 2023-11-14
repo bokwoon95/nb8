@@ -13,9 +13,6 @@ file.go
 server.go
 notebrew/main.go
 
-TODO: for file.html, if the current file is a post or page then include the asset manager
-- how do I know if the current file in file.html has assets or not? How to expose it to the template? I need to hide the assets segment for all files without assets.
-
 / => clipboard, create (site), search
 notes/ => clipboard, sort, search, create (note | folder)
 pages/ => clipboard, search, create (page | folder)
@@ -154,10 +151,6 @@ port
 dbname
 sslmode
 
-== rss reader ==
-
-I still don't know what people want from an RSS reader. I don't even know what I want because I've never used an RSS reader. But to get a good idea you can google "google reader adds search" and find all the blog posts talking about it. Quite often, it would involve people talking about the features Google Reader had and bemoaning that it still doesn't have search.
-
 TODO: come up with a good set of utility functions that seamlessly represent file operations so that you can queue them up effortlessly to use for testing ("first create this file, then create this folder, then..." etc). We need to do a lot of file operations to replicate the use cases we are testing, so better make this painless (and readable!)
 TODO: mailer.json instead of mailer.txt, that way users don't have to urlencode their password to put it in the smtp URL.
 TODO: what may a user want to display in a posts.html? A daily comic series, photography showcase, full blown posts, etc? We never let the user make an N+1 query, whatever fields they want must be supplied inside the call to getPosts. They get to cap how many posts are displayed per page via pagination.json/rss.json (ugh) in the category folder, which is stored in the files.data field.
@@ -184,5 +177,6 @@ principle: Give me compute, give me storage, I'll give you a working program
 Must be usable with JavaScript disabled (aim for a pure HTML workflow with JS enhancements)
 Strive to be efficient so more users can be packed into a single cheap server. If a feature and server efficiency are at odds, always pick server efficiency at the expense of user convenience.
 Be as hands-off as possible. Avoid task queues because they have to be babysitted (what if a task fails? what if it takes too long? Request, response, that's it)
+
 notebrew reader (rss)
 notebrew accountant (expense tracker)

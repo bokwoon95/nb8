@@ -28,8 +28,7 @@
     <a href="/{{ join `admin` $.SitePrefix }}/" class="linktext">admin</a>
     {{- if pagePath }}
     <span>&boxv;</span>
-    {{ if eq (head $.Path) "posts" }}post:{{ else }}page:{{ end }}
-    <a href="/{{ join `admin` $.SitePrefix pagePath }}/" class="linktext">{{ base pagePath }}</a>
+    parent: <a href="/{{ join `admin` $.SitePrefix pagePath }}/" class="linktext">{{ base pagePath }}</a>
     {{- else }}
     <span>&boxv;</span>
     <a href="/{{ join `admin` $.SitePrefix (head $.Path) }}/" class="linktext">{{ head $.Path }}</a>
