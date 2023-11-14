@@ -18,6 +18,8 @@ folder.html => expose forms with file/text inputs that POST to /admin/uploadfile
     - what kind of errors can occur anyway?
 genuinely shook at "webkitdirectory", "mozdirectory" and "multiple" attributes (how they make multi-uploads so easy)
 
+TODO: we need to think of a performant way to implement a killswitch that stops serving assets of users who have gone over their bandwidth limit. It's easy to disable files from being served (just add a new "disabled" field in the files table), but the main issue is that we also need to evict the cdn cache entries for all affected files as well. This being quite a destructive action (may take hours for the cdn to repopulate its cache once we evict everything), we should not make disabling files automated (it has to be manually triggered). The last and biggest headache is how to track bandswidth usage on the CDN side, not just the origin server side :/.
+
 what am I conflicted about? I can't have an icon per action - not enough space (I do *not* want to overflow an iPhone SE width!)
 I don't have any good categorization
 ugly child - regenerate site and search are not dropdowns, they're straight up links. But if I make them links without any text, it becomes too easy to fat finger and accidentally incur the cost of regenerating your site on accident.

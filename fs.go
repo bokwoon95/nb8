@@ -100,6 +100,18 @@ func (fsys *LocalFS) WithContext(ctx context.Context) FS {
 	}
 }
 
+func (fsys *LocalFS) Stat(name string) (fs.FileInfo, error) {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return nil, err
+	}
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
+		return nil, &fs.PathError{Op: "stat", Path: name, Err: fs.ErrInvalid}
+	}
+	name = filepath.FromSlash(name)
+	return os.Stat(name)
+}
+
 type LocalFile struct {
 	ctx     context.Context
 	srcFile *os.File
@@ -355,6 +367,44 @@ type RemoteFileInfo struct {
 	perm     fs.FileMode
 }
 
+func (fsys *RemoteFS) Stat(name string) (fs.FileInfo, error) {
+	err := fsys.ctx.Err()
+	if err != nil {
+		return nil, err
+	}
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
+		return nil, &fs.PathError{Op: "stat", Path: name, Err: fs.ErrInvalid}
+	}
+	if name == "." {
+		return &RemoteFileInfo{filePath: ".", isDir: true}, nil
+	}
+	fileInfo, err := sq.FetchOneContext(fsys.ctx, fsys.db, sq.CustomQuery{
+		Dialect: fsys.dialect,
+		Format:  "SELECT {*} FROM files WHERE file_path = {name}",
+		Values: []any{
+			sq.StringParam("name", name),
+		},
+	}, func(row *sq.Row) (fileInfo RemoteFileInfo) {
+		row.UUID(&fileInfo.fileID, "file_id")
+		row.UUID(&fileInfo.parentID, "parent_id")
+		fileInfo.filePath = row.String("file_path")
+		fileInfo.isDir = row.Bool("is_dir")
+		fileInfo.size = row.Int64("size")
+		var modTime sq.Timestamp
+		row.Scan(&modTime, "mod_time")
+		fileInfo.modTime = modTime.Time
+		fileInfo.perm = fs.FileMode(row.Int("perm"))
+		return fileInfo
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
+		}
+		return nil, err
+	}
+	return &fileInfo, nil
+}
+
 func (fileInfo *RemoteFileInfo) Name() string {
 	return path.Base(fileInfo.filePath)
 }
@@ -424,12 +474,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
 	}
 	if name == "." {
-		return &RemoteFile{
-			fileInfo: &RemoteFileInfo{
-				filePath: ".",
-				isDir:    true,
-			},
-		}, nil
+		return &RemoteFile{fileInfo: &RemoteFileInfo{filePath: ".", isDir: true}}, nil
 	}
 	result, err := sq.FetchOneContext(fsys.ctx, fsys.db, sq.CustomQuery{
 		Dialect: fsys.dialect,

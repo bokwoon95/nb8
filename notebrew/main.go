@@ -395,6 +395,7 @@ func main() {
 		args := flagset.Args()
 		if len(args) > 0 {
 			command, args := args[0], args[1:]
+			// TODO: cmd, err := notebrewcli.Command(args[0], args[1]...); err := cmd.Run()
 			_ = args
 			switch command {
 			default:

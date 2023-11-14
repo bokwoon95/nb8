@@ -26,6 +26,7 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -72,6 +73,8 @@ type Notebrew struct {
 	Domain string // localhost:6444, example.com
 
 	ContentDomain string // localhost:6444, example.com
+
+	CompressGeneratedHTML atomic.Bool
 
 	Logger *slog.Logger
 }
@@ -607,11 +610,11 @@ type FileType struct {
 }
 
 var fileTypes = map[string]FileType{
-	".html":  {Ext: ".html", ContentType: "text/html", IsGzippable: true},
-	".css":   {Ext: ".css", ContentType: "text/css", IsGzippable: true},
-	".js":    {Ext: ".js", ContentType: "text/javascript", IsGzippable: true},
-	".md":    {Ext: ".md", ContentType: "text/markdown", IsGzippable: true},
-	".txt":   {Ext: ".txt", ContentType: "text/plain", IsGzippable: true},
+	".html":  {Ext: ".html", ContentType: "text/html; charset=utf-8", IsGzippable: true},
+	".css":   {Ext: ".css", ContentType: "text/css; charset=utf-8", IsGzippable: true},
+	".js":    {Ext: ".js", ContentType: "text/javascript; charset=utf-8", IsGzippable: true},
+	".md":    {Ext: ".md", ContentType: "text/markdown; charset=utf-8", IsGzippable: true},
+	".txt":   {Ext: ".txt", ContentType: "text/plain; charset=utf-8", IsGzippable: true},
 	".svg":   {Ext: ".svg", ContentType: "image/svg", IsGzippable: true},
 	".ico":   {Ext: ".ico", ContentType: "image/ico", IsGzippable: true},
 	".jpeg":  {Ext: ".jpeg", ContentType: "image/jpeg", IsGzippable: false},

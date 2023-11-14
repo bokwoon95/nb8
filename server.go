@@ -1,6 +1,7 @@
 package nb8
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -16,6 +17,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bokwoon95/sq"
@@ -23,6 +25,12 @@ import (
 	"github.com/klauspost/cpuid/v2"
 	"github.com/mholt/acmez"
 )
+
+var readerPool = sync.Pool{
+	New: func() any {
+		return bufio.NewReaderSize(nil, 512)
+	},
+}
 
 type ServerConfig struct {
 	DNS01Solver acmez.Solver
@@ -240,6 +248,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	urlPath := strings.Trim(r.URL.Path, "/")
+	ext := path.Ext(urlPath)
 	head, tail, _ := strings.Cut(urlPath, "/")
 	if host == nbrew.Domain && head == "admin" {
 		nbrew.admin(w, r, ip)
@@ -251,7 +260,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		subdomain := strings.TrimSuffix(host, "."+nbrew.ContentDomain)
 		switch subdomain {
 		case "cdn", "assets":
-			if path.Ext(urlPath) == "" {
+			if ext == "" {
 				http.Error(w, "404 Not Found", http.StatusNotFound)
 				return
 			}
@@ -282,7 +291,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// depends on static files in the main domain and stuff in the content
 	// domain should not depend on stuff in the main domain.
 	custom404 := func(w http.ResponseWriter, r *http.Request, sitePrefix string) {
-		_ = http.DetectContentType
 		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output/themes/404.html"))
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
@@ -329,59 +337,109 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "405 Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	name := path.Join(sitePrefix, "output", urlPath)
-	if path.Ext(name) == "" {
-		name = name + "/index.html"
-	}
-	fileType, ok := fileTypes[path.Ext(name)]
-	if !ok {
-		custom404(w, r, sitePrefix)
-		return
-	}
 
+	var fileType FileType
 	var isGzipped bool
-	file, err := nbrew.FS.Open(name)
-	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			logger.Error(err.Error())
-			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-		if !strings.HasSuffix(name, "/index.html") {
-			custom404(w, r, sitePrefix)
-			return
-		}
-		file, err = nbrew.FS.Open(name + ".gz")
+	var size int64
+	var modTime time.Time
+	var src io.Reader
+	if ext == "" {
+		fileType.Ext = ".html"
+		fileType.ContentType = "text/html; charset=utf-8"
+		fileType.IsGzippable = true
+		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output", urlPath, "index.html"))
 		if err != nil {
-			if !errors.Is(err, fs.ErrNotExist) {
-				logger.Error(err.Error())
-				http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+			if errors.Is(err, fs.ErrNotExist) {
+				custom404(w, r, sitePrefix)
 				return
 			}
-			custom404(w, r, sitePrefix)
+			logger.Error(err.Error())
+			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		isGzipped = true
-	}
-	defer file.Close()
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		logger.Error(err.Error())
-		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	if fileInfo.IsDir() {
-		custom404(w, r, sitePrefix)
-		return
-	}
-
-	if fileInfo.Size() > 15<<20 /* 15MB */ {
-		w.Header().Set("Content-Type", fileType.ContentType)
-		_, err = io.Copy(w, file)
+		defer file.Close()
+		fileInfo, err := file.Stat()
 		if err != nil {
 			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		if fileInfo.IsDir() {
+			custom404(w, r, sitePrefix)
+			return
+		}
+		size = fileInfo.Size()
+		modTime = fileInfo.ModTime()
+		reader := readerPool.Get().(*bufio.Reader)
+		reader.Reset(file)
+		defer readerPool.Put(reader)
+		b, err := reader.Peek(512)
+		if err != nil {
+			logger.Error(err.Error())
+			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		contentType := http.DetectContentType(b)
+		isGzipped = contentType == "application/x-gzip" || contentType == "application/gzip"
+		src = reader
+	} else {
+		fileType, ok := fileTypes[ext]
+		if !ok {
+			custom404(w, r, sitePrefix)
+			return
+		}
+		if fileType.Ext == ".html" {
+			fileType.ContentType = "text/plain; charset=utf-8"
+		}
+		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output", urlPath))
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				custom404(w, r, sitePrefix)
+				return
+			}
+			logger.Error(err.Error())
+			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+		fileInfo, err := file.Stat()
+		if err != nil {
+			logger.Error(err.Error())
+			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		if fileInfo.IsDir() {
+			custom404(w, r, sitePrefix)
+			return
+		}
+		size = fileInfo.Size()
+		modTime = fileInfo.ModTime()
+		src = file
+	}
+
+	if size > 15<<20 /* 15MB */ {
+		if isGzipped {
+			w.Header().Set("Content-Encoding", "gzip")
+		}
+		w.Header().Set("Content-Type", fileType.ContentType)
+		if !fileType.IsGzippable || isGzipped {
+			_, err := io.Copy(w, src)
+			if err != nil {
+				logger.Error(err.Error())
+				return
+			}
+		}
+		gzipWriter := gzipPool.Get().(*gzip.Writer)
+		gzipWriter.Reset(w)
+		defer gzipPool.Put(gzipWriter)
+		_, err := io.Copy(gzipWriter, src)
+		if err != nil {
+			logger.Error(err.Error())
+			return
+		}
+		err = gzipWriter.Close()
+		if err != nil {
+			logger.Error(err.Error())
 			return
 		}
 		return
@@ -396,8 +454,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer hashPool.Put(hasher)
 
 	multiWriter := io.MultiWriter(buf, hasher)
-	if isGzipped {
-		_, err = io.Copy(multiWriter, file)
+	if !fileType.IsGzippable || isGzipped {
+		_, err := io.Copy(multiWriter, src)
 		if err != nil {
 			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
@@ -407,7 +465,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		gzipWriter := gzipPool.Get().(*gzip.Writer)
 		gzipWriter.Reset(multiWriter)
 		defer gzipPool.Put(gzipWriter)
-		_, err = io.Copy(gzipWriter, file)
+		_, err := io.Copy(gzipWriter, src)
 		if err != nil {
 			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
@@ -419,37 +477,19 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+		isGzipped = true
 	}
 
-	src := bytesPool.Get().(*[]byte)
-	*src = (*src)[:0]
-	defer bytesPool.Put(src)
+	b := bytesPool.Get().(*[]byte)
+	*b = (*b)[:0]
+	defer bytesPool.Put(b)
 
-	dst := bytesPool.Get().(*[]byte)
-	*dst = (*dst)[:0]
-	defer bytesPool.Put(dst)
-
-	*src = hasher.Sum(*src)
-	encodedLen := hex.EncodedLen(len(*src))
-	if cap(*dst) < encodedLen {
-		*dst = make([]byte, encodedLen)
+	if isGzipped {
+		w.Header().Set("Content-Encoding", "gzip")
 	}
-	*dst = (*dst)[:encodedLen]
-	hex.Encode(*dst, *src)
-
-	if path.Ext(urlPath) == ".html" {
-		// Serve URLs ending with .html as text/plain so that users can see its
-		// raw value. Actual pages have extensionless URLs (e.g. foo/bar vs
-		// foo/bar.html), those would be served as text/html instead.
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	} else if strings.HasPrefix(fileType.ContentType, "text") {
-		w.Header().Set("Content-Type", fileType.ContentType+"; charset=utf-8")
-	} else {
-		w.Header().Set("Content-Type", fileType.ContentType)
-	}
-	w.Header().Set("Content-Encoding", "gzip")
-	w.Header().Set("ETag", `"`+string(*dst)+`"`)
-	http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
+	w.Header().Set("Content-Type", fileType.ContentType)
+	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
+	http.ServeContent(w, r, "", modTime, bytes.NewReader(buf.Bytes()))
 }
 
 func (nbrew *Notebrew) admin(w http.ResponseWriter, r *http.Request, ip string) {

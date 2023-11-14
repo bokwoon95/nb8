@@ -493,11 +493,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) 
 	defer bytesPool.Put(b)
 
 	if _, ok := w.Header()["Content-Type"]; !ok {
-		contentType := fileType.ContentType
-		if strings.HasPrefix(contentType, "text") {
-			contentType += "; charset=utf-8"
-		}
-		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Content-Type", fileType.ContentType)
 	}
 	if fileType.IsGzippable {
 		w.Header().Set("Content-Encoding", "gzip")
