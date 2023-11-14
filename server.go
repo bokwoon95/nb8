@@ -29,7 +29,7 @@ type ServerConfig struct {
 	CertStorage certmagic.Storage
 }
 
-func (nbrew *Notebrew) NewServer(config ServerConfig) (*http.Server, error) {
+func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
 	server := &http.Server{
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,

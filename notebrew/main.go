@@ -512,7 +512,7 @@ func main() {
 		}
 		// Create a new server (this step will provision the HTTPS
 		// certificates, if it fails an error will be returned).
-		server, err := nbrew.NewServer(nb8.ServerConfig{
+		server, err := nbrew.NewServer(&nb8.ServerConfig{
 			DNS01Solver: dns01Solver,
 			CertStorage: &certmagic.FileStorage{Path: certDir},
 		})
@@ -546,7 +546,7 @@ func main() {
 		}
 
 		// Swallow SIGHUP so that we can keep running even when the SSH session
-		// ends (the user will use `notebrew stop` to terminate the process).
+		// ends (the user will use `notebrew stop` to stop the process).
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGHUP)
 		go func() {
