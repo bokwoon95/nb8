@@ -151,9 +151,23 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			pageURL = nbrew.Scheme + nbrew.ContentDomain + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
 			if err != nil {
-				getLogger(r.Context()).Error(err.Error())
-				internalServerError(w, r, err)
-				return
+				if !errors.Is(err, fs.ErrNotExist) {
+					getLogger(r.Context()).Error(err.Error())
+					internalServerError(w, r, err)
+					return
+				}
+				err = MkdirAll(nbrew.FS, path.Join(sitePrefix, response.AssetDir), 0755)
+				if err != nil {
+					getLogger(r.Context()).Error(err.Error())
+					internalServerError(w, r, err)
+					return
+				}
+				dirEntries, err = nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
+				if err != nil {
+					getLogger(r.Context()).Error(err.Error())
+					internalServerError(w, r, err)
+					return
+				}
 			}
 			for _, dirEntry := range dirEntries {
 				if dirEntry.IsDir() {
@@ -190,9 +204,23 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			postURL = nbrew.Scheme + nbrew.ContentDomain + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
 			if err != nil {
-				getLogger(r.Context()).Error(err.Error())
-				internalServerError(w, r, err)
-				return
+				if !errors.Is(err, fs.ErrNotExist) {
+					getLogger(r.Context()).Error(err.Error())
+					internalServerError(w, r, err)
+					return
+				}
+				err = MkdirAll(nbrew.FS, path.Join(sitePrefix, response.AssetDir), 0755)
+				if err != nil {
+					getLogger(r.Context()).Error(err.Error())
+					internalServerError(w, r, err)
+					return
+				}
+				dirEntries, err = nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
+				if err != nil {
+					getLogger(r.Context()).Error(err.Error())
+					internalServerError(w, r, err)
+					return
+				}
 			}
 			for _, dirEntry := range dirEntries {
 				if dirEntry.IsDir() {
