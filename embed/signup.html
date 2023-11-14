@@ -16,7 +16,7 @@
 </nav>
 {{- if eq $.Status.Code "NB-03000" }}
 <div class="mv5 w-80 w-70-m w-60-l center">
-    <div class="f4 tc">You are already logged in, <a href="/admin/" class="linktext">click here.</a></div>
+    <div class="f4 tc">You are already logged in, <a href="/admin/">click here.</a></div>
 </div>
 {{- else if eq $.Status.Code "NB-03001" }}
 <div class="mv5 w-80 w-70-m w-60-l center">
@@ -31,7 +31,7 @@
 {{- else }}
 <div class="mv5 w-80 w-70-m w-60-l center">
     <div class="f3 mb4 b">Invalid token</div>
-    <div class="f4"><a href="/admin/signup/" class="linktext">Try again</a></div>
+    <div class="f4"><a href="/admin/signup/">Try again</a></div>
 </div>
 {{- end }}
 {{- else }}
@@ -110,7 +110,7 @@
     <div class="flex items-center justify-center" data-loading-spinner></div>
 
     <div class="mv3">
-        Have an account? <a href="/admin/login/" class="linktext">Log in</a> here.
+        Have an account? <a href="/admin/login/">Log in</a> here.
     </div>
 </form>
 {{- end }}

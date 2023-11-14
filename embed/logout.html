@@ -12,7 +12,7 @@
 </nav>
 <form method="post" action="/admin/logout/" class="mv5 w-70 w-60-m w-50-l center">
     {{- if referer }}
-    <div><a href="{{ referer }}" class="linktext" data-go-back>&larr; back</a></div>
+    <div><a href="{{ referer }}" data-go-back>&larr; back</a></div>
     {{- end }}
     <h3 class="f4 mv2 b tc">Are you sure you wish to log out?</h3>
     <button type="submit" class="button ba br2 b--black pa2 w-100">Log Out</button>

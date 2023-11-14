@@ -14,9 +14,9 @@
 </title>
 <body class="centered-body">
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
-    <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
+    <a href="/admin/" class="ma2 white">🖋️☕ notebrew</a>
     &bull;
-    <a href="{{ longURL }}" class="ma2">{{ shortURL }}</a>
+    <a href="{{ longURL }}" class="ma2 white">{{ shortURL }}</a>
     <span class="flex-grow-1"></span>
     {{- if hasDatabase }}
     <a href="" class="ma2">{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
@@ -47,7 +47,7 @@
                 {{ template "octicon-triangle-down" }}
             </summary>
             <div class="absolute bg-white br2 hide-marker" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                <div class="tr ma2"><a href="" class="link linktext tr nowrap db w-100 pa2">5 items copied</a></div>
+                <div class="tr ma2"><a href="" class="tr nowrap db w-100 pa2">5 items copied</a></div>
                 <div class="tr ma2"><button type="button" class="button ba br2 pa2 w-100">paste</button></div>
                 <div class="tr ma2"><button type="button" class="button-danger ba br2 b--dark-red pa2 w-100">clear</button></div>
             </div>
@@ -61,7 +61,7 @@
                 {{ template "octicon-triangle-down" }}
             </summary>
             <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                <div class="tr ma2"><a href="" class="link linktext tr nowrap dib w-100 h-100">no roots</a></div>
+                <div class="tr ma2"><a href="" class="tr nowrap dib w-100 h-100">no roots</a></div>
             </div>
         </details>
     </div>
@@ -87,19 +87,19 @@
             </summary>
             <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
                 {{- if and (eq $.SitePrefix "") (eq $.Path "") }}
-                <div class="tr ma2"><a href="/admin/createsite/" class="linktext tr nowrap dib w-100 h-100">create site</a></div>
+                <div class="tr ma2"><a href="/admin/createsite/" class="tr nowrap dib w-100 h-100">create site</a></div>
                 {{- else if eq (head $.Path) "notes" }}
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=md" class="linktext tr nowrap dib w-100 h-100">create file</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create folder</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=md" class="tr nowrap dib w-100 h-100">create file</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="tr nowrap dib w-100 h-100">create folder</a></div>
                 {{- else if eq (head $.Path) "pages" }}
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpage` }}/?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create page</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create folder</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpage` }}/?parent={{ $.Path }}" class="tr nowrap dib w-100 h-100">create page</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="tr nowrap dib w-100 h-100">create folder</a></div>
                 {{- else if eq (head $.Path) "posts" }}
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="linktext tr nowrap dib w-100 h-100">create post</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create category</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="tr nowrap dib w-100 h-100">create post</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="tr nowrap dib w-100 h-100">create category</a></div>
                 {{- else if eq (head $.Path) "output" }}
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=html" class="linktext tr nowrap dib w-100 h-100">create file</a></div>
-                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="linktext tr nowrap dib w-100 h-100">create folder</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=html" class="tr nowrap dib w-100 h-100">create file</a></div>
+                <div class="tr ma2"><a href="/{{ join `admin` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="tr nowrap dib w-100 h-100">create folder</a></div>
                 {{- end }}
             </div>
         </details>
@@ -116,11 +116,11 @@
     {{- if not $.FileEntries }}
     <div class="mv4 tc">
         {{- if eq (head $.Path) "notes" }}
-        folder is empty, <a href="/{{ join `admin` $.SitePrefix `createnote` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="linktext">create a new note</a>
+        folder is empty, <a href="/{{ join `admin` $.SitePrefix `createnote` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}">create a new note</a>
         {{- else if eq (head $.Path) "pages" }}
-        folder is empty, <a href="/{{ join `admin` $.SitePrefix `createpage` }}/?parent={{ $.Path }}" class="linktext">create a new page</a>
+        folder is empty, <a href="/{{ join `admin` $.SitePrefix `createpage` }}/?parent={{ $.Path }}">create a new page</a>
         {{- else if eq (head $.Path) "posts" }}
-        folder is empty, <a href="/{{ join `admin` $.SitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="linktext">create a new post</a>
+        folder is empty, <a href="/{{ join `admin` $.SitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}">create a new post</a>
         {{- else }}
         folder is empty
         {{- end }}
@@ -132,7 +132,7 @@
         {{- if eq $fileEntry.Name "notes" }}
         <li class="flex flex-wrap items-center bb pv2">
             <span class="flex items-center mr1">{{ template "heroicons-dir" }}</span>
-            <a href="/{{ join `admin` $.SitePrefix `notes` }}/" class="linktext">notes/</a>
+            <a href="/{{ join `admin` $.SitePrefix `notes` }}/">notes/</a>
             <div class="flex-grow-1"></div>
             <details class="relative" data-autoclose-details>
                 <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
@@ -149,7 +149,7 @@
         {{- else if eq $fileEntry.Name "pages" }}
         <li class="flex flex-wrap items-center bb pv2">
             <span class="flex items-center mr1">{{ template "heroicons-dir" }}</span>
-            <a href="/{{ join `admin` $.SitePrefix `pages` }}/" class="linktext">pages/</a>
+            <a href="/{{ join `admin` $.SitePrefix `pages` }}/">pages/</a>
             <div class="flex-grow-1"></div>
             <details class="relative" data-autoclose-details>
                 <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
@@ -158,11 +158,11 @@
                 </summary>
                 <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem;">
                     <div class="ma2">
-                        Your pages can be viewed at <a href="{{ longURL }}" class="linktext">{{ shortURL }}</a>.
+                        Your pages can be viewed at <a href="{{ longURL }}">{{ shortURL }}</a>.
                         <br><br>
-                        Pages may invoke other HTML templates defined in the <a href="output/themes/" class="linktext">themes</a> folder.
+                        Pages may invoke other HTML templates defined in the <a href="output/themes/">themes</a> folder.
                         <br><br>
-                        For the basics, visit <a href="" class="linktext">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
+                        For the basics, visit <a href="">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
                     </div>
                     <hr>
                     <div class="tr ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">regenerate</button></div>
@@ -172,7 +172,7 @@
         {{- else if eq $fileEntry.Name "posts" }}
         <li class="flex flex-wrap items-center bb pv2">
             <span class="flex items-center mr1">{{ template "heroicons-dir" }}</span>
-            <a href="/{{ join `admin` $.SitePrefix `posts` }}/" class="linktext">posts/</a>
+            <a href="/{{ join `admin` $.SitePrefix `posts` }}/">posts/</a>
             <div class="flex-grow-1"></div>
             <details class="relative" data-autoclose-details>
                 <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
@@ -181,7 +181,7 @@
                 </summary>
                 <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem;">
                     <div class="ma2">
-                        Your posts can be viewed at <a href="{{ longURL }}/posts/" class="linktext">{{ shortURL }}/posts</a>.
+                        Your posts can be viewed at <a href="{{ longURL }}/posts/">{{ shortURL }}/posts</a>.
                     </div>
                     <hr>
                     <div class="tr ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">regenerate</button></div>
@@ -191,7 +191,7 @@
         {{- else if eq $fileEntry.Name "output/themes" }}
         <li class="flex flex-wrap items-center bb pv2">
             <span class="flex items-center mr1">{{ template "heroicons-dir" }}</span>
-            <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/" class="linktext">themes/</a>
+            <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/">themes/</a>
             <div class="flex-grow-1"></div>
             <details class="relative" data-autoclose-details>
                 <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
@@ -202,7 +202,7 @@
                     <div class="ma2" style="min-width: 10rem;">
                         The themes folder contains HTML templates and other global site assets.
                         <br><br>
-                        For the basics, visit <a href="" class="linktext">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
+                        For the basics, visit <a href="">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
                     </div>
                 </div>
             </details>
@@ -210,7 +210,7 @@
         {{- else if eq $fileEntry.Name "output" }}
         <li class="flex flex-wrap items-center bb pv2">
             <span class="flex items-center mr1">{{ template "heroicons-dir" }}</span>
-            <a href="/{{ join `admin` $.SitePrefix `output` }}/" class="linktext">output/</a>
+            <a href="/{{ join `admin` $.SitePrefix `output` }}/">output/</a>
             <div class="flex-grow-1"></div>
             <details class="relative" data-autoclose-details>
                 <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
@@ -228,7 +228,7 @@
         </li>
         {{- else if $fileEntry.IsSite }}
         <li class="flex flex-wrap items-center bb pv2">
-            <a href="{{ $fileEntry.Name }}/" class="linktext">{{ $fileEntry.Name }}/</a>
+            <a href="{{ $fileEntry.Name }}/">{{ $fileEntry.Name }}/</a>
             {{- if not $fileEntry.IsUser }}
             <div class="flex-grow-1"></div>
             <details class="relative" data-autoclose-details>
@@ -236,7 +236,7 @@
                     {{ template "octicon-triangle-down" }}
                 </summary>
                 <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    <div class="tr ma2"><a href="/admin/deletesite/?name={{ trimPrefix $fileEntry.Name `@` }}" class="link dark-red tr nowrap dib w-100 h-100">delete site</a></div>
+                    <div class="tr ma2"><a href="/admin/deletesite/?name={{ trimPrefix $fileEntry.Name `@` }}" class="dark-red tr nowrap dib w-100 h-100">delete site</a></div>
                 </div>
             </details>
             {{- end }}
@@ -256,7 +256,7 @@
                         {{- if $fileEntry.IsDir }}
                         {{ template "heroicons-dir" }}
                         {{- end }}
-                        <a href="/{{ join `admin` $.SitePrefix $.Path $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}" class="linktext ma1 truncate">{{ $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}</a>
+                        <a href="/{{ join `admin` $.SitePrefix $.Path $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}" class="ma1 truncate">{{ $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}</a>
                         {{- if not $fileEntry.IsDir }}
                         <span class="ma1 f6 mid-gray">{{ fileSizeToString $fileEntry.Size }}</span>
                         {{- end }}

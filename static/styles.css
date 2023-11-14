@@ -36,7 +36,7 @@ template { display: none; }
 
 *, *::before, *::after { box-sizing: border-box; }
 body { background-color: #fafafa; font-family: Helvetica, Arial, sans-serif; line-height: 1.5; }
-a { text-decoration: none; cursor: pointer; color: inherit; }
+a { text-decoration: none; cursor: pointer; color: #0000ee; }
 a:hover, a:focus { text-decoration: underline; }
 button { color:inherit; cursor: pointer; }
 ul { margin: 0; padding: 0; list-style: none; }
@@ -120,7 +120,6 @@ details[open] summary.button { background-color: white; }
 details[open] summary.transparent-button { background-color: white; }
 
 /* links */
-.linktext { color: LinkText; }
 .link { background: none; border: none; text-decoration: none; }
 .link:hover, link:focus { text-decoration: underline; }
 

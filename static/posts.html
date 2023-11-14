@@ -14,7 +14,6 @@ a:hover, a:focus { text-decoration: underline; }
 .mv3 { margin: 1rem 0 1rem 0; }
 .ml2 { margin-left: 0.5rem; }
 .ph3 { padding-left: 1rem; padding-right: 1rem; }
-.linktext { color: LinkText; }
 .b { font-weight: bold; }
 .f6 { font-size: .875rem; }
 .mid-gray { color: #555555; }
@@ -22,7 +21,7 @@ a:hover, a:focus { text-decoration: underline; }
 </style>
 <title>{{ shortSiteURL }} posts</title>
 
-<div><a href="{{ siteURL }}" class="linktext">{{ shortSiteURL }}</a> &boxv; <a href="{{ siteURL }}/posts/" class="linktext">posts</a></div>
+<div><a href="{{ siteURL }}">{{ shortSiteURL }}</a> &boxv; <a href="{{ siteURL }}/posts/">posts</a></div>
 
 <hr>
 
@@ -32,7 +31,7 @@ a:hover, a:focus { text-decoration: underline; }
     {{- range $post := getPosts "" }}
     <li class="mv3">
         <div>
-            <a href="{{ $post.URL }}" class="b linktext">{{ $post.Title }}</a>
+            <a href="{{ $post.URL }}" class="b">{{ $post.Title }}</a>
             <span class="f6 mid-gray ml2">{{ $post.CreatedAt.Format "2006-01-02" }}</span>
         </div>
         <div class="f6 truncate mv1" title="{{ $post.Preview }}">{{ $post.Preview }}</div>
