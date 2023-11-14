@@ -146,6 +146,7 @@ type LocalFileWriter struct {
 	tempFile    *os.File
 	tempName    string
 	writeFailed bool
+	buf         *bytes.Buffer
 }
 
 func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
@@ -166,6 +167,11 @@ func (fsys *LocalFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, 
 	if file.tempDir == "" {
 		file.tempDir = os.TempDir()
 	}
+	if runtime.GOOS == "windows" {
+		file.buf = bufPool.Get().(*bytes.Buffer)
+		file.buf.Reset()
+		return file, nil
+	}
 	file.tempFile, err = os.CreateTemp(file.tempDir, "__notebrewtemp*__")
 	if err != nil {
 		return nil, err
@@ -184,6 +190,9 @@ func (file *LocalFileWriter) Write(p []byte) (n int, err error) {
 		file.writeFailed = true
 		return 0, err
 	}
+	if runtime.GOOS == "windows" {
+		return file.buf.Write(p)
+	}
 	n, err = file.tempFile.Write(p)
 	if err != nil {
 		file.writeFailed = true
@@ -195,6 +204,22 @@ func (file *LocalFileWriter) Write(p []byte) (n int, err error) {
 func (file *LocalFileWriter) Close() error {
 	tempFilePath := filepath.Join(file.tempDir, file.tempName)
 	destFilePath := filepath.Join(file.rootDir, file.name)
+	if runtime.GOOS == "windows" {
+		if file.buf == nil {
+			return fs.ErrClosed
+		}
+		defer bufPool.Put(file.buf)
+		destFile, err := os.OpenFile(destFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.perm)
+		if err != nil {
+			return err
+		}
+		_, err = file.buf.WriteTo(destFile)
+		if err != nil {
+			return err
+		}
+		file.buf = nil
+		return destFile.Close()
+	}
 	defer os.Remove(tempFilePath)
 	err := file.tempFile.Close()
 	if err != nil {
