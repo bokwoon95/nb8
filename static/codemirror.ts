@@ -86,7 +86,7 @@ for (const [index, dataCodemirror] of document.querySelectorAll<HTMLElement>("[d
     ];
 
     // Add the language extension.
-    const ext = dataCodemirror.getAttribute("data-codemirror");
+    const ext = dataCodemirror.getAttribute("data-codemirror")?.trim();
     if (ext == "html") {
         extensions.push(html());
     } else if (ext == "css") {

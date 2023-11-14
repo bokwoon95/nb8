@@ -275,6 +275,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			"dir":              path.Dir,
 			"base":             path.Base,
 			"ext":              path.Ext,
+			"hasPrefix":        strings.HasPrefix,
 			"fileSizeToString": fileSizeToString,
 			"stylesCSS":        func() template.CSS { return template.CSS(stylesCSS) },
 			"baselineJS":       func() template.JS { return template.JS(baselineJS) },

@@ -109,7 +109,7 @@ func (fsys *LocalFS) Stat(name string) (fs.FileInfo, error) {
 		return nil, &fs.PathError{Op: "stat", Path: name, Err: fs.ErrInvalid}
 	}
 	name = filepath.FromSlash(name)
-	return os.Stat(name)
+	return os.Stat(filepath.Join(fsys.rootDir, name))
 }
 
 type LocalFile struct {
