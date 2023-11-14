@@ -81,12 +81,12 @@
 {{- if eq (head $.Path) "pages" "posts" }}
 <div class="mv2">
     {{- if eq (head $.Path) "posts" }}
-    <span class="b">images</span>
+    <span class="b">Images</span>
     <a href="" class="ml2">upload image</a>
     {{- else }}
-    <span class="b">assets</span>
-    <a href="" class="ml2">create file</a>
-    <a href="" class="ml2">upload file</a>
+    <span class="b">Assets</span>
+    <a href="" class="ml2">Create file</a>
+    <a href="" class="ml2">Upload file</a>
     {{- end }}
 </div>
     {{- if $.AssetEntries }}
@@ -110,13 +110,14 @@
                 {{- else }}
                 <a href="/{{ join `admin` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="ml2">view</a>
                 {{- end }}
+                <a href="" class="ml2">rename</a>
                 <a href="" class="dark-red ml2">delete</a>
             </div>
             <div class="mv2">
                 {{- if eq (head $.Path) "posts" }}
-                <button type="button" value="{{ $assetEntry.Name }}" class="button ba br2 pa2 w-100">insert into post</button>
+                <button type="button" value="{{ $assetEntry.Name }}" class="button ba br2 pa2 w-100">Insert into post</button>
                 {{- else }}
-                <button type="button" value="{{ $assetEntry.Name }}" class="button ba br2 pa2 w-100">insert into page</button>
+                <button type="button" value="{{ $assetEntry.Name }}" class="button ba br2 pa2 w-100">Insert into page</button>
                 {{- end }}
             </div>
         </li>

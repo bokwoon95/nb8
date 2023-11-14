@@ -13,28 +13,10 @@ file.go
 server.go
 notebrew/main.go
 
-/ => clipboard, create (site), search
-notes/ => clipboard, sort, search, create (note | folder)
-pages/ => clipboard, search, create (page | folder)
-posts/ => search, create post, create category
-themes/ =>
-output/ =>
-file.html => <input="file" name="files" multiple>, <input="text" name="file_name">
-    file.html is the body of the content followed by the asset manager, which is a grid of images and files (if it's a non-image file, the tile shows the file name instead)
-    TODO: We can do this part first! Sketch out the MVP by hardcoding the HTML!
-ooh yeah if the current file is an asset of a post or page, show a link back to the post/page source (so users can edit a script, then pop back to the page and continue editing it. they can toggle between page source and script via the asset manager/page source link)
-    for each tile in the asset grid, there is a dropdown ellipsis with an "edit" link and an "insert" button. Link and button, to clearly show one directs to a new page and the other does a thing on the page. Oh no what about the other links masquerading as buttons? It's fine they all change the page, which is like a link.
-    What if... a user uploads an image and it automatically gets appended into the file? Too much? What about css/js files? They automatically get inserted into the page? Maybe have a "copy" button and an "edit" button per tile instead?
-    No no no. What if they always upload an image, then rename it immediately? If we automatically insert img tags then the src will always be out of date. Don't do extra work, just upload the file and that's it. Then how do we make it obvious that the user can upload images?
-        Answer: they don't. it's not obvious, you can only teach them once and hope they internalize it.
-        Revised answer: Actually, remove the ability to create and upload files manually in the output directory. Creating images and scripts will be managed solely through the file.html of the page or post. Output will be a read-only directory.
-        Revised revised answer: users will only be able to create/upload files in the output/themes/ directory. in the output/ directory, everything is read-only and only the search button is present. clicking on an item (list, not grid) will link directly to the cdn url. in the case of html files, the content-type will be set ton text/plain instead (this should be a cdn.nbrew.io thing instead of being handled by notebrew.com/admin/ directly) so that users will be able to preview the raw html output instead of a webpage.
-        asset manager no more grid view: just a preview/icon, a plaintext name followed by edit/view | insert. im still very worries that insert (which looks like a link) will not be understood.
 folder.html => expose forms with file/text inputs that POST to /admin/uploadfile/ and /admin/createfile/ respectively. No need for a separate /admin/uploadfile/ or /admin/createfile/ form anymore.
     - with great convenience comes great responsibility, now if there are form errors you need to redirect to folder.html with the <details> element open so that it can show the form errors :/
     - what kind of errors can occur anyway?
 genuinely shook at "webkitdirectory", "mozdirectory" and "multiple" attributes (how they make multi-uploads so easy)
-TODO: rename.go is a POST-only action, because it is only available in file.html as a separate dropdown next to the filename. As in, the button is next to the filename and it opens a dropdown exposing an <input> and <button> for creating a POST request to /admin/rename/.
 
 what am I conflicted about? I can't have an icon per action - not enough space (I do *not* want to overflow an iPhone SE width!)
 I don't have any good categorization
@@ -63,14 +45,6 @@ ugly child - regenerate site and search are not dropdowns, they're straight up l
         - do we want to act like a gzip service for files magically labelled as *.gz?
         - how much space savings do we even think users will save by uploading a gzipped file instead of just typing it in? text consumes barely anything, images and videos contain everything.
 
-- updated icons
-    CLIPBOARD => view/paste/clear
-    SORT => date created/date updated/name | ascending/descending
-    root/ => CLIPBOARD, gear (regenerate site), plus (create post, create site)
-    notes/ => CLIPBOARD, SORT, gear (search), plus (create note, create folder)
-    pages/ => CLIPBOARD, SORT, gear (search), plus (create page, create folder) (create file, upload file option is inside the page editing page itself, which is actually linked to the output directory)
-    posts/ => CLIPBOARD, SORT, gear (search), plus (create post, create folder) (create file, upload file option is inside the post editing page itself itself, which is actually linked to the output directory)
-    output/ => CLIPBOARD, SORT, gear (search), plus (create file?ext=html, upload file, create folder)
 - asset manager in the page and post editing page is a grid of files (either the image preview or a file icon and the possibly-truncated name). The last tile contains links to both "create file" and "upload file".
     - each tile contains "insert" which inserts an <img>, <script> or <style> into where the current cursor is or the end of the document if the editor is unfocused.
     - "rename" is an action inside of the file viewer itself, not the folder viewer. You can't apply rename to multiple files so it makes no sense
