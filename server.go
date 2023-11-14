@@ -87,10 +87,10 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 	//
 	// If dns01Solver hasn't been configured, dynamicCertConfig will also be
 	// responsible for getting the certificates for subdomains. This approach
-	// will not scale and may exceed the rate limits of Let's Encrypt (50
+	// will not scale and may end up getting rate limited Let's Encrypt (50
 	// certificates per week, a certificate lasts for 3 months). The safest way
-	// is to configure dns01Solver so that the wildcard certificate is
-	// available.
+	// to avoid being rate limited is to configure dns01Solver so that the
+	// wildcard certificate is available.
 	dynamicCertConfig := certmagic.NewDefault()
 	dynamicCertConfig.OnDemand = &certmagic.OnDemandConfig{
 		DecisionFunc: func(name string) error {
@@ -123,7 +123,8 @@ func (nbrew *Notebrew) NewServer(dns01Solver acmez.Solver) (*http.Server, error)
 			return nil
 		},
 	}
-	// Copied from (*certmagic.Config).TLSConfig().
+	// Copied from (*certmagic.Config).TLSConfig(). I don't know what any of
+	// this means.
 	server.TLSConfig = &tls.Config{
 		NextProtos: []string{"h2", "http/1.1", "acme-tls/1"},
 		GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -271,8 +272,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// custom404 will use the user's custom 404 page if present, otherwise it
 	// will fall back to http.Error(404). We don't use notFound() because it
-	// depends on static files in the main domain and the content domain should
-	// not depend on the main domain.
+	// depends on static files in the main domain and stuff in the content
+	// domain should not depend on stuff in the main domain.
 	custom404 := func(w http.ResponseWriter, r *http.Request, sitePrefix string) {
 		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output/themes/404.html"))
 		if err != nil {
@@ -280,13 +281,13 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "404 Not Found", http.StatusNotFound)
 				return
 			}
-			getLogger(r.Context()).Error(err.Error())
+			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 		fileInfo, err := file.Stat()
 		if err != nil {
-			getLogger(r.Context()).Error(err.Error())
+			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -294,13 +295,13 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		b.Grow(int(fileInfo.Size()))
 		_, err = io.Copy(&b, file)
 		if err != nil {
-			getLogger(r.Context()).Error(err.Error())
+			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 		templateParser, err := NewTemplateParser(r.Context(), nbrew, sitePrefix)
 		if err != nil {
-			getLogger(r.Context()).Error(err.Error())
+			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -334,18 +335,18 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	file, err := nbrew.FS.Open(name)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
-			getLogger(r.Context()).Error(err.Error())
+			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		if !fileType.IsGzippable || !strings.HasSuffix(name, "/index.html") {
+		if !strings.HasSuffix(name, "/index.html") {
 			custom404(w, r, sitePrefix)
 			return
 		}
 		file, err = nbrew.FS.Open(name + ".gz")
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
-				getLogger(r.Context()).Error(err.Error())
+				logger.Error(err.Error())
 				http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 				return
 			}
@@ -358,12 +359,23 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		getLogger(r.Context()).Error(err.Error())
+		logger.Error(err.Error())
 		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	if fileInfo.IsDir() {
 		custom404(w, r, sitePrefix)
+		return
+	}
+
+	if fileInfo.Size() > 15<<20 /* 15MB */ {
+		w.Header().Set("Content-Type", fileType.ContentType)
+		_, err = io.Copy(w, file)
+		if err != nil {
+			logger.Error(err.Error())
+			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		return
 	}
 
@@ -375,32 +387,11 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hasher.Reset()
 	defer hashPool.Put(hasher)
 
-	if !fileType.IsGzippable {
-		fileSeeker, ok := file.(io.ReadSeeker)
-		if ok {
-			http.ServeContent(w, r, name, fileInfo.ModTime(), fileSeeker)
-			return
-		}
-		_, err = buf.ReadFrom(file)
-		if err != nil {
-			getLogger(r.Context()).Error(err.Error())
-			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-		// TODO: if fileInfo indicates the file is under 10MB, do the file
-		// hashing here too. Also do the same for serveFile().
-		// {{ join `admin` sitePrefix $.Path $entry.Name }}
-		// {{ cdnBaseURL }}{{ join `admin` sitePrefix $.Path $entry.Name }}
-		// cdn.nbrew.io/@bokwoon/path/to/file
-		http.ServeContent(w, r, name, fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
-		return
-	}
-
 	multiWriter := io.MultiWriter(buf, hasher)
 	if isGzipped {
 		_, err = io.Copy(multiWriter, file)
 		if err != nil {
-			getLogger(r.Context()).Error(err.Error())
+			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -410,13 +401,13 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer gzipPool.Put(gzipWriter)
 		_, err = io.Copy(gzipWriter, file)
 		if err != nil {
-			getLogger(r.Context()).Error(err.Error())
+			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 		err = gzipWriter.Close()
 		if err != nil {
-			getLogger(r.Context()).Error(err.Error())
+			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
