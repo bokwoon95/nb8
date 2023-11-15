@@ -33,28 +33,31 @@ var readerPool = sync.Pool{
 }
 
 type ServerConfig struct {
+	Addr        string
 	DNS01Solver acmez.Solver
 	CertStorage certmagic.Storage
 }
 
 func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
-	server := &http.Server{
-		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  120 * time.Second,
-		Addr:         nbrew.Domain,
-		Handler:      nbrew,
-	}
-	if nbrew.Scheme != "https://" {
-		return server, nil
-	}
 	if nbrew.Domain == "" {
 		return nil, fmt.Errorf("Domain cannot be empty")
 	}
 	if nbrew.ContentDomain == "" {
 		return nil, fmt.Errorf("ContentDomain cannot be empty")
 	}
-	server.Addr = ":443"
+	server := &http.Server{
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
+		Addr:         config.Addr,
+		Handler:      nbrew,
+	}
+	if config.Addr != ":443" {
+		return server, nil
+	}
+	server.ReadTimeout = 60 * time.Second
+	server.WriteTimeout = 60 * time.Second
+	server.IdleTimeout = 120 * time.Second
 	var domains []string
 	if nbrew.Domain == nbrew.ContentDomain {
 		domains = []string{

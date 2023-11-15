@@ -1679,6 +1679,17 @@ func (storage *FileStorage) Put(ctx context.Context, key string, reader io.Reade
 	if err != nil {
 		return err
 	}
+	if runtime.GOOS == "windows" {
+		file, err := os.OpenFile(filepath.Join(storage.rootDir, key), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(file, reader)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
 	tempDir := storage.tempDir
 	if tempDir == "" {
 		tempDir = os.TempDir()

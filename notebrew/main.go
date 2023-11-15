@@ -73,6 +73,14 @@ func main() {
 		if err != nil {
 			return err
 		}
+		configHome := os.Getenv("XDG_CONFIG_HOME")
+		if configHome == "" {
+			configHome = homeDir
+		}
+		dataHome := os.Getenv("XDG_DATA_HOME")
+		if dataHome == "" {
+			dataHome = homeDir
+		}
 		var configDir string
 		flagset := flag.NewFlagSet("", flag.ContinueOnError)
 		flagset.StringVar(&configDir, "config-dir", "", "")
@@ -81,12 +89,7 @@ func main() {
 			return err
 		}
 		if configDir == "" {
-			XDGConfigHome := os.Getenv("XDG_CONFIG_HOME")
-			if XDGConfigHome != "" {
-				configDir = filepath.Join(XDGConfigHome, "notebrew-config")
-			} else {
-				configDir = filepath.Join(homeDir, "notebrew-config")
-			}
+			configDir = filepath.Join(configHome, "notebrew-config")
 			err := os.MkdirAll(configDir, 0755)
 			if err != nil {
 				return err
@@ -105,11 +108,35 @@ func main() {
 			})),
 		}
 
-		b, err := os.ReadFile(filepath.Join(configDir, "domain.txt"))
+		// domain.txt, content-domain.txt, port.txt
+
+		b, err := os.ReadFile(filepath.Join(configDir, "port.txt"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "port.txt"), err)
+		}
+		port := string(bytes.TrimSpace(b))
+
+		b, err = os.ReadFile(filepath.Join(configDir, "domain.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configDir, "domain.txt"), err)
 		}
-		b = bytes.TrimSpace(b)
+		domain := string(bytes.TrimSpace(b))
+
+		b, err = os.ReadFile(filepath.Join(configDir, "content-domain.txt"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "content-domain.txt"), err)
+		}
+		contentDomain := string(bytes.TrimSpace(b))
+
+		if domain == "" {
+			if port == "" {
+				domain, contentDomain = "localhost:6444", "localhost:6444"
+			} else {
+				domain, contentDomain = "localhost:"+port, "localhost:"+port
+			}
+		} else {
+		}
+
 		if len(b) > 0 {
 			nbrew.Domain = string(b)
 		} else {
@@ -295,12 +322,7 @@ func main() {
 		}
 		adminDir := string(bytes.TrimSpace(b))
 		if adminDir == "" {
-			XDGDataHome := os.Getenv("XDG_DATA_HOME")
-			if XDGDataHome != "" {
-				adminDir = filepath.Join(XDGDataHome, "notebrew-admin")
-			} else {
-				adminDir = filepath.Join(homeDir, "notebrew-admin")
-			}
+			adminDir = filepath.Join(dataHome, "notebrew-admin")
 			err := os.MkdirAll(adminDir, 0755)
 			if err != nil {
 				return err
@@ -353,30 +375,25 @@ func main() {
 					Bucket: s3Config.Bucket,
 				})
 			} else {
-				b, err = os.ReadFile(filepath.Join(configDir, "objects-folder.txt"))
+				b, err = os.ReadFile(filepath.Join(configDir, "objects-dir.txt"))
 				if err != nil && !errors.Is(err, fs.ErrNotExist) {
-					return fmt.Errorf("%s: %w", filepath.Join(configDir, "objects-folder.txt"), err)
+					return fmt.Errorf("%s: %w", filepath.Join(configDir, "objects-dir.txt"), err)
 				}
-				objectsFolder := string(bytes.TrimSpace(b))
-				if objectsFolder == "" {
-					XDGDataHome := os.Getenv("XDG_DATA_HOME")
-					if XDGDataHome != "" {
-						objectsFolder = filepath.Join(XDGDataHome, "notebrew-objects")
-					} else {
-						objectsFolder = filepath.Join(homeDir, "notebrew-objects")
-					}
-					err := os.MkdirAll(objectsFolder, 0755)
+				objectsDir := string(bytes.TrimSpace(b))
+				if objectsDir == "" {
+					objectsDir = filepath.Join(dataHome, "notebrew-objects")
+					err := os.MkdirAll(objectsDir, 0755)
 					if err != nil {
 						return err
 					}
 				} else {
-					objectsFolder = path.Clean(objectsFolder)
-					_, err := os.Stat(objectsFolder)
+					objectsDir = path.Clean(objectsDir)
+					_, err := os.Stat(objectsDir)
 					if err != nil {
 						return err
 					}
 				}
-				nbrew.FS = nb8.NewRemoteFS(nbrew.Dialect, nbrew.DB, nbrew.ErrorCode, nb8.NewFileStorage(objectsFolder, os.TempDir()))
+				nbrew.FS = nb8.NewRemoteFS(nbrew.Dialect, nbrew.DB, nbrew.ErrorCode, nb8.NewFileStorage(objectsDir, os.TempDir()))
 			}
 		} else {
 			adminDir = filepath.Clean(adminDir)
