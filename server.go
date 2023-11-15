@@ -242,7 +242,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Special case: make these files available on the root path on the main
+	// Special case: make these files available on the root path of the main
 	// domain.
 	if host == nbrew.Domain {
 		switch strings.Trim(r.URL.Path, "/") {
