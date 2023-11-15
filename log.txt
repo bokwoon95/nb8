@@ -23,6 +23,8 @@ folder.html => expose forms with file/text inputs that POST to /admin/uploadfile
     - what kind of errors can occur anyway?
 genuinely shook at "webkitdirectory", "mozdirectory" and "multiple" attributes (how they make multi-uploads so easy)
 
+TODO: log stats into SQLite file (handled by main.go): timestamp, duration, status, handler
+
 TODO: notebrew config show every possible configuration field, commented (use terminal escape codes for graying out comments).
 notebrew config <file> (show the file config, commented)
 notebrew config <file>.<key> (show the key value, commented)
