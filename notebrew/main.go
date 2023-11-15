@@ -59,9 +59,9 @@ var (
 
 // static/dynamic private/public config:
 // - static private: database.json, dns.json, s3.json, smtp.json (excluded)
-// - static public: admin-dir.txt domain.txt, content-domain.txt, multisite.txt
+// - static public: adminfolder.txt domain.txt, contentdomain.txt, multisite.txt
 // - dynamic private: captcha.json
-// - dynamic public: allow-signup.txt, 503.html
+// - dynamic public: allowsignup.txt, 503.html
 
 func main() {
 	// Wrap everything in an anonymous function so we can call os.Exit while
@@ -121,9 +121,9 @@ func main() {
 		}
 		nbrew.Domain = string(bytes.TrimSpace(b))
 
-		b, err = os.ReadFile(filepath.Join(configDir, "content-domain.txt"))
+		b, err = os.ReadFile(filepath.Join(configDir, "contentdomain.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configDir, "content-domain.txt"), err)
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "contentdomain.txt"), err)
 		}
 		nbrew.ContentDomain = string(bytes.TrimSpace(b))
 
@@ -295,9 +295,9 @@ func main() {
 			}
 		}
 
-		b, err = os.ReadFile(filepath.Join(configDir, "admin-dir.txt"))
+		b, err = os.ReadFile(filepath.Join(configDir, "adminfolder.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configDir, "admin-dir.txt"), err)
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "adminfolder.txt"), err)
 		}
 		adminDir := string(bytes.TrimSpace(b))
 		if adminDir == "" {
@@ -309,7 +309,7 @@ func main() {
 			nbrew.FS = nb8.NewLocalFS(adminDir, os.TempDir())
 		} else if adminDir == "database" {
 			if nbrew.DB == nil {
-				return fmt.Errorf("%s: cannot use database as filesystem because %s is missing", filepath.Join(configDir, "admin-dir.txt"), filepath.Join(configDir, "database.json"))
+				return fmt.Errorf("%s: cannot use database as filesystem because %s is missing", filepath.Join(configDir, "adminfolder.txt"), filepath.Join(configDir, "database.json"))
 			}
 			b, err = os.ReadFile(filepath.Join(configDir, "s3.json"))
 			if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -354,9 +354,9 @@ func main() {
 					Bucket: s3Config.Bucket,
 				})
 			} else {
-				b, err = os.ReadFile(filepath.Join(configDir, "objects-dir.txt"))
+				b, err = os.ReadFile(filepath.Join(configDir, "objectsfolder.txt"))
 				if err != nil && !errors.Is(err, fs.ErrNotExist) {
-					return fmt.Errorf("%s: %w", filepath.Join(configDir, "objects-dir.txt"), err)
+					return fmt.Errorf("%s: %w", filepath.Join(configDir, "objectsfolder.txt"), err)
 				}
 				objectsDir := string(bytes.TrimSpace(b))
 				if objectsDir == "" {
@@ -505,26 +505,26 @@ func main() {
 			}
 		}
 
-		b, err = os.ReadFile(filepath.Join(configDir, "cert-dir.txt"))
+		b, err = os.ReadFile(filepath.Join(configDir, "certmagic.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configDir, "cert-dir.txt"), err)
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "certmagic.txt"), err)
 		}
-		certDir := string(bytes.TrimSpace(b))
-		if certDir == "" {
-			certDir = filepath.Join(configDir, "certmagic")
-			err := os.MkdirAll(certDir, 0755)
+		certfolder := string(bytes.TrimSpace(b))
+		if certfolder == "" {
+			certfolder = filepath.Join(configDir, "certmagic")
+			err := os.MkdirAll(certfolder, 0755)
 			if err != nil {
 				return err
 			}
 		} else {
-			certDir = filepath.Clean(certDir)
-			_, err := os.Stat(certDir)
+			certfolder = filepath.Clean(certfolder)
+			_, err := os.Stat(certfolder)
 			if err != nil {
 				return err
 			}
 		}
 		certStorage := &certmagic.FileStorage{
-			Path: certDir,
+			Path: certfolder,
 		}
 
 		// Create a new server (this step will provision the HTTPS

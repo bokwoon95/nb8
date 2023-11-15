@@ -13,6 +13,10 @@ file.go
 server.go
 notebrew/main.go
 
+POST /regenerate/dir=pages&name=abcd.html
+if file pages/**/*.html
+if file posts/**/*.md
+
 TODO: template.go: determine what the API for regenerating specific pages/posts looks like. This is necessary so that whenever we save a page or post, its output is automatically regenerated.
 folder.html => expose forms with file/text inputs that POST to /admin/uploadfile/ and /admin/createfile/ respectively. No need for a separate /admin/uploadfile/ or /admin/createfile/ form anymore.
     - with great convenience comes great responsibility, now if there are form errors you need to redirect to folder.html with the <details> element open so that it can show the form errors :/
