@@ -18,6 +18,8 @@ if name matches pages/**/*.html => regenerate pages
 if name posts/**/*.md => regenerate posts
 else just update the file
 
+TODO: rename all traces of /admin/ to /files/ (woah!)
+
 PageData
 - Dir string
 - Name string
