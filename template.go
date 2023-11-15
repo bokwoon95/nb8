@@ -136,6 +136,12 @@ func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) 
 				}
 				return posts, nil
 			},
+			"dump": func(a ...any) template.HTML {
+				// TODO: convert each argument into json and print each
+				// argument out in a <pre style="white-space: pre-wrap"></pre>
+				// tag.
+				return ""
+			},
 		},
 	}
 	return parser, nil
@@ -347,11 +353,11 @@ func (w *ctxWriter) Write(p []byte) (n int, err error) {
 }
 
 type Post struct {
-	URL       string
-	Category  string
-	Name      string
-	Title     string
-	Preview   string
+	// URL       string
+	// Category  string
+	// Name      string
+	Title string
+	// Preview   string
 	Content   template.HTML
 	CreatedAt time.Time
 	UpdatedAt time.Time
