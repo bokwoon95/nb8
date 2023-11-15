@@ -51,6 +51,7 @@ $pag
 {{ if $paginator.HasFirst }}
     <!-- if the numbers already cover the first page, disable the first button -->
 {{ end }}
+    eschew HasFirst and HasLast in favor of always making the buttons clickable, that way we don't even need to implement additional logic to check whether or not to disable the first and last buttons
 
 NOTE: we can come up with List datastructues like below but put it off until we really need it. I'd hate people putting so much logic in templates like this, just slows the whole thing down.
 {{ $list := newlist }}
