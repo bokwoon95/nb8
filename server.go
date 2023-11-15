@@ -196,7 +196,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Inject the request method and url into the logger.
+	// Add request method and url to the logger.
 	logger := nbrew.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -225,18 +225,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 	}
 
-	segments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if segments[0] == "admin" {
-		switch strings.Trim(r.URL.Path, "/") {
-		case "app.webmanifest":
-			serveFile(w, r, rootFS, "static/app.webmanifest")
-			return
-		case "apple-touch-icon.png":
-			serveFile(w, r, rootFS, "static/icons/apple-touch-icon.png")
-			return
-		}
-	}
-
+	// Redirect any www subdomains to the bare domain.
 	host := getHost(r)
 	if host == "www."+nbrew.Domain {
 		http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+r.URL.RequestURI(), http.StatusMovedPermanently)
@@ -247,6 +236,21 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Special case: make these files available on the root path on the main
+	// domain.
+	if host == nbrew.Domain {
+		switch strings.Trim(r.URL.Path, "/") {
+		case "app.webmanifest":
+			serveFile(w, r, rootFS, "static/app.webmanifest")
+			return
+		case "apple-touch-icon.png":
+			serveFile(w, r, rootFS, "static/icons/apple-touch-icon.png")
+			return
+		}
+	}
+
+	// If host is the main domain and the first segment is "admin", call the
+	// admin handler.
 	urlPath := strings.Trim(r.URL.Path, "/")
 	ext := path.Ext(urlPath)
 	head, tail, _ := strings.Cut(urlPath, "/")
@@ -255,11 +259,17 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If we reach here, either the host is a subdomain of the content domain
+	// or it is a custom domain. Get the sitePrefix accordingly.
 	var sitePrefix string
 	if certmagic.MatchWildcard(host, "*."+nbrew.ContentDomain) {
 		subdomain := strings.TrimSuffix(host, "."+nbrew.ContentDomain)
 		switch subdomain {
 		case "cdn", "assets":
+			// examples:
+			// cdn.nbrew.io/foo/bar.jpg             => sitePrefix: <none>,      urlPath: foo/bar.jpg
+			// cdn.nbrew.io/@username/foo/bar.jpg   => sitePrefix: @username,   urlPath: foo/bar.jpg
+			// cdn.nbrew.io/example.com/foo/bar.jpg => sitePrefix: example.com, urlPath: foo/bar.jpg
 			if ext == "" {
 				http.Error(w, "404 Not Found", http.StatusNotFound)
 				return
@@ -288,13 +298,14 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sitePrefix = host
 	}
 
-	// custom404 will use the user's custom 404 page if present, otherwise it
-	// will fall back to http.Error().
+	// custom404 is a 404 handler that will use the user's custom 404 page if
+	// present, otherwise it will fall back to http.Error().
 	//
 	// We use http.Error() instead of notFound() because notFound() depends on
 	// CSS/JS files hosted on the main domain, and we don't want that
 	// dependency (the content domain should be self-sufficient).
 	custom404 := func(w http.ResponseWriter, r *http.Request, sitePrefix string) {
+		// Check if the user's custom 404 page is available.
 		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output/404/index.html"))
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
@@ -322,6 +333,10 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		reader.Reset(file)
 		defer readerPool.Put(reader)
 
+		// Peek the first 512 bytes to check if 404/index.html is gzipped and
+		// write it into the buffer + ETag hasher accordingly. The buffer
+		// always receives gzipped data, the only difference is whether the
+		// data has been pre-gzipped or not.
 		b, err := reader.Peek(512)
 		if err != nil {
 			logger.Error(err.Error())
@@ -370,8 +385,10 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var fileType FileType
 	var isGzipped bool
 	var modTime time.Time
-	var src io.Reader
+	// fileSrc may be an fs.File or a bufio.Reader.
+	var fileSrc io.Reader
 	if ext == "" {
+		// If the URL has no extension, we serve index.html.
 		fileType.Ext = ".html"
 		fileType.ContentType = "text/html; charset=utf-8"
 		fileType.IsGzippable = true
@@ -396,6 +413,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			custom404(w, r, sitePrefix)
 			return
 		}
+		// We allow index.html to be a gzipped (to save space). Peek the first
+		// 512 bytes and check if it is gzipped.
 		reader := readerPool.Get().(*bufio.Reader)
 		reader.Reset(file)
 		defer readerPool.Put(reader)
@@ -408,13 +427,18 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		contentType := http.DetectContentType(b)
 		isGzipped = contentType == "application/x-gzip" || contentType == "application/gzip"
 		modTime = fileInfo.ModTime()
-		src = reader
+		fileSrc = reader
 	} else {
+		// Else if the URL has an extension, serve the file based on the
+		// file type.
 		fileType, ok := fileTypes[ext]
 		if !ok {
 			custom404(w, r, sitePrefix)
 			return
 		}
+		// Special case: display all .html files as plaintext so that their raw
+		// contents are shown instead of being rendered by the browser (normal
+		// HTML pages have extensionless URLs, handled above).
 		if fileType.Ext == ".html" {
 			fileType.ContentType = "text/plain; charset=utf-8"
 		}
@@ -435,9 +459,12 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+		// If the file is too big, stream it out to the user instead of
+		// buffering it in memory. This means we won't be able to calculate its
+		// ETag, but that's the tradeoff.
 		if fileInfo.Size() > 15<<20 /* 15MB */ {
 			w.Header().Set("Content-Type", fileType.ContentType)
-			_, err := io.Copy(w, src)
+			_, err := io.Copy(w, file)
 			if err != nil {
 				logger.Error(err.Error())
 				return
@@ -445,7 +472,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		modTime = fileInfo.ModTime()
-		src = file
+		fileSrc = file
 	}
 
 	buf := bufPool.Get().(*bytes.Buffer)
@@ -456,9 +483,12 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hasher.Reset()
 	defer hashPool.Put(hasher)
 
+	// Gzip the file data into a buffer and hasher to calulate its ETag hash.
+	// If the file cannot be gzipped or is already gzipped, skip the gzipping
+	// step.
 	multiWriter := io.MultiWriter(buf, hasher)
 	if !fileType.IsGzippable || isGzipped {
-		_, err := io.Copy(multiWriter, src)
+		_, err := io.Copy(multiWriter, fileSrc)
 		if err != nil {
 			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
@@ -468,7 +498,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		gzipWriter := gzipPool.Get().(*gzip.Writer)
 		gzipWriter.Reset(multiWriter)
 		defer gzipPool.Put(gzipWriter)
-		_, err := io.Copy(gzipWriter, src)
+		_, err := io.Copy(gzipWriter, fileSrc)
 		if err != nil {
 			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)

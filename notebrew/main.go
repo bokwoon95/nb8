@@ -109,6 +109,7 @@ func main() {
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configDir, "domain.txt"), err)
 		}
+		b = bytes.TrimSpace(b)
 		if len(b) > 0 {
 			nbrew.Domain = string(b)
 		} else {
@@ -122,6 +123,7 @@ func main() {
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configDir, "content-domain.txt"), err)
 		}
+		b = bytes.TrimSpace(b)
 		if len(b) > 0 {
 			nbrew.ContentDomain = string(b)
 		} else {
@@ -130,6 +132,12 @@ func main() {
 		if strings.Contains(nbrew.ContentDomain, "127.0.0.1") {
 			return fmt.Errorf("%s: don't use 127.0.0.1, use localhost instead", filepath.Join(configDir, "content-domain.txt"))
 		}
+
+		b, err = os.ReadFile(filepath.Join(configDir, "localhost.txt"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("%s: %w", filepath.Join(configDir, "localhost.txt"), err)
+		}
+		b = bytes.TrimSpace(b)
 
 		domainIsLocalhost := nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:")
 		contentDomainIsLocalhost := nbrew.ContentDomain == "localhost" || strings.HasPrefix(nbrew.ContentDomain, "localhost:")
@@ -148,6 +156,7 @@ func main() {
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configDir, "database.json"), err)
 		}
+		b = bytes.TrimSpace(b)
 		if len(b) > 0 {
 			var databaseConfig struct {
 				Dialect  string            `json:"dialect,omitempty"`
@@ -284,7 +293,7 @@ func main() {
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configDir, "admin-dir.txt"), err)
 		}
-		adminDir := string(b)
+		adminDir := string(bytes.TrimSpace(b))
 		if adminDir == "" {
 			XDGDataHome := os.Getenv("XDG_DATA_HOME")
 			if XDGDataHome != "" {
@@ -305,6 +314,7 @@ func main() {
 			if err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return fmt.Errorf("%s: %w", filepath.Join(configDir, "s3.json"), err)
 			}
+			b = bytes.TrimSpace(b)
 			if len(b) > 0 {
 				var s3Config struct {
 					Endpoint        string `json:"endpoint,omitempty"`
@@ -347,7 +357,7 @@ func main() {
 				if err != nil && !errors.Is(err, fs.ErrNotExist) {
 					return fmt.Errorf("%s: %w", filepath.Join(configDir, "objects-folder.txt"), err)
 				}
-				objectsFolder := string(b)
+				objectsFolder := string(bytes.TrimSpace(b))
 				if objectsFolder == "" {
 					XDGDataHome := os.Getenv("XDG_DATA_HOME")
 					if XDGDataHome != "" {
@@ -408,6 +418,7 @@ func main() {
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configDir, "dns.json"), err)
 		}
+		b = bytes.TrimSpace(b)
 		if len(b) > 0 {
 			var dnsConfig struct {
 				Provider  string `json:"provider,omitempty"`
@@ -502,7 +513,7 @@ func main() {
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configDir, "cert-dir.txt"), err)
 		}
-		certDir := string(b)
+		certDir := string(bytes.TrimSpace(b))
 		if certDir == "" {
 			certDir = filepath.Join(configDir, "certmagic")
 			err := os.MkdirAll(certDir, 0755)
