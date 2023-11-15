@@ -19,18 +19,31 @@ if name posts/**/*.md => regenerate posts
 else just update the file
 
 PageData
+- Dir string
+- Name string
+- Title string
 - Subpages []struct{ Name string; Title string; /* Obtained by parsing the HTML :/ (this should be cached) */ }
+- NextPage struct{ Name string; Title string; }
+- PrevPage struct{ Name string; Title string; }
 - Markdown map[string]template.HTML
+- Images []struct{ Name string }
 
 PostData
+- Category string
 - Name string
-- Content string
+- Title string
+- Preview string
+- Content template.HTML
+- CreatedAt time.Time
+- UpdatedAt time.Time
+- Images []struct{ Name string }
 
 PostsData
-- PageNumbers []int
-- CurrentPageNumber int
+- Category string
+- Pagination struct{ First string; Prev string; Current string; Next string; Last string; Numbers []string; }
+- Posts []struct{ Name string; Title string; Preview string; Content template.HTML; CreatedAt time.Time; UpdatedAt time.Time; }
 
-$pag
+page.json contains all the pagination, rss feed limit settings
 
 /{{ join `posts` $post.Category $post.Name }}/
 /{{ join `posts` $post.Category $post.Name $paginator.First }}/
@@ -41,7 +54,7 @@ $pag
 {{- range $num := $pagination.Numbers }}
 {{- end }}
 {{ int $paginator.Last }} is the total number of pages -- 100 pages means the last page number is 100.
-    Too verbose -- what's the cleanest way to check if there is more than one page? {{ if ne $paginator.Last "1" }}
+    Too verbose -- what's the cleanest way to check if there is more than one page? {{ if ne $paginator.Last "1" }} or {{ if $pagination.Last }} or {{ if $pagination.Next }}
 {{ len ($paginator.Numbers) }} is the number of pages in the current band
 {{ $paginator.HasNext }}
 {{ $paginator.Count }} <!-- very confusing! why not just use $paginator.Last? -->
