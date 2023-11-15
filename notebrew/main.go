@@ -108,8 +108,7 @@ func main() {
 			})),
 		}
 
-		// domain.txt, content-domain.txt, port.txt
-
+		var addr string
 		b, err := os.ReadFile(filepath.Join(configDir, "port.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configDir, "port.txt"), err)
@@ -120,63 +119,43 @@ func main() {
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configDir, "domain.txt"), err)
 		}
-		domain := string(bytes.TrimSpace(b))
+		nbrew.Domain = string(bytes.TrimSpace(b))
 
 		b, err = os.ReadFile(filepath.Join(configDir, "content-domain.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configDir, "content-domain.txt"), err)
 		}
-		contentDomain := string(bytes.TrimSpace(b))
+		nbrew.ContentDomain = string(bytes.TrimSpace(b))
 
-		if domain == "" {
-			if port == "" {
-				domain, contentDomain = "localhost:6444", "localhost:6444"
+		if port != "" {
+			if port == "443" || port == "80" {
+				addr = ":" + port
 			} else {
-				domain, contentDomain = "localhost:"+port, "localhost:"+port
+				addr = "localhost:" + port
+			}
+			if nbrew.Domain != "" {
+				nbrew.Scheme = "https://"
+				if nbrew.ContentDomain != "" {
+					nbrew.ContentDomain = nbrew.Domain
+				}
+			} else {
+				nbrew.Scheme = "http://"
+				nbrew.Domain = "localhost:" + port
+				nbrew.ContentDomain = "localhost:" + port
 			}
 		} else {
-		}
-
-		if len(b) > 0 {
-			nbrew.Domain = string(b)
-		} else {
-			nbrew.Domain = "localhost:6444"
-		}
-		if strings.Contains(nbrew.Domain, "127.0.0.1") {
-			return fmt.Errorf("%s: don't use 127.0.0.1, use localhost instead", filepath.Join(configDir, "domain.txt"))
-		}
-
-		b, err = os.ReadFile(filepath.Join(configDir, "content-domain.txt"))
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configDir, "content-domain.txt"), err)
-		}
-		b = bytes.TrimSpace(b)
-		if len(b) > 0 {
-			nbrew.ContentDomain = string(b)
-		} else {
-			nbrew.ContentDomain = nbrew.Domain
-		}
-		if strings.Contains(nbrew.ContentDomain, "127.0.0.1") {
-			return fmt.Errorf("%s: don't use 127.0.0.1, use localhost instead", filepath.Join(configDir, "content-domain.txt"))
-		}
-
-		b, err = os.ReadFile(filepath.Join(configDir, "localhost.txt"))
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configDir, "localhost.txt"), err)
-		}
-		b = bytes.TrimSpace(b)
-
-		domainIsLocalhost := nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:")
-		contentDomainIsLocalhost := nbrew.ContentDomain == "localhost" || strings.HasPrefix(nbrew.ContentDomain, "localhost:")
-		if domainIsLocalhost && contentDomainIsLocalhost {
-			nbrew.Scheme = "http://"
-			if nbrew.Domain != nbrew.ContentDomain {
-				return fmt.Errorf("%s: %s: if localhost, domains must be the same", filepath.Join(configDir, "domain.txt"), filepath.Join(configDir, "content-domain.txt"))
+			if nbrew.Domain != "" {
+				addr = ":443"
+				nbrew.Scheme = "https://"
+				if nbrew.ContentDomain != "" {
+					nbrew.ContentDomain = nbrew.Domain
+				}
+			} else {
+				addr = "localhost:6444"
+				nbrew.Scheme = "http://"
+				nbrew.Domain = "localhost:6444"
+				nbrew.ContentDomain = "localhost:6444"
 			}
-		} else if !domainIsLocalhost && !contentDomainIsLocalhost {
-			nbrew.Scheme = "https://"
-		} else {
-			return fmt.Errorf("%s: %s: localhost and non-localhost domains cannot be mixed", filepath.Join(configDir, "domain.txt"), filepath.Join(configDir, "content-domain.txt"))
 		}
 
 		b, err = os.ReadFile(filepath.Join(configDir, "database.json"))
@@ -551,6 +530,7 @@ func main() {
 		// Create a new server (this step will provision the HTTPS
 		// certificates, if it fails an error will be returned).
 		server, err := nbrew.NewServer(&nb8.ServerConfig{
+			Addr:        addr,
 			DNS01Solver: dns01Solver,
 			CertStorage: certStorage,
 		})
@@ -583,16 +563,6 @@ func main() {
 			return err
 		}
 
-		// TODO: check $CONFIG_DIR/certificates for custom certificates, if
-		// present we want to wrap server.TLSConfig.GetCertificate by
-		// intercepting the server name and if it matches any of custom
-		// certificates serve it, else defer to the old
-		// TLSConfig.GetCertificate. Reading from customCertConfig should be
-		// atomic (use atomic.Pointer), so that when we reload custom
-		// certificates it can atomically replace the old config (and
-		// subsequent request all use the new certificates without needing a
-		// server restart).
-
 		// Swallow SIGHUP so that we can keep running even when the (SSH)
 		// session ends (the user should use `notebrew stop` to stop the
 		// process).
@@ -600,11 +570,6 @@ func main() {
 		signal.Notify(ch, syscall.SIGHUP)
 		go func() {
 			for {
-				// TODO: upon receiving SIGHUP, we can reload our list of
-				// custom certificates. If there are any errors, we print it
-				// out and keep using the old customCertConfig pointer.
-				// Otherwise we atomically replace the old customCertConfig
-				// pointer with the new customCertConfig pointer.
 				<-ch
 			}
 		}()
@@ -634,11 +599,6 @@ func main() {
 				}
 			}()
 		} else {
-			// If we're running on localhost, we don't need to enforce strict
-			// timeouts (makes debugging easier).
-			server.ReadTimeout = 0
-			server.WriteTimeout = 0
-			server.IdleTimeout = 0
 			fmt.Printf(startmsg, "http://"+server.Addr+"/admin/")
 			go func() {
 				err := server.Serve(listener)

@@ -39,6 +39,9 @@ type ServerConfig struct {
 }
 
 func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
+	if nbrew.Scheme != "http://" && nbrew.Scheme != "https://" {
+		return nil, fmt.Errorf("Scheme must be http:// or https://")
+	}
 	if nbrew.Domain == "" {
 		return nil, fmt.Errorf("Domain cannot be empty")
 	}
