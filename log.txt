@@ -19,6 +19,7 @@ if name posts/**/*.md => regenerate posts
 else just update the file
 
 TODO: rename all traces of /admin/ to /files/ (woah!)
+TODO: also stop floating all directories to the top in folder.go, we embracing a brave new world.
 
 PageData
 - Dir string
