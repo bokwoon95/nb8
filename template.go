@@ -335,7 +335,7 @@ func (templateErrors TemplateError) Errors() []Error {
 	return errmsgs
 }
 
-func (nbrew *Notebrew) RegenerateSite(ctx context.Context, sitePrefix string) error {
+func (nbrew *Notebrew) Regenerate(ctx context.Context, sitePrefix string, dir string, names ...string) error {
 	return nil
 }
 

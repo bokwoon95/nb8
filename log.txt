@@ -14,20 +14,48 @@ server.go
 notebrew/main.go
 
 POST /regenerate/dir=pages&name=abcd.html
-if file pages/**/*.html
-if file posts/**/*.md
-TODO: OOF big strike first problem is embedding siteURL in posts, it should have been "/".
+if name matches pages/**/*.html => regenerate pages
+if name posts/**/*.md => regenerate posts
+else just update the file
 
 PageData
-- Assets
+- Subpages []struct{ Name string; Title string; /* Obtained by parsing the HTML :/ (this should be cached) */ }
+- Markdown map[string]template.HTML
 
 PostData
-- Name
-- Content
-- Images
+- Name string
+- Content string
 
 PostsData
-- Current
+- PageNumbers []int
+- CurrentPageNumber int
+
+$pag
+
+/{{ join `posts` $post.Category $post.Name }}/
+/{{ join `posts` $post.Category $post.Name $paginator.First }}/
+/{{ join `posts` $post.Category $post.Name $paginator.Prev }}/
+/{{ join `posts` $post.Category $post.Name $paginator.Current }}/
+/{{ join `posts` $post.Category $post.Name $paginator.Next }}/
+/{{ join `posts` $post.Category $post.Name $paginator.Last }}/
+{{- range $num := $pagination.Numbers }}
+{{- end }}
+{{ int $paginator.Last }} is the total number of pages -- 100 pages means the last page number is 100.
+    Too verbose -- what's the cleanest way to check if there is more than one page? {{ if ne $paginator.Last "1" }}
+{{ len ($paginator.Numbers) }} is the number of pages in the current band
+{{ $paginator.HasNext }}
+{{ $paginator.Count }} <!-- very confusing! why not just use $paginator.Last? -->
+{{ $paginator.Total }}
+{{ $paginator := $.Paginator.WithLimit 5 }}
+    Maybe move WithLimit from a template method call to a configuration setting? What benefit do we get making it dynamically variable page-to-page?
+{{ if $paginator.HasFirst }}
+    <!-- if the numbers already cover the first page, disable the first button -->
+{{ end }}
+
+NOTE: we can come up with List datastructues like below but put it off until we really need it. I'd hate people putting so much logic in templates like this, just slows the whole thing down.
+{{ $list := newlist }}
+{{ range $image := $.Images }}{{ if hasPrefix $image.Name "post_" }}{{ $list.push $image.Name }}{{ end }}
+{{ range $item := $list }}{{ $item }}{{ end }}
 
 
 TODO: template.go: determine what the API for regenerating specific pages/posts looks like. This is necessary so that whenever we save a page or post, its output is automatically regenerated.
