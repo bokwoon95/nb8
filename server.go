@@ -534,6 +534,10 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (nbrew *Notebrew) admin(w http.ResponseWriter, r *http.Request, ip string) {
 	urlPath := strings.Trim(strings.TrimPrefix(r.URL.Path, "/admin"), "/")
 	head, tail, _ := strings.Cut(urlPath, "/")
+	// TODO: should we lift "static", "signup", "login", "logout" and
+	// "resetpassword" out to the root path since they don't gel with the name
+	// "files"? It would shorten this block of code, and allow us to inline it
+	// into the main ServeHTTP method.
 	if head == "static" {
 		serveFile(w, r, rootFS, urlPath)
 		return
