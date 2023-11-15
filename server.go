@@ -419,8 +419,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			custom404(w, r, sitePrefix)
 			return
 		}
-		// We allow index.html to be a gzipped (to save space). Peek the first
-		// 512 bytes and check if it is gzipped.
+		// We allow index.html to be a gzipped file (to save space). Peek the
+		// first 512 bytes and check if it is gzipped.
 		reader := readerPool.Get().(*bufio.Reader)
 		reader.Reset(file)
 		defer readerPool.Put(reader)
