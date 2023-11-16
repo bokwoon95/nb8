@@ -22,34 +22,14 @@ type TemplateParser struct {
 	nbrew      *Notebrew
 	sitePrefix string
 	siteURL    string
-	mu         *sync.Mutex // protects cache and errmsgs
+	mu         *sync.Mutex
 	cache      map[string]*template.Template
 	errmsgs    map[string][]string
 	inProgress map[string]chan struct{}
 	funcMap    map[string]any
 }
 
-// createpost
-// updatepost
-// deletepost
-// createpage
-// updatepage
-// regenerateSite
-
 func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) (*TemplateParser, error) {
-	siteName := strings.TrimPrefix(sitePrefix, "@")
-	siteURL := nbrew.Scheme + nbrew.ContentDomain
-	if strings.Contains(siteName, ".") {
-		siteURL = "https://" + siteName
-	} else if siteName != "" {
-		siteURL = nbrew.Scheme + siteName + "." + nbrew.ContentDomain
-	}
-	var shortSiteURL string
-	if strings.HasPrefix(siteURL, "https://") {
-		shortSiteURL = strings.TrimSuffix(strings.TrimPrefix(siteURL, "https://"), "/")
-	} else {
-		shortSiteURL = strings.TrimSuffix(strings.TrimPrefix(siteURL, "http://"), "/")
-	}
 	var categories []string
 	var categoriesErr error
 	var categoriesOnce sync.Once
@@ -57,7 +37,6 @@ func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) 
 		ctx:        ctx,
 		nbrew:      nbrew,
 		sitePrefix: sitePrefix,
-		siteURL:    siteURL,
 		mu:         &sync.Mutex{},
 		cache:      make(map[string]*template.Template),
 		errmsgs:    make(url.Values),
@@ -69,8 +48,6 @@ func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) 
 			"trimPrefix":       strings.TrimPrefix,
 			"trimSuffix":       strings.TrimSuffix,
 			"fileSizeToString": fileSizeToString,
-			"siteURL":          func() string { return siteURL },
-			"shortSiteURL":     func() string { return shortSiteURL },
 			"safeHTML":         func(s string) template.HTML { return template.HTML(s) },
 			"head": func(s string) string {
 				head, _, _ := strings.Cut(s, "/")
