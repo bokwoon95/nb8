@@ -493,7 +493,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// always receives gzipped data, the only difference is whether the
 		// data has been pre-gzipped or not.
 		b, err := reader.Peek(512)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			logger.Error(err.Error())
 			http.Error(w, "404 Not Found", http.StatusNotFound)
 			return
@@ -569,7 +569,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		reader.Reset(file)
 		defer readerPool.Put(reader)
 		b, err := reader.Peek(512)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			logger.Error(err.Error())
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
