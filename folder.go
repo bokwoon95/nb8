@@ -67,10 +67,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		response.Status = Success
 	}
 
-	var folderEntries []FileEntry
-	var fileEntries []FileEntry
 	var authorizedForRootSite bool
-
 	if folderPath == "" {
 		for _, name := range []string{"notes", "pages", "posts", "output/themes", "output"} {
 			fileInfo, err := fs.Stat(nbrew.FS, path.Join(sitePrefix, name))
@@ -86,7 +83,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 					IsDir:   true,
 					ModTime: fileInfo.ModTime(),
 				}
-				folderEntries = append(folderEntries, fileEntry)
+				response.FileEntries = append(response.FileEntries, fileEntry)
 			}
 		}
 		if sitePrefix == "" {
@@ -133,7 +130,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 							return
 						}
 					} else if fileInfo.IsDir() {
-						folderEntries = append(folderEntries, FileEntry{
+						response.FileEntries = append(response.FileEntries, FileEntry{
 							Name:   result.SitePrefix,
 							IsDir:  true,
 							IsSite: true,
@@ -143,16 +140,16 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 				}
 				if !authorizedForRootSite {
 					n := 0
-					for _, fileEntry := range folderEntries {
+					for _, fileEntry := range response.FileEntries {
 						switch fileEntry.Name {
 						case "notes", "pages", "posts", "output/themes", "output":
 							continue
 						default:
-							folderEntries[n] = fileEntry
+							response.FileEntries[n] = fileEntry
 							n++
 						}
 					}
-					folderEntries = folderEntries[:n]
+					response.FileEntries = response.FileEntries[:n]
 				}
 			} else {
 				authorizedForRootSite = true
@@ -170,7 +167,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 					if !strings.Contains(name, ".") && !strings.HasPrefix(name, "@") {
 						continue
 					}
-					folderEntries = append(folderEntries, FileEntry{
+					response.FileEntries = append(response.FileEntries, FileEntry{
 						Name:   name,
 						IsDir:  true,
 						IsSite: true,
@@ -199,7 +196,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 				ModTime: fileInfo.ModTime(),
 			}
 			if fileEntry.IsDir {
-				folderEntries = append(folderEntries, fileEntry)
+				response.FileEntries = append(response.FileEntries, fileEntry)
 				continue
 			}
 			ext := path.Ext(fileEntry.Name)
@@ -211,7 +208,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 			switch head {
 			case "notes", "posts":
 				if ext != ".md" && ext != ".txt" {
-					fileEntries = append(fileEntries, fileEntry)
+					response.FileEntries = append(response.FileEntries, fileEntry)
 					continue
 				}
 				file, err := nbrew.FS.Open(path.Join(sitePrefix, folderPath, fileEntry.Name))
@@ -244,7 +241,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 					}
 					break
 				}
-				fileEntries = append(fileEntries, fileEntry)
+				response.FileEntries = append(response.FileEntries, fileEntry)
 				err = file.Close()
 				if err != nil {
 					getLogger(r.Context()).Error(err.Error(), slog.String("name", fileEntry.Name))
@@ -252,12 +249,11 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 					return
 				}
 			default:
-				fileEntries = append(fileEntries, fileEntry)
+				response.FileEntries = append(response.FileEntries, fileEntry)
 			}
 		}
 	}
 
-	response.FileEntries = append(folderEntries, fileEntries...)
 	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
 	if accept == "application/json" {
 		w.Header().Set("Content-Type", "application/json")
