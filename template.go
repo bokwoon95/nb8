@@ -350,20 +350,44 @@ func (w *ctxWriter) Write(p []byte) (n int, err error) {
 	return w.dest.Write(p)
 }
 
-type Post struct {
-	// URL       string
-	// Category  string
-	// Name      string
-	Title string
-	// Preview   string
-	Content   template.HTML
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
 // TODO: getPosts needs a revamp. It now needs to return a struct with the
 // total number of pages, the current page number plus the slices of (possibly
 // paginated) posts.
 func (nbrew *Notebrew) getPosts(ctx context.Context, sitePrefix, category string) ([]Post, error) {
 	return nil, nil
+}
+
+type Page struct {
+	Name  string
+	Title string
+}
+
+type Post struct {
+	Name      string
+	Title     string
+	Preview   string
+	Content   template.HTML
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type Image struct {
+	Name string
+}
+
+type Pagination struct {
+	Numbers []string
+	First   string
+	Prev    string
+}
+
+type PageData struct {
+	Parent     string
+	Name       string
+	Title      string
+	ChildPages []Page
+	NextPage   Page
+	PrevPage   Page
+	Markdown   map[string]template.HTML
+	Images     []Image
 }

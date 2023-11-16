@@ -13,16 +13,16 @@ file.go
 server.go
 notebrew/main.go
 
-POST /regenerate/dir=pages&name=abcd.html
+POST /regenerate/?parent=pages&name=abcd.html
 if name matches pages/**/*.html => regenerate pages
 if name posts/**/*.md => regenerate posts
 else just update the file
 
 PageData
-- Dir string
+- Parent string
 - Name string
 - Title string
-- Subpages []struct{ Name string; Title string; /* Obtained by parsing the HTML :/ (this should be cached) */ }
+- ChildPages []struct{ Name string; Title string; /* Obtained by parsing the HTML :/ (this should be cached) */ }
 - NextPage struct{ Name string; Title string; }
 - PrevPage struct{ Name string; Title string; }
 - Markdown map[string]template.HTML
