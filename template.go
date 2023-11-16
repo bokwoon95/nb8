@@ -30,9 +30,6 @@ type TemplateParser struct {
 }
 
 func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) (*TemplateParser, error) {
-	var categories []string
-	var categoriesErr error
-	var categoriesOnce sync.Once
 	parser := &TemplateParser{
 		ctx:        ctx,
 		nbrew:      nbrew,
@@ -73,26 +70,6 @@ func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) 
 				}
 				return dict, nil
 			},
-			"getCategories": func() ([]string, error) {
-				categoriesOnce.Do(func() {
-					var dirEntries []fs.DirEntry
-					dirEntries, categoriesErr = nbrew.FS.ReadDir(path.Join(sitePrefix, "posts"))
-					if categoriesErr != nil {
-						return
-					}
-					for _, dirEntry := range dirEntries {
-						if !dirEntry.IsDir() {
-							continue
-						}
-						category := dirEntry.Name()
-						if category != urlSafe(category) {
-							continue
-						}
-						categories = append(categories, category)
-					}
-				})
-				return categories, categoriesErr
-			},
 			"dump": func(a ...any) template.HTML {
 				// TODO: convert each argument into json and print each
 				// argument out in a <pre style="white-space: pre-wrap"></pre>
@@ -111,6 +88,8 @@ func (parser *TemplateParser) Parse(templateName string, templateText string) (*
 	return parser.parse(templateName, templateText, nil)
 }
 
+// TODO: oof we may need to do away with this altogether, and only support
+// regenerating an entire file or directory at any one time.
 func (parser *TemplateParser) parse(templateName, templateText string, callers []string) (*template.Template, error) {
 	primaryTemplate, err := template.New(templateName).Funcs(parser.funcMap).Parse(templateText)
 	if err != nil {
