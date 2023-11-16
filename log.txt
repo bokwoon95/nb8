@@ -18,30 +18,7 @@ if name matches pages/**/*.html => regenerate pages
 if name posts/**/*.md => regenerate posts
 else just update the file
 
-PageData
-- Parent string
-- Name string
-- Title string
-- ChildPages []struct{ Name string; Title string; /* Obtained by parsing the HTML :/ (this should be cached) */ }
-- NextPage struct{ Name string; Title string; }
-- PrevPage struct{ Name string; Title string; }
-- Markdown map[string]template.HTML
-- Images []struct{ Name string }
-
-PostData
-- Category string
-- Name string
-- Title string
-- Preview string
-- Content template.HTML
-- CreatedAt time.Time
-- UpdatedAt time.Time
-- Images []struct{ Name string }
-
-PostsData
-- Category string
-- Pagination struct{ First string; Prev string; Current string; Next string; Last string; Numbers []string; }
-- Posts []struct{ Name string; Title string; Preview string; Content template.HTML; CreatedAt time.Time; UpdatedAt time.Time; }
+It's over bros I think we need to add a new icon to the folder page... a settings icon. For configuring the current page or post category. So in the worst case you might have clipboard, sort, search, settings and plus (5 icons, ugh).
 
 page.json contains all the pagination, rss feed limit settings
 

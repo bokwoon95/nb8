@@ -10,19 +10,17 @@ ul { padding: 0; }
 li { list-style: disc; }
 a, a:visited { text-decoration: none; }
 a:hover, a:focus { text-decoration: underline; }
-.f6 { font-size: .875rem; }
-.mid-gray { color: #555555; }
 </style>
 <title>{{ $.Title }}</title>
 
-<div><a href="/">{{ siteName }}</a> &boxv; <a href="/posts/">posts</a></div>
+<div><a href="/">{{ $.SiteTagline }}</a> &boxv; <a href="/{{ join `posts` $.Category }}/">{{ if $.Catgegory }}{{ $.Category }}{{ else }}posts{{ end }}</a></div>
 
 <hr>
 
-<div class="f6 mid-gray">{{ $.CreatedAt.Format "2006-01-02" }}</div>
+<div style="font-size: .875rem; color: #555555;">{{ $.CreatedAt.Format "2006-01-02" }}</div>
 
 {{ $.Content }}
 
 <hr>
 
-<div class="f6 mid-gray">updated {{ $.UpdatedAt.Format "2006-01-02 15:04:05 UTC" }}</div>
+<div style="font-size: .875rem; color: #555555;">updated {{ $.UpdatedAt.Format "2006-01-02 15:04:05 UTC" }}</div>
