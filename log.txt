@@ -18,16 +18,6 @@ if name matches pages/**/*.html => regenerate pages
 if name posts/**/*.md => regenerate posts
 else just update the file
 
-notebrew-config
-notebrew-files
-notebrew-database.sqlite
-notebrew-database.sqlite-shm
-notebrew-database.sqlite-wal
-notebrew-objects
-TODO: rename all traces of /admin/ to /files/ (woah!)
-TODO: also stop floating all directories to the top in folder.go, we embracing a brave new world.
-TODO: TODO: notebrew.com/files/, notebrew.com/users/, notebrew.com/static/ (seems good!)
-
 PageData
 - Dir string
 - Name string
