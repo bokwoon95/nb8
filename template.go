@@ -53,8 +53,6 @@ func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) 
 	var categories []string
 	var categoriesErr error
 	var categoriesOnce sync.Once
-	var postsMu sync.RWMutex
-	postsCache := make(map[string][]Post)
 	parser := &TemplateParser{
 		ctx:        ctx,
 		nbrew:      nbrew,
@@ -117,22 +115,6 @@ func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) 
 					}
 				})
 				return categories, categoriesErr
-			},
-			"getPosts": func(category string) ([]Post, error) {
-				postsMu.RLock()
-				posts, ok := postsCache[category]
-				postsMu.RUnlock()
-				if !ok {
-					var err error
-					posts, err = nbrew.getPosts(ctx, sitePrefix, category)
-					if err != nil {
-						return nil, err
-					}
-					postsMu.Lock()
-					postsCache[category] = posts
-					postsMu.Unlock()
-				}
-				return posts, nil
 			},
 			"dump": func(a ...any) template.HTML {
 				// TODO: convert each argument into json and print each
@@ -337,26 +319,6 @@ func (nbrew *Notebrew) Regenerate(ctx context.Context, sitePrefix string, dir st
 	return nil
 }
 
-type ctxWriter struct {
-	ctx  context.Context
-	dest io.Writer
-}
-
-func (w *ctxWriter) Write(p []byte) (n int, err error) {
-	err = w.ctx.Err()
-	if err != nil {
-		return 0, err
-	}
-	return w.dest.Write(p)
-}
-
-// TODO: getPosts needs a revamp. It now needs to return a struct with the
-// total number of pages, the current page number plus the slices of (possibly
-// paginated) posts.
-func (nbrew *Notebrew) getPosts(ctx context.Context, sitePrefix, category string) ([]Post, error) {
-	return nil, nil
-}
-
 type Page struct {
 	Name  string
 	Title string
@@ -366,9 +328,7 @@ type Post struct {
 	Name      string
 	Title     string
 	Preview   string
-	Content   template.HTML
 	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 type Image struct {
@@ -379,6 +339,9 @@ type Pagination struct {
 	Numbers []string
 	First   string
 	Prev    string
+	Current string
+	Next    string
+	Last    string
 }
 
 type PageData struct {
@@ -390,4 +353,20 @@ type PageData struct {
 	PrevPage   Page
 	Markdown   map[string]template.HTML
 	Images     []Image
+}
+
+type PostData struct {
+	Category  string
+	Name      string
+	Title     string
+	Content   template.HTML
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Images    []Image
+}
+
+type PostsData struct {
+	Category   string
+	Pagination Pagination
+	Posts      []Post
 }
