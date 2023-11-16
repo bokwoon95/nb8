@@ -18,6 +18,10 @@ if name matches pages/**/*.html => regenerate pages
 if name posts/**/*.md => regenerate posts
 else just update the file
 
+TODO: convert all html pages to use single quotes for attributes
+TODO: convert all html, css and javascript files to use 2-space indents (we need to walk the talk)
+TODO: look through static/index.html, static/post.html, static/posts.html and rewrite them to properly take advantage of the new template data structs you have in place.
+
 It's over bros I think we need to add a new icon to the folder page... a settings icon. For configuring the current page or post category. So in the worst case you might have clipboard, sort, search, settings and plus (5 icons, ugh).
 
 page.json contains all the pagination, rss feed limit settings
