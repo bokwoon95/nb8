@@ -120,7 +120,7 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 			return ""
 		}
 		head, tail, _ := strings.Cut(strings.Trim(uri.Path, "/"), "/")
-		if head != "admin" || tail == "" || tail == "login" {
+		if head != "users" || tail == "" || tail == "login" {
 			return ""
 		}
 		uri = &url.URL{
@@ -305,7 +305,7 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 				if response.Redirect != "" {
 					query = "?redirect=" + url.QueryEscape(response.Redirect)
 				}
-				http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/admin/login/"+query, http.StatusFound)
+				http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/users/login/"+query, http.StatusFound)
 				return
 			}
 			http.SetCookie(w, &http.Cookie{
@@ -321,7 +321,7 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 				http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+response.Redirect, http.StatusFound)
 				return
 			}
-			http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/"+path.Join("admin", response.SitePrefix)+"/", http.StatusFound)
+			http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/"+path.Join("files", response.SitePrefix)+"/", http.StatusFound)
 		}
 
 		var request Request

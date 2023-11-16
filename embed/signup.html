@@ -7,16 +7,16 @@
 <script type="module">{{ baselineJS }}</script>
 {{- if $.RequireCaptcha }}
 <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
-<script type="module" src="/admin/static/signup.js"></script>
+<script type="module" src="/files/static/signup.js"></script>
 {{- end }}
 <title>Signup</title>
 <body class="centered-body">
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
-    <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
+    <a href="/files/" class="ma2">🖋️☕ notebrew</a>
 </nav>
 {{- if eq $.Status.Code "NB-03000" }}
 <div class="mv5 w-80 w-70-m w-60-l center">
-    <div class="f4 tc">You are already logged in, <a href="/admin/">click here.</a></div>
+    <div class="f4 tc">You are already logged in, <a href="/files/">click here.</a></div>
 </div>
 {{- else if eq $.Status.Code "NB-03001" }}
 <div class="mv5 w-80 w-70-m w-60-l center">
@@ -31,11 +31,11 @@
 {{- else }}
 <div class="mv5 w-80 w-70-m w-60-l center">
     <div class="f3 mb4 b">Invalid token</div>
-    <div class="f4"><a href="/admin/signup/">Try again</a></div>
+    <div class="f4"><a href="/users/signup/">Try again</a></div>
 </div>
 {{- end }}
 {{- else }}
-<form method="post" action="/admin/signup/" class="mv5 w-80 w-70-m w-60-l center" data-signup-validation>
+<form method="post" action="/users/signup/" class="mv5 w-80 w-70-m w-60-l center" data-signup-validation>
     <h1 class="f3 mv3 b tc">Sign up</h1>
 
     {{- if eq $.Status.Code "NB-03003" }}
@@ -110,7 +110,7 @@
     <div class="flex items-center justify-center" data-loading-spinner></div>
 
     <div class="mv3">
-        Have an account? <a href="/admin/login/">Log in</a> here.
+        Have an account? <a href="/users/login/">Log in</a> here.
     </div>
 </form>
 {{- end }}

@@ -59,7 +59,7 @@ var (
 
 // static/dynamic private/public config:
 // - static private: database.json, dns.json, s3.json, smtp.json (excluded)
-// - static public: adminfolder.txt domain.txt, contentdomain.txt, multisite.txt
+// - static public: files.txt domain.txt, contentdomain.txt, multisite.txt
 // - dynamic private: captcha.json
 // - dynamic public: allowsignup.txt, 503.html
 
@@ -183,7 +183,7 @@ func main() {
 			switch databaseConfig.Dialect {
 			case "sqlite":
 				if databaseConfig.Filepath == "" {
-					return fmt.Errorf("%s: sqlite: missing filepath field", filepath.Join(configfolder, "database.json"))
+					databaseConfig.Filepath = filepath.Join(dataHome, "notebrew-database.sqlite")
 				}
 				databaseConfig.Filepath, err = filepath.Abs(databaseConfig.Filepath)
 				if err != nil {
@@ -295,21 +295,21 @@ func main() {
 			}
 		}
 
-		b, err = os.ReadFile(filepath.Join(configfolder, "adminfolder.txt"))
+		b, err = os.ReadFile(filepath.Join(configfolder, "files.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configfolder, "adminfolder.txt"), err)
+			return fmt.Errorf("%s: %w", filepath.Join(configfolder, "files.txt"), err)
 		}
-		adminfolder := string(bytes.TrimSpace(b))
-		if adminfolder == "" {
-			adminfolder = filepath.Join(dataHome, "notebrew-admin")
-			err := os.MkdirAll(adminfolder, 0755)
+		filesfolder := string(bytes.TrimSpace(b))
+		if filesfolder == "" {
+			filesfolder = filepath.Join(dataHome, "notebrew-files")
+			err := os.MkdirAll(filesfolder, 0755)
 			if err != nil {
 				return err
 			}
-			nbrew.FS = nb8.NewLocalFS(adminfolder, os.TempDir())
-		} else if adminfolder == "database" {
+			nbrew.FS = nb8.NewLocalFS(filesfolder, os.TempDir())
+		} else if filesfolder == "database" {
 			if nbrew.DB == nil {
-				return fmt.Errorf("%s: cannot use database as filesystem because %s is missing", filepath.Join(configfolder, "adminfolder.txt"), filepath.Join(configfolder, "database.json"))
+				return fmt.Errorf("%s: cannot use database as filesystem because %s is missing", filepath.Join(configfolder, "files.txt"), filepath.Join(configfolder, "database.json"))
 			}
 			b, err = os.ReadFile(filepath.Join(configfolder, "s3.json"))
 			if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -375,12 +375,12 @@ func main() {
 				nbrew.FS = nb8.NewRemoteFS(nbrew.Dialect, nbrew.DB, nbrew.ErrorCode, nb8.NewFileStorage(objectsfolder, os.TempDir()))
 			}
 		} else {
-			adminfolder = filepath.Clean(adminfolder)
-			_, err := os.Stat(adminfolder)
+			filesfolder = filepath.Clean(filesfolder)
+			_, err := os.Stat(filesfolder)
 			if err != nil {
 				return err
 			}
-			nbrew.FS = nb8.NewLocalFS(adminfolder, os.TempDir())
+			nbrew.FS = nb8.NewLocalFS(filesfolder, os.TempDir())
 		}
 		dirs := []string{
 			"notes",
@@ -553,8 +553,8 @@ func main() {
 			const WSAEADDRINUSE = syscall.Errno(10048)
 			if errno == syscall.EADDRINUSE || runtime.GOOS == "windows" && errno == WSAEADDRINUSE {
 				if server.Addr == "localhost" || strings.HasPrefix(server.Addr, "localhost:") {
-					fmt.Println("notebrew is already running on http://" + server.Addr + "/admin/")
-					open("http://" + server.Addr + "/admin/")
+					fmt.Println("notebrew is already running on http://" + server.Addr + "/files/")
+					open("http://" + server.Addr + "/files/")
 					return nil
 				}
 				fmt.Println("notebrew is already running (run `notebrew stop` to stop the process)")
@@ -599,7 +599,7 @@ func main() {
 				}
 			}()
 		} else {
-			fmt.Printf(startmsg, "http://"+server.Addr+"/admin/")
+			fmt.Printf(startmsg, "http://"+server.Addr+"/files/")
 			go func() {
 				err := server.Serve(listener)
 				if !errors.Is(err, http.ErrServerClosed) {
@@ -607,7 +607,7 @@ func main() {
 					close(wait)
 				}
 			}()
-			open("http://" + server.Addr + "/admin/")
+			open("http://" + server.Addr + "/files/")
 		}
 		<-wait
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

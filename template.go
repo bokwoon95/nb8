@@ -38,7 +38,6 @@ type TemplateParser struct {
 
 func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) (*TemplateParser, error) {
 	siteName := strings.TrimPrefix(sitePrefix, "@")
-	adminURL := nbrew.Scheme + nbrew.Domain
 	siteURL := nbrew.Scheme + nbrew.ContentDomain
 	if strings.Contains(siteName, ".") {
 		siteURL = "https://" + siteName
@@ -72,7 +71,6 @@ func NewTemplateParser(ctx context.Context, nbrew *Notebrew, sitePrefix string) 
 			"trimPrefix":       strings.TrimPrefix,
 			"trimSuffix":       strings.TrimSuffix,
 			"fileSizeToString": fileSizeToString,
-			"adminURL":         func() string { return adminURL },
 			"siteURL":          func() string { return siteURL },
 			"shortSiteURL":     func() string { return shortSiteURL },
 			"safeHTML":         func(s string) template.HTML { return template.HTML(s) },

@@ -190,7 +190,7 @@ func notAuthenticated(w http.ResponseWriter, r *http.Request) {
 	err := errorTemplate.Execute(buf, map[string]any{
 		"Title":    `401 unauthorized`,
 		"Headline": "401 unauthorized",
-		"Byline":   fmt.Sprintf(`You are not authenticated, please <a href="/admin/login/%s">log in</a>.`, query),
+		"Byline":   fmt.Sprintf(`You are not authenticated, please <a href="/users/login/%s">log in</a>.`, query),
 	})
 	if err != nil {
 		getLogger(r.Context()).Error(err.Error())
@@ -224,7 +224,7 @@ func notAuthorized(w http.ResponseWriter, r *http.Request) {
 		"Referer":  r.Referer(),
 		"Title":    "403 forbidden",
 		"Headline": "403 forbidden",
-		"Byline":   "You do not have permission to view this page (try using a different account).",
+		"Byline":   "You do not have permission to view this page (try logging in to a different account).",
 	})
 	if err != nil {
 		getLogger(r.Context()).Error(err.Error())

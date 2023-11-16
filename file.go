@@ -318,7 +318,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				internalServerError(w, r, err)
 				return
 			}
-			http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/"+path.Join("admin", sitePrefix, filePath), http.StatusFound)
+			http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/"+path.Join("files", sitePrefix, filePath), http.StatusFound)
 		}
 
 		if !isEditableText {

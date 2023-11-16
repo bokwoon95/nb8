@@ -82,7 +82,7 @@ func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
 	if config.DNS01Solver != nil {
 		domains = append(domains, "*."+nbrew.ContentDomain)
 	}
-	// staticCertConfig manages the certificate for the admin domain, content domain
+	// staticCertConfig manages the certificate for the main domain, content domain
 	// and wildcard subdomain.
 	staticCertConfig := certmagic.NewDefault()
 	staticCertConfig.Storage = config.CertStorage
@@ -202,7 +202,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Add request method and url to the logger.
+	// Add request method, url and ip to the logger.
 	logger := nbrew.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -255,18 +255,167 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// If host is the main domain and the first segment is "admin", call the
-	// admin handler.
 	urlPath := strings.Trim(r.URL.Path, "/")
 	ext := path.Ext(urlPath)
 	head, tail, _ := strings.Cut(urlPath, "/")
-	if host == nbrew.Domain && head == "admin" {
-		nbrew.admin(w, r, ip)
+
+	// Handle the /users/* route on the main domain.
+	if host == nbrew.Domain && head == "users" {
+		switch tail {
+		case "signup":
+			nbrew.signup(w, r, ip)
+		case "login":
+			nbrew.login(w, r, ip)
+		case "logout":
+			nbrew.logout(w, r, ip)
+		case "resetpassword":
+		default:
+			notFound(w, r)
+		}
 		return
 	}
 
-	// If we reach here, either the host is a subdomain of the content domain
-	// or it is a custom domain. Get the sitePrefix accordingly.
+	// Handle the /files/* route on the main domain.
+	if host == nbrew.Domain && head == "files" {
+		urlPath := tail
+		head, tail, _ := strings.Cut(urlPath, "/")
+		if head == "static" {
+			serveFile(w, r, rootFS, urlPath)
+			return
+		}
+
+		// Figure out the sitePrefix of the site we are serving.
+		var sitePrefix string
+		if strings.HasPrefix(head, "@") || strings.Contains(head, ".") {
+			sitePrefix, urlPath = head, tail
+			head, tail, _ = strings.Cut(urlPath, "/")
+		}
+
+		// If the database is present, check if the user is authorized to
+		// access the files for this site.
+		var username string
+		if nbrew.DB != nil {
+			authenticationTokenHash := getAuthenticationTokenHash(r)
+			if authenticationTokenHash == nil {
+				if head == "" {
+					http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/users/login/?401", http.StatusFound)
+					return
+				}
+				notAuthenticated(w, r)
+				return
+			}
+			result, err := sq.FetchOneContext(r.Context(), nbrew.DB, sq.CustomQuery{
+				Dialect: nbrew.Dialect,
+				Format: "SELECT {*}" +
+					" FROM authentication" +
+					" JOIN users ON users.user_id = authentication.user_id" +
+					" LEFT JOIN (" +
+					"SELECT site_user.user_id" +
+					" FROM site_user" +
+					" JOIN site ON site.site_id = site_user.site_id" +
+					" WHERE site.site_name = {siteName}" +
+					") AS authorized_users ON authorized_users.user_id = users.user_id" +
+					" WHERE authentication.authentication_token_hash = {authenticationTokenHash}",
+				Values: []any{
+					sq.StringParam("siteName", strings.TrimPrefix(sitePrefix, "@")),
+					sq.BytesParam("authenticationTokenHash", authenticationTokenHash),
+				},
+			}, func(row *sq.Row) (result struct {
+				Username     string
+				IsAuthorized bool
+			}) {
+				result.Username = row.String("users.username")
+				result.IsAuthorized = row.Bool("authorized_users.user_id IS NOT NULL")
+				return result
+			})
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					http.SetCookie(w, &http.Cookie{
+						Path:   "/",
+						Name:   "authentication",
+						Value:  "0",
+						MaxAge: -1,
+					})
+					if head == "" {
+						http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/users/login/?401", http.StatusFound)
+						return
+					}
+					notAuthenticated(w, r)
+					return
+				}
+				logger.Error(err.Error())
+				internalServerError(w, r, err)
+				return
+			}
+			username = result.Username
+			logger := logger.With(slog.String("username", username))
+			r = r.WithContext(context.WithValue(r.Context(), loggerKey, logger))
+			if !result.IsAuthorized {
+				if sitePrefix != "" {
+					notAuthorized(w, r)
+					return
+				}
+				// If the current sitePrefix is empty, the user needs access to
+				// the following URL paths unconditionally:
+				// - "" (needed to switch between their sites)
+				// - createsite (needed to create a new site)
+				// - deletesite (needed to delete their sites)
+				// If not any of the three, then notAuthorized.
+				if urlPath != "" && urlPath != "createsite" && urlPath != "deletesite" {
+					notAuthorized(w, r)
+					return
+				}
+			}
+		}
+
+		switch head {
+		case "", "notes", "pages", "posts", "output":
+			fileInfo, err := fs.Stat(nbrew.FS, path.Join(".", sitePrefix, urlPath))
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					notFound(w, r)
+					return
+				}
+				logger.Error(err.Error())
+				internalServerError(w, r, err)
+				return
+			}
+			if fileInfo.IsDir() {
+				nbrew.folder(w, r, username, sitePrefix, urlPath, fileInfo)
+				return
+			}
+			nbrew.file(w, r, username, sitePrefix, urlPath, fileInfo)
+			return
+		default:
+			switch urlPath {
+			case "createsite":
+			case "deletesite":
+			case "delete":
+			case "createnote":
+			case "createpost":
+			case "createcategory":
+			case "createfolder":
+			case "createpage":
+			case "createfile":
+			case "cut":
+			case "copy":
+			case "paste":
+			case "rename":
+			default:
+				notFound(w, r)
+			}
+			return
+		}
+	}
+
+	// If we reach here, we are serving pregenerated site content. Only GET
+	// requests are allowed.
+	if r.Method != "GET" {
+		http.Error(w, "405 Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Figure out the sitePrefix of the site we have to serve.
 	var sitePrefix string
 	if certmagic.MatchWildcard(host, "*."+nbrew.ContentDomain) {
 		subdomain := strings.TrimSuffix(host, "."+nbrew.ContentDomain)
@@ -304,7 +453,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sitePrefix = host
 	}
 
-	// custom404 is a 404 handler that will use the user's custom 404 page if
+	// custom404 is a 404 handler that will use the site's custom 404 page if
 	// present, otherwise it will fall back to http.Error().
 	//
 	// We use http.Error() instead of notFound() because notFound() depends on
@@ -383,11 +532,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.ServeContent(w, r, "", fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
 	}
 
-	if r.Method != "GET" {
-		http.Error(w, "405 Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var fileType FileType
 	var isGzipped bool
 	var modTime time.Time
@@ -436,7 +580,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fileSrc = reader
 	} else {
 		// Else if the URL has an extension, serve the file based on the
-		// file type.
+		// file extension.
 		fileType, ok := fileTypes[ext]
 		if !ok {
 			custom404(w, r, sitePrefix)
@@ -529,145 +673,4 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", fileType.ContentType)
 	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
 	http.ServeContent(w, r, "", modTime, bytes.NewReader(buf.Bytes()))
-}
-
-func (nbrew *Notebrew) admin(w http.ResponseWriter, r *http.Request, ip string) {
-	urlPath := strings.Trim(strings.TrimPrefix(r.URL.Path, "/admin"), "/")
-	head, tail, _ := strings.Cut(urlPath, "/")
-	// TODO: should we lift "static", "signup", "login", "logout" and
-	// "resetpassword" out to the root path since they don't gel with the name
-	// "files"? It would shorten this block of code, and allow us to inline it
-	// into the main ServeHTTP method.
-	if head == "static" {
-		serveFile(w, r, rootFS, urlPath)
-		return
-	}
-	if head == "signup" || head == "login" || head == "logout" || head == "resetpassword" {
-		if tail != "" {
-			notFound(w, r)
-			return
-		}
-		switch head {
-		case "signup":
-			nbrew.signup(w, r, ip)
-		case "login":
-			nbrew.login(w, r, ip)
-		case "logout":
-			nbrew.logout(w, r, ip)
-		}
-		return
-	}
-
-	var sitePrefix string
-	if strings.HasPrefix(head, "@") || strings.Contains(head, ".") {
-		sitePrefix, urlPath = head, tail
-		head, tail, _ = strings.Cut(urlPath, "/")
-	}
-
-	var username string
-	if nbrew.DB != nil {
-		authenticationTokenHash := getAuthenticationTokenHash(r)
-		if authenticationTokenHash == nil {
-			if head == "" {
-				http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/admin/login/?401", http.StatusFound)
-				return
-			}
-			notAuthenticated(w, r)
-			return
-		}
-		result, err := sq.FetchOneContext(r.Context(), nbrew.DB, sq.CustomQuery{
-			Dialect: nbrew.Dialect,
-			Format: "SELECT {*}" +
-				" FROM authentication" +
-				" JOIN users ON users.user_id = authentication.user_id" +
-				" LEFT JOIN (" +
-				"SELECT site_user.user_id" +
-				" FROM site_user" +
-				" JOIN site ON site.site_id = site_user.site_id" +
-				" WHERE site.site_name = {siteName}" +
-				") AS authorized_users ON authorized_users.user_id = users.user_id" +
-				" WHERE authentication.authentication_token_hash = {authenticationTokenHash}" +
-				" LIMIT 1",
-			Values: []any{
-				sq.StringParam("siteName", strings.TrimPrefix(sitePrefix, "@")),
-				sq.BytesParam("authenticationTokenHash", authenticationTokenHash),
-			},
-		}, func(row *sq.Row) (result struct {
-			Username     string
-			IsAuthorized bool
-		}) {
-			result.Username = row.String("users.username")
-			result.IsAuthorized = row.Bool("authorized_users.user_id IS NOT NULL")
-			return result
-		})
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				http.SetCookie(w, &http.Cookie{
-					Path:   "/",
-					Name:   "authentication",
-					Value:  "0",
-					MaxAge: -1,
-				})
-				if head == "" {
-					http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/admin/login/?401", http.StatusFound)
-					return
-				}
-				notAuthenticated(w, r)
-				return
-			}
-			getLogger(r.Context()).Error(err.Error())
-			internalServerError(w, r, err)
-			return
-		}
-		username = result.Username
-		logger := getLogger(r.Context()).With(slog.String("username", username))
-		r = r.WithContext(context.WithValue(r.Context(), loggerKey, logger))
-		if !result.IsAuthorized {
-			if (sitePrefix != "" || head != "") && head != "createsite" && head != "deletesite" {
-				notAuthorized(w, r)
-				return
-			}
-		}
-	}
-
-	if head == "" || head == "notes" || head == "output" || head == "pages" || head == "posts" {
-		fileInfo, err := fs.Stat(nbrew.FS, path.Join(".", sitePrefix, urlPath))
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				notFound(w, r)
-				return
-			}
-			getLogger(r.Context()).Error(err.Error())
-			internalServerError(w, r, err)
-			return
-		}
-		if fileInfo.IsDir() {
-			nbrew.folder(w, r, username, sitePrefix, urlPath, fileInfo)
-			return
-		}
-		nbrew.file(w, r, username, sitePrefix, urlPath, fileInfo)
-		return
-	}
-
-	if tail != "" {
-		notFound(w, r)
-		return
-	}
-	switch head {
-	case "createsite":
-	case "deletesite":
-	case "delete":
-	case "createnote":
-	case "createpost":
-	case "createcategory":
-	case "createfolder":
-	case "createpage":
-	case "createfile":
-	case "cut":
-	case "copy":
-	case "paste":
-	case "rename":
-	default:
-		notFound(w, r)
-	}
 }

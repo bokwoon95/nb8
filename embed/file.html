@@ -6,18 +6,18 @@
 <style>{{ stylesCSS }}</style>
 <script type="module">{{ baselineJS }}</script>
 {{- if le $.Size 50000 }}
-<script type="module" src="/admin/static/codemirror.js"></script>
+<script type="module" src="/files/static/codemirror.js"></script>
 {{- end }}
 <title>{{ base $.Path }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}</title>
 <body class="centered-body">
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
-    <a href="/admin/" class="ma2 white">🖋️☕ notebrew</a>
+    <a href="/files/" class="ma2 white">🖋️☕ notebrew</a>
     &bull;
     <a href="{{ longURL }}" class="ma2 white">{{ shortURL }}</a>
     <span class="flex-grow-1"></span>
     {{- if hasDatabase }}
     <a href="" class="ma2">{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
-    <a href="/admin/logout/" class="ma2">logout</a>
+    <a href="/users/logout/" class="ma2">logout</a>
     {{- end }}
 </nav>
 <div class="mv2">
@@ -25,44 +25,44 @@
     <a href="{{ referer }}" data-go-back>&larr; back</a>
     <span>&boxv;</span>
     {{- end }}
-    <a href="/{{ join `admin` $.SitePrefix }}/">admin</a>
+    <a href="/{{ join `files` $.SitePrefix }}/">files</a>
     {{- if eq (head $.Path) "notes" }}
     <span>&boxv;</span>
-    <a href="/{{ join `admin` $.SitePrefix `notes` }}/">notes</a>
+    <a href="/{{ join `files` $.SitePrefix `notes` }}/">notes</a>
         {{- if ne (dir $.Path) "notes" }}
     <span>&boxv;</span>
-    <a href="/{{ join `admin` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
+    <a href="/{{ join `files` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
         {{- end }}
     {{- else if eq (head $.Path) "pages" }}
     <span>&boxv;</span>
-    <a href="/{{ join `admin` $.SitePrefix `pages` }}/">pages</a>
+    <a href="/{{ join `files` $.SitePrefix `pages` }}/">pages</a>
         {{- if ne (dir $.Path) "pages" }}
         <span>&boxv;</span>
-        <a href="/{{ join `admin` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
+        <a href="/{{ join `files` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
         {{- end }}
     <span>&boxv;</span>
     view: <a href="{{ pageURL }}">page</a>
     {{- else if eq (head $.Path) "posts" }}
     <span>&boxv;</span>
-    <a href="/{{ join `admin` $.SitePrefix `posts` }}/">posts</a>
+    <a href="/{{ join `files` $.SitePrefix `posts` }}/">posts</a>
         {{- if ne (dir $.Path) "posts" }}
         <span>&boxv;</span>
-        <a href="/{{ join `admin` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
+        <a href="/{{ join `files` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
         {{- end }}
     <span>&boxv;</span>
     view: <a href="{{ postURL }}">post</a>
     {{- else if eq (head $.Path) "output" }}
         {{- if pagePath }}
         <span>&boxv;</span>
-        parent: <a href="/{{ join `admin` $.SitePrefix pagePath }}/">{{ base pagePath }}</a>
+        parent: <a href="/{{ join `files` $.SitePrefix pagePath }}/">{{ base pagePath }}</a>
         {{- else }}
             {{- if eq (head (tail $.Path)) "themes" }}
             <span>&boxv;</span>
-            <a href="/{{ join `admin` $.SitePrefix `output/themes` }}/">themes</a>
+            <a href="/{{ join `files` $.SitePrefix `output/themes` }}/">themes</a>
             {{- end }}
             {{- if ne (dir $.Path) "output/themes" }}
             <span>&boxv;</span>
-            <a href="/{{ join `admin` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
+            <a href="/{{ join `files` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
             {{- end }}
         {{- end }}
     {{- end }}
@@ -94,7 +94,7 @@
         {{- range $i, $assetEntry := $.AssetEntries }}
         <li class="h-100">
             {{- if eq (head $assetEntry.ContentType) "image" }}
-            <img src="/{{ join `admin` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="w-100" loading="lazy">
+            <img src="/{{ join `files` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="w-100" loading="lazy">
             {{- else }}
             <div class="flex justify-center items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
@@ -106,9 +106,9 @@
                 <span class="b">{{ $assetEntry.Name }}</span>
                 <span class="ml1 f6 mid-gray nowrap">{{ fileSizeToString $assetEntry.Size }}</span>
                 {{- if eq (ext $assetEntry.Name) ".css" ".js" }}
-                <a href="/{{ join `admin` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="ml2">edit</a>
+                <a href="/{{ join `files` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="ml2">edit</a>
                 {{- else }}
-                <a href="/{{ join `admin` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="ml2">view</a>
+                <a href="/{{ join `files` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="ml2">view</a>
                 {{- end }}
                 <a href="" class="ml2">rename</a>
                 <a href="" class="dark-red ml2">delete</a>

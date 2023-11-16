@@ -4,16 +4,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
 <style>{{ stylesCSS }}</style>
-<script type="module" src="/admin/static/login.js"></script>
+<script type="module" src="/files/static/login.js"></script>
 {{- if $.RequireCaptcha }}
 <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
 {{- end }}
 <title>Login</title>
 <body class="centered-body">
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
-    <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
+    <a href="/files/" class="ma2">🖋️☕ notebrew</a>
 </nav>
-<form method="post" action="/admin/login/" class="mv5 w-80 w-70-m w-60-l center" data-login-validation>
+<form method="post" action="/users/login/" class="mv5 w-80 w-70-m w-60-l center" data-login-validation>
     <h1 class="f3 mv3 b tc">Login</h1>
 
     {{- if eq $.Status.Code "NB-00001" }}
@@ -26,7 +26,7 @@
     </div>
     {{- else if eq $.Status.Code "NB-03000" }}
     <div role="alert" class="w-100 br2 ph3 pv2 ba alert">
-        <div>You are already logged in, <a href="/{{ join `admin` $.SitePrefix }}/">click here to go to your dashboard</a>.</div>
+        <div>You are already logged in, <a href="/{{ join `files` $.SitePrefix }}/">click here to go to your dashboard</a>.</div>
     </div>
     {{- else if eq $.Status.Code "NB-03003" }}
     <div role="alert" class="w-100 br2 ph3 pv2 ba alert-danger">
@@ -68,7 +68,7 @@
             <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
             {{- end }}
         </ul>
-        <div><a href="/admin/resetpassword/" class="f6">forgot password?</a></div>
+        <div><a href="/users/resetpassword/" class="f6">forgot password?</a></div>
     </div>
 
     {{- if $.Redirect }}
@@ -86,7 +86,7 @@
 
     {{- if signupsAreOpen }}
     <div class="mv3">
-        No account? <a href="/admin/signup/">Sign up</a> here.
+        No account? <a href="/users/signup/">Sign up</a> here.
     </div>
     {{- end }}
 </form>

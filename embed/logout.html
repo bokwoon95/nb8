@@ -8,9 +8,9 @@
 <title>logout</title>
 <body class="centered-body">
 <nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
-    <a href="/admin/" class="ma2">🖋️☕ notebrew</a>
+    <a href="/files/" class="ma2">🖋️☕ notebrew</a>
 </nav>
-<form method="post" action="/admin/logout/" class="mv5 w-70 w-60-m w-50-l center">
+<form method="post" action="/users/logout/" class="mv5 w-70 w-60-m w-50-l center">
     {{- if referer }}
     <div><a href="{{ referer }}" data-go-back>&larr; back</a></div>
     {{- end }}
