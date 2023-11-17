@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang='{{ $.Site.Lang }}'>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<link rel='icon' href='{{ $.Site.Favicon }}'>
+<style>
+html { max-width: 70ch; padding: 3em 1em; margin: auto; line-height: 1.75; font-size: 1.25em; background-color: #fafafa; }
+p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
+</style>
+<title>{{ if $.Category }}{{ $.Category }}{{ else }}posts{{ end }}</title>
+<div><a href='/'>{{ $.Site.Title }}</a> &boxv; <a href='/{{ join 'posts' $.Category }}/'>{{ if $.Category }}{{ $.Category }}{{ else }}posts{{ end }}</a></div>
+<hr>
+<h1>{{ if $.Category }}{{ $.Category }}{{ else }}posts{{ end }}</h1>
+<ul>
+  {{- range $post := $.Posts }}
+  <li style='margin: 1rem 0;'>
+    <div>
+      <a href='{{ $post.Name }}/' style='font-weight: bold;'>{{ $post.Title }}</a>
+      <span style='margin-left: 0.5rem; font-size: 0.875rem; color: #555555;'>{{ $post.CreatedAt.Format '2006-01-02' }}</span>
+    </div>
+    <div title='{{ $post.Preview }}' style='margin: 0.25rem 0 0.25rem 0; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
+      {{ $post.Preview }}
+    </div>
+  </li>
+  {{- else }}
+  <p>No posts</p>
+  {{- end }}
+</ul>

@@ -276,9 +276,9 @@ func (nbrew *Notebrew) Regenerate(ctx context.Context, sitePrefix string, dir st
 }
 
 type Site struct {
-	Title string
-	Emoji string
-	Lang  string
+	Title   string
+	Favicon string
+	Lang    string
 }
 
 type Page struct {

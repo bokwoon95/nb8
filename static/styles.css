@@ -43,51 +43,51 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 /* margin all */
 .ma0 { margin: 0; }
-.ma1 { margin: .25rem; }
-.ma2 { margin: .5rem; }
+.ma1 { margin: 0.25rem; }
+.ma2 { margin: 0.5rem; }
 
 /* margin vertical */
-.mv1 { margin-top: .25rem; margin-bottom: .25rem; }
-.mv2 { margin-top: .5rem; margin-bottom: .5rem; }
+.mv1 { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+.mv2 { margin-top: 0.5rem; margin-bottom: 0.5rem; }
 .mv3 { margin-top: 1rem; margin-bottom: 1rem; }
 .mv4 { margin-top: 2rem; margin-bottom: 2rem; }
 .mv5 { margin-top: 4rem; margin-bottom: 4rem; }
 
 /* margin horizontal */
-.mh1 { margin-left: .25rem; margin-right: .25rem; }
-.mh2 { margin-left: .5rem; margin-right: .5rem; }
+.mh1 { margin-left: 0.25rem; margin-right: 0.25rem; }
+.mh2 { margin-left: 0.5rem; margin-right: 0.5rem; }
 
 /* margin top */
-.mt2 { margin-top: .5rem; }
+.mt2 { margin-top: 0.5rem; }
 
 /* margin bottom */
 .mb4 { margin-bottom: 2rem; }
 
 /* margin left */
-.ml1 { margin-left: .25rem; }
-.ml2 { margin-left: .5rem; }
+.ml1 { margin-left: 0.25rem; }
+.ml2 { margin-left: 0.5rem; }
 
 /* margin right */
-.mr1 { margin-right: .25rem; }
-.mr2 { margin-right: .5rem; }
+.mr1 { margin-right: 0.25rem; }
+.mr2 { margin-right: 0.5rem; }
 
 /* padding all */
-.pa2 { padding: .5rem; }
+.pa2 { padding: 0.5rem; }
 @media screen and (min-width: 30em) and (max-width: 60em) {
     .pa3-m { padding: 1rem; }
 }
 
 /* padding vertical */
-.pv1 { padding-top: .25rem; padding-bottom: .25rem; }
-.pv2 { padding-top: .5rem; padding-bottom: .5rem; }
+.pv1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+.pv2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 
 /* padding horizontal */
-.ph1 { padding-left: .25rem; padding-right: .25rem; }
-.ph2 { padding-left: .5rem; padding-right: .5rem; }
+.ph1 { padding-left: 0.25rem; padding-right: 0.25rem; }
+.ph2 { padding-left: 0.5rem; padding-right: 0.5rem; }
 .ph3 { padding-left: 1rem; padding-right: 1rem; }
 
 /* padding bottom */
-.pb2 { padding-bottom: .5rem; }
+.pb2 { padding-bottom: 0.5rem; }
 
 /* flexbox */
 .flex { display: flex; }
@@ -143,8 +143,8 @@ details[open] summary.transparent-button { background-color: white; }
 .bn { border-style: none; border-width: 0; }
 
 /* border radius */
-.br2 { border-radius: .25rem; }
-.br3 { border-radius: .5rem; }
+.br2 { border-radius: 0.25rem; }
+.br3 { border-radius: 0.5rem; }
 
 /* color */
 .invalid-red { color: #dc3545; }

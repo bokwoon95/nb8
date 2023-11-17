@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang='{{ $.Site.Lang }}'>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<link rel='icon' href='{{ $.Site.Favicon }}'>
+<style>
+html { max-width: 70ch; padding: 3em 1em; margin: auto; line-height: 1.75; font-size: 1.25em; background-color: #fafafa; }
+p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
+</style>
+<title>{{ $.Title }}</title>
+<div><a href='/'>{{ $.Site.Title }}</a> &boxv; <a href='/{{ join "posts" $.Category }}/'>{{ if $.Category }}{{ $.Category }}{{ else }}posts{{ end }}</a></div>
+<hr>
+<div style='font-size: .875rem; color: #555555;'>{{ $.CreatedAt.Format '2006-01-02' }}</div>
+{{ $.Content }}
+<hr>
+<div style='font-size: .875rem; color: #555555;'>updated {{ $.UpdatedAt.Format '2006-01-02 15:04:05 UTC' }}</div>
