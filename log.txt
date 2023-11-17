@@ -23,6 +23,7 @@ TODO: convert all html, css and javascript files to use 2-space indents (we need
 TODO: look through static/index.html, static/post.html, static/posts.html and rewrite them to properly take advantage of the new template data structs you have in place.
 
 It's over bros I think we need to add a new icon to the folder page... a settings icon. For configuring the current page or post category. So in the worst case you might have clipboard, sort, search, settings and plus (5 icons, ugh).
+ooor... we could add a new "alert" bar just to indicate that the clipboard is currently active, that way its no longer an icon and is very prominent and people are incentivised to make it go away as soon as possible (as a bonus, we no longer have to have the transparent-button class).
 
 page.json contains all the pagination, rss feed limit settings
 
