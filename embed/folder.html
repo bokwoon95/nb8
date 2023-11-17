@@ -16,7 +16,7 @@
 <nav class='mv2 bg-dark-cyan white flex flex-wrap items-center'>
   <a href='/files/' class='ma2 white'>🖋️☕ notebrew</a>
   &bull;
-  <a href='{{ longURL }}' class='ma2 white'>{{ shortURL }}</a>
+  <a href='/' class='ma2 white'>{{ if contains $.SitePrefix "." }}{{ $.SitePrefix }}{{ else if $.SitePrefix }}{{ trimPrefix $.SitePrefix "@" }}.{{ $.ContentDomain }}{{ else }}{{ $.ContentDomain }}{{ end }}</a>
   <span class='flex-grow-1'></span>
   {{- if hasDatabase }}
   <a href='' class='ma2'>{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
@@ -161,7 +161,7 @@
           </summary>
           <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem;'>
             <div class='ma2'>
-              Your pages can be viewed at <a href='{{ longURL }}'>{{ shortURL }}</a>.
+              Your pages can be viewed at <a href='/'>{{- if contains $.SitePrefix "." }}{{- $.SitePrefix }}{{- else if $.SitePrefix }}{{- trimPrefix $.SitePrefix "@" }}.{{ $.ContentDomain }}{{- else }}{{- $.ContentDomain }}{{- end }}</a>.
               <br><br>
               Pages may invoke other HTML templates defined in the <a href='output/themes/'>themes</a> folder.
               <br><br>
@@ -184,7 +184,7 @@
           </summary>
           <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem;'>
             <div class='ma2'>
-              Your posts can be viewed at <a href='{{ longURL }}/posts/'>{{ shortURL }}/posts</a>.
+              Your posts can be viewed at <a href='/posts/'>{{- if contains $.SitePrefix "." }}{{- $.SitePrefix }}{{- else if $.SitePrefix }}{{- trimPrefix $.SitePrefix "@" }}.{{ $.ContentDomain }}{{- else }}{{- $.ContentDomain }}{{- end }}/posts</a>.
             </div>
             <hr>
             <div class='tr ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Regenerate</button></div>
