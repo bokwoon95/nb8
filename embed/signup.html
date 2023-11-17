@@ -1,116 +1,116 @@
 <!DOCTYPE html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
+<html lang='en'>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<link rel='icon' href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>'>
 <style>{{ stylesCSS }}</style>
-<script type="module">{{ baselineJS }}</script>
+<script type='module'>{{ baselineJS }}</script>
 {{- if $.RequireCaptcha }}
-<script src="https://js.hcaptcha.com/1/api.js" async defer></script>
-<script type="module" src="/files/static/signup.js"></script>
+<script src='https://js.hcaptcha.com/1/api.js' async defer></script>
+<script type='module' src='/files/static/signup.js'></script>
 {{- end }}
 <title>Signup</title>
-<body class="centered-body">
-<nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
-    <a href="/files/" class="ma2">🖋️☕ notebrew</a>
+<body class='centered-body'>
+<nav class='mv2 bg-dark-cyan white flex flex-wrap items-center'>
+  <a href='/files/' class='ma2'>🖋️☕ notebrew</a>
 </nav>
 {{- if eq $.Status.Code "NB-03000" }}
-<div class="mv5 w-80 w-70-m w-60-l center">
-    <div class="f4 tc">You are already logged in, <a href="/files/">click here.</a></div>
+<div class='mv5 w-80 w-70-m w-60-l center'>
+  <div class='f4 tc'>You are already logged in, <a href='/files/'>click here.</a></div>
 </div>
 {{- else if eq $.Status.Code "NB-03001" }}
-<div class="mv5 w-80 w-70-m w-60-l center">
-    <div class="f3 mb4 b tc">Signups are currently invite-only</div>
+<div class='mv5 w-80 w-70-m w-60-l center'>
+  <div class='f3 mb4 b tc'>Signups are currently invite-only</div>
 </div>
 {{- else if eq $.Status.Code "NB-03002" }}
-{{- if isInviteLink }}
-<div class="mv5 w-80 w-70-m w-60-l center">
-    <div class="f3 mb4 b">Invalid invite link</div>
-    <div class="f4">Please check it is entered correctly, otherwise contact the site administrator.</div>
-</div>
+  {{- if isInviteLink }}
+  <div class='mv5 w-80 w-70-m w-60-l center'>
+    <div class='f3 mb4 b'>Invalid invite link</div>
+    <div class='f4'>Please check it is entered correctly, otherwise contact the site administrator.</div>
+  </div>
+  {{- else }}
+  <div class='mv5 w-80 w-70-m w-60-l center'>
+    <div class='f3 mb4 b'>Invalid token</div>
+    <div class='f4'><a href='/users/signup/'>Try again</a></div>
+  </div>
+  {{- end }}
 {{- else }}
-<div class="mv5 w-80 w-70-m w-60-l center">
-    <div class="f3 mb4 b">Invalid token</div>
-    <div class="f4"><a href="/users/signup/">Try again</a></div>
-</div>
-{{- end }}
-{{- else }}
-<form method="post" action="/users/signup/" class="mv5 w-80 w-70-m w-60-l center" data-signup-validation>
-    <h1 class="f3 mv3 b tc">Sign up</h1>
+<form method='post' action='/users/signup/' class='mv5 w-80 w-70-m w-60-l center' data-signup-validation>
+  <h1 class='f3 mv3 b tc'>Sign up</h1>
 
-    {{- if eq $.Status.Code "NB-03003" }}
-    <div role="alert" class="alert-danger mv3 pa2 br2 flex items-center">
-        <div>Please retry with captcha.</div>
-        <div class="flex-grow-1"></div>
-        <button class="f3 bg-transparent bn color-success o-70 hover-black" data-dismiss-alert>&times;</button>
-    </div>
-    {{- else if eq $.Status.Code "NB-03004" }}
-    <div role="alert" class="alert-danger mv3 pa2 br2 flex items-center">
-        <div>Captcha challenge failed.</div>
-        <div class="flex-grow-1"></div>
-        <button class="f3 bg-transparent bn color-success o-70 hover-black" data-dismiss-alert>&times;</button>
-    </div>
+  {{- if eq $.Status.Code "NB-03003" }}
+  <div role='alert' class='alert-danger mv3 pa2 br2 flex items-center'>
+      <div>Please retry with captcha.</div>
+      <div class='flex-grow-1'></div>
+      <button class='f3 bg-transparent bn color-success o-70 hover-black' data-dismiss-alert>&times;</button>
+  </div>
+  {{- else if eq $.Status.Code "NB-03004" }}
+  <div role='alert' class='alert-danger mv3 pa2 br2 flex items-center'>
+      <div>Captcha challenge failed.</div>
+      <div class='flex-grow-1'></div>
+      <button class='f3 bg-transparent bn color-success o-70 hover-black' data-dismiss-alert>&times;</button>
+  </div>
+  {{- end }}
+
+  <div class='mv3'>
+    <div><label for='username' class='b'>Username:</label></div>
+    <input id='username' type='text' name='username' value='{{ $.Username }}' class='w-100 pv1 ph2 br2 ba w-100{{ if index $.Errors "username" }} b--invalid-red{{ end }}' autocomplete='on' required>
+    <ul data-validation-errors='username'>
+      {{- range $i, $error := index $.Errors "username" }}
+      <li class='f6 invalid-red list-style-disc'>{{ $error.Message }}</li>
+      {{- end }}
+    </ul>
+  </div>
+
+  <div class='mv3'>
+    <div><label for='email' class='b'>Email:</label></div>
+    <input id='email' type='email' name='email' value='{{ $.Email }}' class='w-100 pv1 ph2 br2 ba w-100{{ if index $.Errors "email" }} b--invalid-red{{ end }}' autocomplete='on' required>
+    <ul data-validation-errors='email'>
+      {{- range $i, $error := index $.Errors "email" }}
+      <li class='f6 invalid-red list-style-disc'>{{ $error.Message }}</li>
+      {{- end }}
+    </ul>
+  </div>
+
+  <div class='mv3'>
+    <div><label for='password' class='b'>Password:</label></div>
+    <input id='password' type='password' name='password' class='w-100 pv1 ph2 br2 ba w-100{{ if index $.Errors "password" }} b--invalid-red{{ end }}' autocomplete='on' required>
+    <ul data-validation-errors='password'>
+      {{- range $i, $error := index $.Errors "password" }}
+      <li class='f6 invalid-red list-style-disc'>{{ $error.Message }}</li>
+      {{- end }}
+    </ul>
+  </div>
+
+  <div class='mv3'>
+    <div><label for='confirmPassword' class='b'>Confirm password:</label></div>
+    <input id='confirmPassword' type='password' name='confirmPassword' class='w-100 pv1 ph2 br2 ba w-100{{ if index $.Errors "confirmPassword" }} b--invalid-red{{ end }}' autocomplete='on' required>
+    <ul data-validation-errors='confirmPassword'>
+      {{- range $i, $error := index $.Errors "confirmPassword" }}
+      <li class='f6 invalid-red list-style-disc'>{{ $error.Message }}</li>
+      {{- end }}
+    </ul>
+  </div>
+
+  {{- if $.SignupToken }}
+  <input type='hidden' name='signupToken' value='{{ $.SignupToken }}'>
+  {{- end }}
+
+  {{- if $.RequireCaptcha }}
+  <div class='h-captcha' data-sitekey='{{ $.CaptchaSiteKey }}'></div>
+  {{- end }}
+
+  <div class='invalid-red' data-validation-status>
+    {{- if eq $.Status.Code "NB-03013" }}
+    Please fix errors before continuing.
     {{- end }}
+  </div>
 
-    <div class="mv3">
-        <div><label for="username" class="b">Username:</label></div>
-        <input id="username" type="text" name="username" value="{{ $.Username }}" class="w-100 pv1 ph2 br2 ba w-100{{ if index $.Errors `username` }} b--invalid-red{{ end }}" autocomplete="on" required>
-        <ul data-validation-errors="username">
-            {{- range $i, $error := index $.Errors "username" }}
-            <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
-            {{- end }}
-        </ul>
-    </div>
+  <button type='submit' class='button ba br2 pa2 mv3 w-100'>Sign up</button>
+  <div class='flex items-center justify-center' data-loading-spinner></div>
 
-    <div class="mv3">
-        <div><label for="email" class="b">Email:</label></div>
-        <input id="email" type="email" name="email" value="{{ $.Email }}" class="w-100 pv1 ph2 br2 ba w-100{{ if index $.Errors `email` }} b--invalid-red{{ end }}" autocomplete="on" required>
-        <ul data-validation-errors="email">
-            {{- range $i, $error := index $.Errors "email" }}
-            <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
-            {{- end }}
-        </ul>
-    </div>
-
-    <div class="mv3">
-        <div><label for="password" class="b">Password:</label></div>
-        <input id="password" type="password" name="password" class="w-100 pv1 ph2 br2 ba w-100{{ if index $.Errors `password` }} b--invalid-red{{ end }}" autocomplete="on" required>
-        <ul data-validation-errors="password">
-            {{- range $i, $error := index $.Errors "password" }}
-            <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
-            {{- end }}
-        </ul>
-    </div>
-
-    <div class="mv3">
-        <div><label for="confirmPassword" class="b">Confirm password:</label></div>
-        <input id="confirmPassword" type="password" name="confirmPassword" class="w-100 pv1 ph2 br2 ba w-100{{ if index $.Errors `confirmPassword` }} b--invalid-red{{ end }}" autocomplete="on" required>
-        <ul data-validation-errors="confirmPassword">
-            {{- range $i, $error := index $.Errors "confirmPassword" }}
-            <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
-            {{- end }}
-        </ul>
-    </div>
-
-    {{- if $.SignupToken }}
-    <input type="hidden" name="signupToken" value="{{ $.SignupToken }}">
-    {{- end }}
-
-    {{- if $.RequireCaptcha }}
-    <div class="h-captcha" data-sitekey="{{ $.CaptchaSiteKey }}"></div>
-    {{- end }}
-
-    <div class="invalid-red" data-validation-status>
-        {{- if eq $.Status.Code "NB-03013" }}
-        Please fix errors before continuing.
-        {{- end }}
-    </div>
-
-    <button type="submit" class="button ba br2 pa2 mv3 w-100">Sign up</button>
-    <div class="flex items-center justify-center" data-loading-spinner></div>
-
-    <div class="mv3">
-        Have an account? <a href="/users/login/">Log in</a> here.
-    </div>
+  <div class='mv3'>
+    Have an account? <a href='/users/login/'>Log in</a> here.
+  </div>
 </form>
 {{- end }}

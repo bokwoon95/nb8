@@ -1,133 +1,134 @@
 <!DOCTYPE html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
+<html lang='en'>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<link rel='icon' href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>'>
 <style>{{ stylesCSS }}</style>
-<script type="module">{{ baselineJS }}</script>
+<script type='module'>{{ baselineJS }}</script>
 {{- if le $.Size 50000 }}
-<script type="module" src="/files/static/codemirror.js"></script>
+<script type='module' src='/files/static/codemirror.js'></script>
 {{- end }}
 <title>{{ base $.Path }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}</title>
-<body class="centered-body">
-<nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
-    <a href="/files/" class="ma2 white">🖋️☕ notebrew</a>
-    &bull;
-    <a href="{{ longURL }}" class="ma2 white">{{ shortURL }}</a>
-    <span class="flex-grow-1"></span>
-    {{- if hasDatabase }}
-    <a href="" class="ma2">{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
-    <a href="/users/logout/" class="ma2">logout</a>
-    {{- end }}
+<body class='centered-body'>
+<nav class='mv2 bg-dark-cyan white flex flex-wrap items-center'>
+  <a href='/files/' class='ma2 white'>🖋️☕ notebrew</a>
+  &bull;
+  <a href='{{ longURL }}' class='ma2 white'>{{ shortURL }}</a>
+  <span class='flex-grow-1'></span>
+  {{- if hasDatabase }}
+  <a href='' class='ma2'>{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
+  <a href='/users/logout/' class='ma2'>logout</a>
+  {{- end }}
 </nav>
-<div class="mv2">
-    {{- if and referer (ne $.Status.Code "NB-00060") }}
-    <a href="{{ referer }}" data-go-back>&larr; back</a>
+<div class='mv2'>
+  {{- if and referer (ne $.Status.Code "NB-00060") }}
+  <a href='{{ referer }}' data-go-back>&larr; back</a>
+  <span>&boxv;</span>
+  {{- end }}
+  <a href='/{{ join "files" $.SitePrefix }}/'>files</a>
+  {{- if eq (head $.Path) "notes" }}
+  <span>&boxv;</span>
+  <a href='/{{ join "files" $.SitePrefix "notes" }}/'>notes</a>
+    {{- if ne (dir $.Path) "notes" }}
     <span>&boxv;</span>
+    <a href='/{{ join "files" $.SitePrefix (dir $.Path) }}/'>{{ base (dir $.Path) }}</a>
     {{- end }}
-    <a href="/{{ join `files` $.SitePrefix }}/">files</a>
-    {{- if eq (head $.Path) "notes" }}
+  {{- else if eq (head $.Path) "pages" }}
+  <span>&boxv;</span>
+  <a href='/{{ join "files" $.SitePrefix "pages" }}/'>pages</a>
+    {{- if ne (dir $.Path) "pages" }}
     <span>&boxv;</span>
-    <a href="/{{ join `files` $.SitePrefix `notes` }}/">notes</a>
-        {{- if ne (dir $.Path) "notes" }}
-    <span>&boxv;</span>
-    <a href="/{{ join `files` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
-        {{- end }}
-    {{- else if eq (head $.Path) "pages" }}
-    <span>&boxv;</span>
-    <a href="/{{ join `files` $.SitePrefix `pages` }}/">pages</a>
-        {{- if ne (dir $.Path) "pages" }}
-        <span>&boxv;</span>
-        <a href="/{{ join `files` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
-        {{- end }}
-    <span>&boxv;</span>
-    view: <a href="{{ pageURL }}">page</a>
-    {{- else if eq (head $.Path) "posts" }}
-    <span>&boxv;</span>
-    <a href="/{{ join `files` $.SitePrefix `posts` }}/">posts</a>
-        {{- if ne (dir $.Path) "posts" }}
-        <span>&boxv;</span>
-        <a href="/{{ join `files` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
-        {{- end }}
-    <span>&boxv;</span>
-    view: <a href="{{ postURL }}">post</a>
-    {{- else if eq (head $.Path) "output" }}
-        {{- if pagePath }}
-        <span>&boxv;</span>
-        parent: <a href="/{{ join `files` $.SitePrefix pagePath }}/">{{ base pagePath }}</a>
-        {{- else }}
-            {{- if eq (head (tail $.Path)) "themes" }}
-            <span>&boxv;</span>
-            <a href="/{{ join `files` $.SitePrefix `output/themes` }}/">themes</a>
-            {{- end }}
-            {{- if ne (dir $.Path) "output/themes" }}
-            <span>&boxv;</span>
-            <a href="/{{ join `files` $.SitePrefix (dir $.Path) }}/">{{ base (dir $.Path) }}</a>
-            {{- end }}
-        {{- end }}
+    <a href='/{{ join "files" $.SitePrefix (dir $.Path) }}/'>{{ base (dir $.Path) }}</a>
     {{- end }}
+  <span>&boxv;</span>
+  view: <a href='{{ pageURL }}'>page</a>
+  {{- else if eq (head $.Path) "posts" }}
+  <span>&boxv;</span>
+  <a href='/{{ join "files" $.SitePrefix "posts" }}/'>posts</a>
+    {{- if ne (dir $.Path) "posts" }}
+    <span>&boxv;</span>
+    <a href='/{{ join "files" $.SitePrefix (dir $.Path) }}/'>{{ base (dir $.Path) }}</a>
+    {{- end }}
+  <span>&boxv;</span>
+  view: <a href='{{ postURL }}'>post</a>
+  {{- else if eq (head $.Path) "output" }}
+    {{- if pagePath }}
+    <span>&boxv;</span>
+    parent: <a href='/{{ join "files" $.SitePrefix pagePath }}/'>{{ base pagePath }}</a>
+    {{- else }}
+      {{- if eq (head (tail $.Path)) "themes" }}
+      <span>&boxv;</span>
+      <a href='/{{ join "files" $.SitePrefix "output/themes" }}/'>themes</a>
+      {{- end }}
+      {{- if ne (dir $.Path) "output/themes" }}
+      <span>&boxv;</span>
+      <a href='/{{ join "files" $.SitePrefix (dir $.Path) }}/'>{{ base (dir $.Path) }}</a>
+      {{- end }}
+    {{- end }}
+  {{- end }}
 </div>
-<form method="post" enctype="multipart/form-data" class="mv2">
-    <div class="flex mv2">
-        <label for="content" class="b">{{ base $.Path }}</label>
-        <div class="flex-grow-1"></div>
-        <button id="bottom" type="submit" class="button ba br2">Save</button>
-    </div>
-    <div data-codemirror="{{ if hasPrefix $.ContentType `text/html` }}html{{ else if hasPrefix $.ContentType `text/css` }}css{{ else if hasPrefix $.ContentType `text/javascript` }}javascript {{ else if hasPrefix $.ContentType `text/markdown` }}markdown{{ end }}">
-        <textarea id="content" name="content" dir="auto" class="w-100 pa2 min-h5 h6 resize-vertical code" autofocus>{{ $.Content }}</textarea>
-    </div>
-    <button id="bottom" type="submit" class="button ba br2 pa2 mv2 w-100">Save</button>
+<form method='post' enctype='multipart/form-data' class='mv2'>
+  <div class='flex mv2'>
+    <label for='content' class='b'>{{ base $.Path }}</label>
+    <div class='flex-grow-1'></div>
+    <button id='bottom' type='submit' class='button ba br2'>Save</button>
+  </div>
+  <div data-codemirror='{{ if hasPrefix $.ContentType "text/html" }}html{{ else if hasPrefix $.ContentType "text/css" }}css{{ else if hasPrefix $.ContentType "text/javascript" }}javascript {{ else if hasPrefix $.ContentType "text/markdown" }}markdown{{ end }}'>
+    <textarea id='content' name='content' dir='auto' class='w-100 pa2 min-h5 h6 resize-vertical code' autofocus>{{ $.Content }}</textarea>
+  </div>
+  <button id='bottom' type='submit' class='button ba br2 pa2 mv2 w-100'>Save</button>
 </form>
 {{- if eq (head $.Path) "pages" "posts" }}
-<div class="mv2">
-    {{- if eq (head $.Path) "posts" }}
-    <span class="b">Images</span>
-    <a href="" class="ml2">upload image</a>
-    {{- else }}
-    <span class="b">Assets</span>
-    <a href="" class="ml2">Create file</a>
-    <a href="" class="ml2">Upload file</a>
-    {{- end }}
+<div class='mv2'>
+  {{- if eq (head $.Path) "posts" }}
+  <span class='b'>Images</span>
+  <a href='' class='ml2'>upload image</a>
+  {{- else }}
+  <span class='b'>Assets</span>
+  <a href='' class='ml2'>Create file</a>
+  <a href='' class='ml2'>Upload file</a>
+  {{- end }}
 </div>
-    {{- if $.AssetEntries }}
-    <ul class="grid grid-cols-auto-150px grid-gap-3 mv2">
-        {{- range $i, $assetEntry := $.AssetEntries }}
-        <li class="h-100">
-            {{- if eq (head $assetEntry.ContentType) "image" }}
-            <img src="/{{ join `files` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="w-100" loading="lazy">
-            {{- else }}
-            <div class="flex justify-center items-center">
-                {{ template "octicons-file-code" }}
-            </div>
-            {{- end }}
-            <div class="mv2">
-                <span class="b">{{ $assetEntry.Name }}</span>
-                <span class="ml1 f6 mid-gray nowrap">{{ fileSizeToString $assetEntry.Size }}</span>
-                {{- if eq (ext $assetEntry.Name) ".css" ".js" }}
-                <a href="/{{ join `files` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="ml2">edit</a>
-                {{- else }}
-                <a href="/{{ join `files` $.SitePrefix $.AssetDir $assetEntry.Name }}" class="ml2">view</a>
-                {{- end }}
-                <a href="" class="ml2">rename</a>
-                <a href="" class="dark-red ml2">delete</a>
-            </div>
-            <div class="mv2">
-                {{- if eq (head $.Path) "posts" }}
-                <button type="button" value="{{ $assetEntry.Name }}" class="button ba br2 pa2 w-100">Insert into post</button>
-                {{- else }}
-                <button type="button" value="{{ $assetEntry.Name }}" class="button ba br2 pa2 w-100">Insert into page</button>
-                {{- end }}
-            </div>
-        </li>
+  {{- if $.AssetEntries }}
+  <ul class='grid grid-cols-auto-150px grid-gap-3 mv2'>
+    {{- range $i, $assetEntry := $.AssetEntries }}
+    <li class='h-100'>
+      {{- if eq (head $assetEntry.ContentType) 'image' }}
+      <img src='/{{ join "files" $.SitePrefix $.AssetDir $assetEntry.Name }}' class='w-100' loading='lazy'>
+      {{- else }}
+      <div class='flex justify-center items-center'>
+        {{ template 'octicons-file-code' }}
+      </div>
+      {{- end }}
+      <div class='mv2'>
+        <span class='b'>{{ $assetEntry.Name }}</span>
+        <span class='ml1 f6 mid-gray nowrap'>{{ fileSizeToString $assetEntry.Size }}</span>
+        {{- if eq (ext $assetEntry.Name) ".css" ".js" }}
+        <a href='/{{ join "files" $.SitePrefix $.AssetDir $assetEntry.Name }}' class='ml2'>edit</a>
+        {{- else }}
+        <a href='/{{ join "files" $.SitePrefix $.AssetDir $assetEntry.Name }}' class='ml2'>view</a>
         {{- end }}
-    </ul>
-    {{- else }}
-    <div class="mv2 tc">{{ if eq (head $.Path) "posts" }}- No images -{{ else }}- No assets -{{ end }}</div>
+        <a href='' class='ml2'>rename</a>
+        <a href='' class='dark-red ml2'>delete</a>
+      </div>
+      <div class='mv2'>
+        {{- if eq (head $.Path) "posts" }}
+        <button type='button' value='{{ $assetEntry.Name }}' class='button ba br2 pa2 w-100'>Insert into post</button>
+        {{- else }}
+        <button type='button' value='{{ $assetEntry.Name }}' class='button ba br2 pa2 w-100'>Insert into page</button>
+        {{- end }}
+      </div>
+    </li>
     {{- end }}
+  </ul>
+  {{- else }}
+  <div class='mv2 tc'>{{ if eq (head $.Path) "posts" }}- No images -{{ else }}- No assets -{{ end }}</div>
+  {{- end }}
 {{- end }}
 
 {{- define "octicons-file-code" }}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-    <path d="M3 3a2 2 0 0 1 2-2h9.982a2 2 0 0 1 1.414.586l4.018 4.018A2 2 0 0 1 21 7.018V21a2 2 0 0 1-2 2H4.75a.75.75 0 0 1 0-1.5H19a.5.5 0 0 0 .5-.5V8.5h-4a2 2 0 0 1-2-2v-4H5a.5.5 0 0 0-.5.5v6.25a.75.75 0 0 1-1.5 0Zm12-.5v4a.5.5 0 0 0 .5.5h4a.5.5 0 0 0-.146-.336l-4.018-4.018A.5.5 0 0 0 15 2.5Z"></path><path d="M4.53 12.24a.75.75 0 0 1-.039 1.06l-2.639 2.45 2.64 2.45a.75.75 0 1 1-1.022 1.1l-3.23-3a.75.75 0 0 1 0-1.1l3.23-3a.75.75 0 0 1 1.06.04Zm3.979 1.06a.75.75 0 1 1 1.02-1.1l3.231 3a.75.75 0 0 1 0 1.1l-3.23 3a.75.75 0 1 1-1.021-1.1l2.639-2.45-2.64-2.45Z"></path>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'>
+  <path d='M3 3a2 2 0 0 1 2-2h9.982a2 2 0 0 1 1.414.586l4.018 4.018A2 2 0 0 1 21 7.018V21a2 2 0 0 1-2 2H4.75a.75.75 0 0 1 0-1.5H19a.5.5 0 0 0 .5-.5V8.5h-4a2 2 0 0 1-2-2v-4H5a.5.5 0 0 0-.5.5v6.25a.75.75 0 0 1-1.5 0Zm12-.5v4a.5.5 0 0 0 .5.5h4a.5.5 0 0 0-.146-.336l-4.018-4.018A.5.5 0 0 0 15 2.5Z'></path>
+  <path d='M4.53 12.24a.75.75 0 0 1-.039 1.06l-2.639 2.45 2.64 2.45a.75.75 0 1 1-1.022 1.1l-3.23-3a.75.75 0 0 1 0-1.1l3.23-3a.75.75 0 0 1 1.06.04Zm3.979 1.06a.75.75 0 1 1 1.02-1.1l3.231 3a.75.75 0 0 1 0 1.1l-3.23 3a.75.75 0 1 1-1.021-1.1l2.639-2.45-2.64-2.45Z'></path>
 </svg>
 {{- end }}

@@ -1,92 +1,92 @@
 <!DOCTYPE html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
+<html lang='en'>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<link rel='icon' href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>'>
 <style>{{ stylesCSS }}</style>
-<script type="module" src="/files/static/login.js"></script>
+<script type='module' src='/files/static/login.js'></script>
 {{- if $.RequireCaptcha }}
-<script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+<script src='https://js.hcaptcha.com/1/api.js' async defer></script>
 {{- end }}
 <title>Login</title>
-<body class="centered-body">
-<nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
-    <a href="/files/" class="ma2">🖋️☕ notebrew</a>
+<body class='centered-body'>
+<nav class='mv2 bg-dark-cyan white flex flex-wrap items-center'>
+    <a href='/files/' class='ma2'>🖋️☕ notebrew</a>
 </nav>
-<form method="post" action="/users/login/" class="mv5 w-80 w-70-m w-60-l center" data-login-validation>
-    <h1 class="f3 mv3 b tc">Login</h1>
+<form method='post' action='/users/login/' class='mv5 w-80 w-70-m w-60-l center' data-login-validation>
+  <h1 class='f3 mv3 b tc'>Login</h1>
 
-    {{- if eq $.Status.Code "NB-00001" }}
-    <div role="alert" class="w-100 br2 ph3 pv2 ba alert-success">
-        <div>Account created, please log in using your new credentials.</div>
-    </div>
-    {{- else if eq $.Status.Code "NB-00005" }}
-    <div role="alert" class="w-100 br2 ph3 pv2 ba alert-success">
-        <div>Password reset successfully, please log in using your new credentials.</div>
-    </div>
-    {{- else if eq $.Status.Code "NB-03000" }}
-    <div role="alert" class="w-100 br2 ph3 pv2 ba alert">
-        <div>You are already logged in, <a href="/{{ join `files` $.SitePrefix }}/">click here to go to your dashboard</a>.</div>
-    </div>
-    {{- else if eq $.Status.Code "NB-03003" }}
-    <div role="alert" class="w-100 br2 ph3 pv2 ba alert-danger">
-        <div>Please retry with captcha.</div>
-    </div>
-    {{- else if eq $.Status.Code "NB-03004" }}
-    <div role="alert" class="w-100 br2 ph3 pv2 ba alert-danger">
-        <div>Captcha challenge failed.</div>
-    </div>
-    {{- else if eq $.Status.Code "NB-03014" }}
-    <div role="alert" class="w-100 br2 ph3 pv2 ba alert-danger">
-        <div>Incorrect login credentials.</div>
-    </div>
-    {{- else if eq $.Status.Code "NB-03015" }}
-    <div role="alert" class="w-100 br2 ph3 pv2 ba alert-danger">
-        <div>User not found.</div>
-    </div>
-    {{- else if eq $.Status.Code "NB-99401" }}
-    <div role="alert" class="w-100 br2 ph3 pv2 ba alert">
-        <div>Please log in.</div>
-    </div>
-    {{- end }}
+  {{- if eq $.Status.Code "NB-00001" }}
+  <div role='alert' class='w-100 br2 ph3 pv2 ba alert-success'>
+    <div>Account created, please log in using your new credentials.</div>
+  </div>
+  {{- else if eq $.Status.Code "NB-00005" }}
+  <div role='alert' class='w-100 br2 ph3 pv2 ba alert-success'>
+    <div>Password reset successfully, please log in using your new credentials.</div>
+  </div>
+  {{- else if eq $.Status.Code "NB-03000" }}
+  <div role='alert' class='w-100 br2 ph3 pv2 ba alert'>
+    <div>You are already logged in, <a href='/{{ join "files" $.SitePrefix }}/'>click here to go to your dashboard</a>.</div>
+  </div>
+  {{- else if eq $.Status.Code "NB-03003" }}
+  <div role='alert' class='w-100 br2 ph3 pv2 ba alert-danger'>
+    <div>Please retry with captcha.</div>
+  </div>
+  {{- else if eq $.Status.Code "NB-03004" }}
+  <div role='alert' class='w-100 br2 ph3 pv2 ba alert-danger'>
+    <div>Captcha challenge failed.</div>
+  </div>
+  {{- else if eq $.Status.Code "NB-03014" }}
+  <div role='alert' class='w-100 br2 ph3 pv2 ba alert-danger'>
+    <div>Incorrect login credentials.</div>
+  </div>
+  {{- else if eq $.Status.Code "NB-03015" }}
+  <div role='alert' class='w-100 br2 ph3 pv2 ba alert-danger'>
+    <div>User not found.</div>
+  </div>
+  {{- else if eq $.Status.Code "NB-99401" }}
+  <div role='alert' class='w-100 br2 ph3 pv2 ba alert'>
+    <div>Please log in.</div>
+  </div>
+  {{- end }}
 
-    <div class="mv3">
-        <div><label for="username" class="b">Username or Email:</label></div>
-        <input id="username" name="username" value="{{ $.Username }}" class="pv1 ph2 br2 ba w-100{{ if index $.Errors `username` }} b--invalid-red{{ end }}" autocomplete="on" required{{ if eq $.Status.Code `NB-00005` }} autofocus{{ end }}>
-        <ul>
-            {{- range $i, $error := index $.Errors "username" }}
-            <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
-            {{- end }}
-        </ul>
-    </div>
+  <div class='mv3'>
+    <div><label for='username' class='b'>Username or Email:</label></div>
+    <input id='username' name='username' value='{{ $.Username }}' class='pv1 ph2 br2 ba w-100{{ if index $.Errors "username" }} b--invalid-red{{ end }}' autocomplete='on' required{{ if eq $.Status.Code "NB-00005" }} autofocus{{ end }}>
+    <ul>
+      {{- range $i, $error := index $.Errors "username" }}
+      <li class='f6 invalid-red list-style-disc'>{{ $error.Message }}</li>
+      {{- end }}
+    </ul>
+  </div>
 
-    <div class="mv3">
-        <div><label for="password" class="b">Password:</label></div>
-        <input id="password" type="password" name="password" class="w-100 pv1 ph2 br2 ba w-100{{ if index $.Errors `password` }} b--invalid-red{{ end }}" autocomplete="on" required{{ if eq $.Status.Code `NB-00010` `NB-03014` }} autofocus{{ end }}>
-        <ul>
-            {{- range $i, $error := index $.Errors "password" }}
-            <li class="f6 invalid-red list-style-disc">{{ $error.Message }}</li>
-            {{- end }}
-        </ul>
-        <div><a href="/users/resetpassword/" class="f6">forgot password?</a></div>
-    </div>
+  <div class='mv3'>
+    <div><label for='password' class='b'>Password:</label></div>
+    <input id='password' type='password' name='password' class='w-100 pv1 ph2 br2 ba w-100{{ if index $.Errors "password" }} b--invalid-red{{ end }}' autocomplete='on' required{{ if eq $.Status.Code "NB-00010" "NB-03014" }} autofocus{{ end }}>
+    <ul>
+      {{- range $i, $error := index $.Errors "password" }}
+      <li class='f6 invalid-red list-style-disc'>{{ $error.Message }}</li>
+      {{- end }}
+    </ul>
+    <div><a href='/users/resetpassword/' class='f6'>forgot password?</a></div>
+  </div>
 
-    {{- if $.Redirect }}
-    <input type="hidden" name="redirect" value="{{ $.Redirect }}">
-    {{- end }}
+  {{- if $.Redirect }}
+  <input type='hidden' name='redirect' value='{{ $.Redirect }}'>
+  {{- end }}
 
-    {{- if $.RequireCaptcha }}
-    <div class="h-captcha" data-sitekey="{{ $.CaptchaSiteKey }}"></div>
-    {{- end }}
+  {{- if $.RequireCaptcha }}
+  <div class='h-captcha' data-sitekey='{{ $.CaptchaSiteKey }}'></div>
+  {{- end }}
 
-    <div class="invalid-red" data-validation-status></div>
+  <div class='invalid-red' data-validation-status></div>
 
-    <button type="submit" class="button ba br2 pa2 mv3 w-100">Log in</button>
-    <div class="flex items-center justify-center" data-loading-spinner></div>
+  <button type='submit' class='button ba br2 pa2 mv3 w-100'>Log in</button>
+  <div class='flex items-center justify-center' data-loading-spinner></div>
 
-    {{- if signupsAreOpen }}
-    <div class="mv3">
-        No account? <a href="/users/signup/">Sign up</a> here.
-    </div>
-    {{- end }}
+  {{- if signupsAreOpen }}
+  <div class='mv3'>
+    No account? <a href='/users/signup/'>Sign up</a> here.
+  </div>
+  {{- end }}
 </form>

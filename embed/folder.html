@@ -1,400 +1,405 @@
 <!DOCTYPE html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>">
+<html lang='en'>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<link rel='icon' href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>'>
 <style>{{ stylesCSS }}</style>
-<script type="module">{{ folderJS }}</script>
+<script type='module'>{{ folderJS }}</script>
 <title>
-    {{ if $.Path }}
-    {{ base $.Path }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}
-    {{ else }}
-    files{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}
-    {{ end }}
+  {{ if $.Path }}
+  {{ base $.Path }}{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}
+  {{ else }}
+  files{{ if $.SitePrefix }} | {{ $.SitePrefix }}{{ end }}
+  {{ end }}
 </title>
-<body class="centered-body">
-<nav class="mv2 bg-dark-cyan white flex flex-wrap items-center">
-    <a href="/files/" class="ma2 white">🖋️☕ notebrew</a>
-    &bull;
-    <a href="{{ longURL }}" class="ma2 white">{{ shortURL }}</a>
-    <span class="flex-grow-1"></span>
-    {{- if hasDatabase }}
-    <a href="" class="ma2">{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
-    <a href="/users/logout/" class="ma2">logout</a>
-    {{- end }}
+<body class='centered-body'>
+<nav class='mv2 bg-dark-cyan white flex flex-wrap items-center'>
+  <a href='/files/' class='ma2 white'>🖋️☕ notebrew</a>
+  &bull;
+  <a href='{{ longURL }}' class='ma2 white'>{{ shortURL }}</a>
+  <span class='flex-grow-1'></span>
+  {{- if hasDatabase }}
+  <a href='' class='ma2'>{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
+  <a href='/users/logout/' class='ma2'>logout</a>
+  {{- end }}
 </nav>
 {{- if and $.Status (ne $.Status.Code "NB-00000") }}
-{{- if $.Status.Success }}
-<div role="alert" class="alert-success mv2 pa2 br2 flex items-center">
+  {{- if $.Status.Success }}
+  <div role='alert' class='alert-success mv2 pa2 br2 flex items-center'>
     <div>{{ safeHTML $.Status.Message }}</div>
-    <div class="flex-grow-1"></div>
-    <button class="f3 bg-transparent bn color-success o-70 hover-black" data-dismiss-alert>&times;</button>
-</div>
-{{- else }}
-<div role="alert" class="alert-danger mv2 pa2 br2 flex items-center">
+    <div class='flex-grow-1'></div>
+    <button class='f3 bg-transparent bn color-success o-70 hover-black' data-dismiss-alert>&times;</button>
+  </div>
+  {{- else }}
+  <div role='alert' class='alert-danger mv2 pa2 br2 flex items-center'>
     <div>{{ safeHTML $.Status.Message }}</div>
-    <div class="flex-grow-1"></div>
-    <button class="f3 bg-transparent bn color-success o-70 hover-black" data-dismiss-alert>&times;</button>
-</div>
+    <div class='flex-grow-1'></div>
+    <button class='f3 bg-transparent bn color-success o-70 hover-black' data-dismiss-alert>&times;</button>
+  </div>
+  {{- end }}
 {{- end }}
-{{- end }}
-<div class="mv2 flex flex-wrap items-center">
-    <div class="flex-grow-1"></div>
-    <div class="flex items-center">
-        <details class="relative ml2" data-autoclose-details>
-            <summary role="button" title="Clipboard" class="pointer flex items-center br2 ph2 h2 transparent-button dashed-border hide-marker" data-disable-click-selection>
-                <div class="flex items-center">{{ template "heroicons-clipboard" }}</div>
-                {{ template "octicons-triangle-down" }}
-            </summary>
-            <div class="absolute bg-white br2 hide-marker" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                <div class="tc ma2"><a href="" class="nowrap">5 items copied</a></div>
-                <div class="tr ma2"><button type="button" class="button ba br2 pa2 w-100">Paste</button></div>
-                <div class="tr ma2"><button type="button" class="button-danger ba br2 b--dark-red pa2 w-100">Clear</button></div>
-            </div>
-        </details>
-    </div>
-    {{- if and $.Path (ne (head $.Path) "output") }}
-    <div class="flex items-center">
-        <details class="relative ml2" data-autoclose-details>
-            <summary role="button" title="Sort" class="pointer flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
-                {{ template "octicons-sort-desc" }}
-                {{ template "octicons-triangle-down" }}
-            </summary>
-            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                <div class="tr ma2"><a href="" class="nowrap">No roots</a></div>
-            </div>
-        </details>
-    </div>
-    {{- end }}
-    <div class="flex items-center">
-        <details class="relative ml2" data-autoclose-details>
-            <summary role="button" title="Search" class="pointer flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
-                {{ template "octicons-search" }}
-                {{ template "octicons-triangle-down" }}
-            </summary>
-            <form class="absolute bg-white br2 pa2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                <input id="search" name="search" placeholder="Search this folder" class="pa2 br2 ba">
-                <button type="submit" class="button ba br2 pa2 w-100 mt2">Search</button>
-            </form>
-        </details>
-    </div>
-    {{- if or (and (eq $.SitePrefix "") (eq $.Path "")) (eq (head $.Path) "notes" "pages" "posts" "output") }}
-    <div class="flex items-center">
-        <details class="relative ml2" data-autoclose-details>
-            <summary role="button" title="Create" class="pointer flex items-center button ba br2 b--black ph2 h2 hide-marker" data-disable-click-selection>
-                {{ template "octicons-plus" }}
-                {{ template "octicons-triangle-down" }}
-            </summary>
-            <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                {{- if and (eq $.SitePrefix "") (eq $.Path "") }}
-                <div class="tr ma2"><a href="/files/createsite/" class="nowrap">Create site</a></div>
-                {{- else if eq (head $.Path) "notes" }}
-                <div class="tr ma2"><a href="/{{ join `files` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=md" class="nowrap">Create file</a></div>
-                <div class="tr ma2"><a href="/{{ join `files` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="nowrap">Create folder</a></div>
-                {{- else if eq (head $.Path) "pages" }}
-                <div class="tr ma2"><a href="/{{ join `files` $.SitePrefix `createpage` }}/?parent={{ $.Path }}" class="nowrap">Create page</a></div>
-                <div class="tr ma2"><a href="/{{ join `files` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="nowrap">Create folder</a></div>
-                {{- else if eq (head $.Path) "posts" }}
-                <div class="tr ma2"><a href="/{{ join `files` $.SitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}" class="nowrap">Create post</a></div>
-                <div class="tr ma2"><a href="/{{ join `files` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="nowrap">Create category</a></div>
-                {{- else if eq (head $.Path) "output" }}
-                <div class="tr ma2"><a href="/{{ join `files` $.SitePrefix `createfile` }}/?parent={{ $.Path }}&ext=html" class="nowrap">Create file</a></div>
-                <div class="tr ma2"><a href="/{{ join `files` $.SitePrefix `createfolder` }}?parent={{ $.Path }}" class="nowrap">Create folder</a></div>
-                {{- end }}
-            </div>
-        </details>
-    </div>
-    {{- end }}
+<div class='mv2 flex flex-wrap items-center'>
+  <div class='flex-grow-1'></div>
+  <div class='flex items-center'>
+    <details class='relative ml2' data-autoclose-details>
+      <summary role='button' title='Clipboard' class='pointer flex items-center br2 ph2 h2 transparent-button dashed-border hide-marker' data-disable-click-selection>
+        <div class='flex items-center'>{{ template "heroicons-clipboard" }}</div>
+        {{ template "octicons-triangle-down" }}
+      </summary>
+      <div class='absolute bg-white br2 hide-marker' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
+        <div class='tc ma2'><a href='' class='nowrap'>5 items copied</a></div>
+        <div class='tr ma2'><button type='button' class='button ba br2 pa2 w-100'>Paste</button></div>
+        <div class='tr ma2'><button type='button' class='button-danger ba br2 b--dark-red pa2 w-100'>Clear</button></div>
+      </div>
+    </details>
+  </div>
+  {{- if and $.Path (ne (head $.Path) "output") }}
+  <div class='flex items-center'>
+    <details class='relative ml2' data-autoclose-details>
+      <summary role='button' title='Sort' class='pointer flex items-center button ba br2 b--black ph2 h2 hide-marker' data-disable-click-selection>
+        {{ template "octicons-sort-desc" }}
+        {{ template "octicons-triangle-down" }}
+      </summary>
+      <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
+        <div class='tr ma2'><a href='' class='nowrap'>No roots</a></div>
+      </div>
+    </details>
+  </div>
+  {{- end }}
+  <div class='flex items-center'>
+    <details class='relative ml2' data-autoclose-details>
+      <summary role='button' title='Search' class='pointer flex items-center button ba br2 b--black ph2 h2 hide-marker' data-disable-click-selection>
+        {{ template "octicons-search" }}
+        {{ template "octicons-triangle-down" }}
+      </summary>
+      <form class='absolute bg-white br2 pa2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
+        <input id='search' name='search' placeholder='Search this folder' class='pa2 br2 ba'>
+        <button type='submit' class='button ba br2 pa2 w-100 mt2'>Search</button>
+      </form>
+    </details>
+  </div>
+  {{- if or (and (eq $.SitePrefix "") (eq $.Path "")) (eq (head $.Path) "notes" "pages" "posts" "output") }}
+  <div class='flex items-center'>
+    <details class='relative ml2' data-autoclose-details>
+      <summary role='button' title='Create' class='pointer flex items-center button ba br2 b--black ph2 h2 hide-marker' data-disable-click-selection>
+        {{ template "octicons-plus" }}
+        {{ template "octicons-triangle-down" }}
+      </summary>
+      <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
+        {{- if and (eq $.SitePrefix "") (eq $.Path "") }}
+        <div class='tr ma2'><a href='/files/createsite/' class='nowrap'>Create site</a></div>
+        {{- else if eq (head $.Path) "notes" }}
+        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfile" }}/?parent={{ $.Path }}&ext=md' class='nowrap'>Create file</a></div>
+        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create folder</a></div>
+        {{- else if eq (head $.Path) "pages" }}
+        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createpage" }}/?parent={{ $.Path }}' class='nowrap'>Create page</a></div>
+        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create folder</a></div>
+        {{- else if eq (head $.Path) "posts" }}
+        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createpost" }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}' class='nowrap'>Create post</a></div>
+        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create category</a></div>
+        {{- else if eq (head $.Path) "output" }}
+        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfile" }}/?parent={{ $.Path }}&ext=html' class='nowrap'>Create file</a></div>
+        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create folder</a></div>
+        {{- end }}
+      </div>
+    </details>
+  </div>
+  {{- end }}
 </div>
-<div class="bb pb2">{{ generateBreadcrumbLinks $.Path }}</div>
+<div class='bb pb2'>{{ generateBreadcrumbLinks $.Path }}</div>
+
 {{- if $.Path }}
 <form>
+{{- else }}
+<div>
 {{- end }}
-    {{- if and $.Path $.IsDir }}
-    <input type="hidden" name="parent" value="{{ $.Path }}">
-    {{- end }}
-    {{- if not $.FileEntries }}
-    <div class="mv4 tc">
-        {{- if eq (head $.Path) "notes" }}
-        folder is empty, <a href="/{{ join `files` $.SitePrefix `createnote` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}">create a new note</a>
-        {{- else if eq (head $.Path) "pages" }}
-        folder is empty, <a href="/{{ join `files` $.SitePrefix `createpage` }}/?parent={{ $.Path }}">create a new page</a>
-        {{- else if eq (head $.Path) "posts" }}
-        folder is empty, <a href="/{{ join `files` $.SitePrefix `createpost` }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}">create a new post</a>
-        {{- else }}
-        folder is empty
+{{- if and $.Path $.IsDir }}
+<input type='hidden' name='parent' value='{{ $.Path }}'>
+{{- end }}
+{{- if not $.FileEntries }}
+<div class='mv4 tc'>
+  {{- if eq (head $.Path) "notes" }}
+  folder is empty, <a href='/{{ join "files" $.SitePrefix "createnote" }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}'>create a new note</a>
+  {{- else if eq (head $.Path) "pages" }}
+  folder is empty, <a href='/{{ join "files" $.SitePrefix "createpage" }}/?parent={{ $.Path }}'>create a new page</a>
+  {{- else if eq (head $.Path) "posts" }}
+  folder is empty, <a href='/{{ join "files" $.SitePrefix "createpost" }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}'>create a new post</a>
+  {{- else }}
+  folder is empty
+  {{- end }}
+</div>
+{{- else }}
+<ul>
+  {{- range $i, $fileEntry := $.FileEntries }}
+    {{- if eq $.Path "" }}
+      {{- if eq $fileEntry.Name "notes" }}
+      <li class='flex flex-wrap items-center bb pv2'>
+        <span class='flex items-center mr1'>{{ template "heroicons-folder-open" }}</span>
+        <a href='/{{ join "files" $.SitePrefix "notes" }}/'>notes/</a>
+        <div class='flex-grow-1'></div>
+        <details class='relative' data-autoclose-details>
+          <summary role='button' title='more information' class='flex items-center button ba br2 b--black h2 hide-marker ph1 pointer' data-disable-click-selection>
+            {{ template "heroicons-information-circle" }}
+            {{ template "octicons-triangle-down" }}
+          </summary>
+          <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem'>
+            <div class='ma2'>
+              Notes are private files which can only be accessed by you.
+            </div>
+          </div>
+        </details>
+      </li>
+      {{- else if eq $fileEntry.Name "pages" }}
+      <li class='flex flex-wrap items-center bb pv2'>
+        <span class='flex items-center mr1'>{{ template "heroicons-folder-open" }}</span>
+        <a href='/{{ join "files" $.SitePrefix "pages" }}/'>pages/</a>
+        <div class='flex-grow-1'></div>
+        <details class='relative' data-autoclose-details>
+          <summary role='button' title='more information' class='flex items-center button ba br2 b--black h2 hide-marker ph1 pointer' data-disable-click-selection>
+            {{ template "heroicons-information-circle" }}
+            {{ template "octicons-triangle-down" }}
+          </summary>
+          <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem;'>
+            <div class='ma2'>
+              Your pages can be viewed at <a href='{{ longURL }}'>{{ shortURL }}</a>.
+              <br><br>
+              Pages may invoke other HTML templates defined in the <a href='output/themes/'>themes</a> folder.
+              <br><br>
+              For the basics, visit <a href=''>The Definitive Guide to Writing HTML Pages in Notebrew</a>.
+            </div>
+            <hr>
+            <div class='tr ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Regenerate</button></div>
+          </div>
+        </details>
+      </li>
+      {{- else if eq $fileEntry.Name "posts" }}
+      <li class='flex flex-wrap items-center bb pv2'>
+        <span class='flex items-center mr1'>{{ template "heroicons-folder-open" }}</span>
+        <a href='/{{ join "files" $.SitePrefix "posts" }}/'>posts/</a>
+        <div class='flex-grow-1'></div>
+        <details class='relative' data-autoclose-details>
+          <summary role='button' title='more information' class='flex items-center button ba br2 b--black h2 hide-marker ph1 pointer' data-disable-click-selection>
+            {{ template "heroicons-information-circle" }}
+            {{ template "octicons-triangle-down" }}
+          </summary>
+          <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem;'>
+            <div class='ma2'>
+              Your posts can be viewed at <a href='{{ longURL }}/posts/'>{{ shortURL }}/posts</a>.
+            </div>
+            <hr>
+            <div class='tr ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Regenerate</button></div>
+          </div>
+        </details>
+      </li>
+      {{- else if eq $fileEntry.Name "output/themes" }}
+      <li class='flex flex-wrap items-center bb pv2'>
+        <span class='flex items-center mr1'>{{ template "heroicons-folder-open" }}</span>
+        <a href='/{{ join "files" $.SitePrefix "output/themes" }}/'>themes/</a>
+        <div class='flex-grow-1'></div>
+        <details class='relative' data-autoclose-details>
+          <summary role='button' title='more information' class='flex items-center button ba br2 b--black h2 hide-marker ph1 pointer' data-disable-click-selection>
+            {{ template "heroicons-information-circle" }}
+            {{ template "octicons-triangle-down" }}
+          </summary>
+          <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
+            <div class='ma2' style='min-width: 10rem;'>
+              The themes folder contains HTML templates and other global site assets.
+              <br><br>
+              For the basics, visit <a href=''>The Definitive Guide to Writing HTML Pages in Notebrew</a>.
+            </div>
+          </div>
+        </details>
+      </li>
+      {{- else if eq $fileEntry.Name "output" }}
+      <li class='flex flex-wrap items-center bb pv2'>
+        <span class='flex items-center mr1'>{{ template "heroicons-folder-open" }}</span>
+        <a href='/{{ join "files" $.SitePrefix "output" }}/'>output/</a>
+        <div class='flex-grow-1'></div>
+        <details class='relative' data-autoclose-details>
+          <summary role='button' title='more information' class='flex items-center button ba br2 b--black h2 hide-marker ph1 pointer' data-disable-click-selection>
+            {{ template "heroicons-information-circle" }}
+            {{ template "octicons-triangle-down" }}
+          </summary>
+          <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
+            <div class='ma2' style='min-width: 10rem;'>
+              The output folder contains your site's output files.
+              <br><br>
+              <div class='f6' style='font-style: italic;'>For the tech-savvy: Notebrew is a static site generator that converts your pages and posts into static files. This is where the files are kept.</div>
+            </div>
+          </div>
+        </details>
+      </li>
+      {{- else if $fileEntry.IsSite }}
+      <li class='flex flex-wrap items-center bb pv2'>
+        <a href='{{ $fileEntry.Name }}/'>{{ $fileEntry.Name }}/</a>
+        {{- if not $fileEntry.IsUser }}
+        <div class='flex-grow-1'></div>
+        <details class='relative' data-autoclose-details>
+          <summary role='button' title='more actions' class='flex items-center button ba br2 b--black h2 hide-marker ph1 pointer' data-disable-click-selection>
+            {{ template "octicons-triangle-down" }}
+          </summary>
+          <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
+            <div class='tr ma2'><a href='/files/deletesite/?name={{ trimPrefix $fileEntry.Name "@" }}' class='dark-red nowrap'>delete site</a></div>
+          </div>
+        </details>
         {{- end }}
-        </div>
+      </li>
+      {{- end }}
     {{- else }}
-    <ul>
-        {{- range $i, $fileEntry := $.FileEntries }}
-        {{- if eq $.Path "" }}
-        {{- if eq $fileEntry.Name "notes" }}
-        <li class="flex flex-wrap items-center bb pv2">
-            <span class="flex items-center mr1">{{ template "heroicons-folder-open" }}</span>
-            <a href="/{{ join `files` $.SitePrefix `notes` }}/">notes/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative" data-autoclose-details>
-                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
-                    {{ template "heroicons-information-circle" }}
-                    {{ template "octicons-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem">
-                    <div class="ma2">
-                        Notes are private files which can only be accessed by you.
-                    </div>
-                </div>
-            </details>
-        </li>
-        {{- else if eq $fileEntry.Name "pages" }}
-        <li class="flex flex-wrap items-center bb pv2">
-            <span class="flex items-center mr1">{{ template "heroicons-folder-open" }}</span>
-            <a href="/{{ join `files` $.SitePrefix `pages` }}/">pages/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative" data-autoclose-details>
-                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
-                    {{ template "heroicons-information-circle" }}
-                    {{ template "octicons-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem;">
-                    <div class="ma2">
-                        Your pages can be viewed at <a href="{{ longURL }}">{{ shortURL }}</a>.
-                        <br><br>
-                        Pages may invoke other HTML templates defined in the <a href="output/themes/">themes</a> folder.
-                        <br><br>
-                        For the basics, visit <a href="">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
-                    </div>
-                    <hr>
-                    <div class="tr ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">Regenerate</button></div>
-                </div>
-            </details>
-        </li>
-        {{- else if eq $fileEntry.Name "posts" }}
-        <li class="flex flex-wrap items-center bb pv2">
-            <span class="flex items-center mr1">{{ template "heroicons-folder-open" }}</span>
-            <a href="/{{ join `files` $.SitePrefix `posts` }}/">posts/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative" data-autoclose-details>
-                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
-                    {{ template "heroicons-information-circle" }}
-                    {{ template "octicons-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black; min-width: 10rem;">
-                    <div class="ma2">
-                        Your posts can be viewed at <a href="{{ longURL }}/posts/">{{ shortURL }}/posts</a>.
-                    </div>
-                    <hr>
-                    <div class="tr ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">Regenerate</button></div>
-                </div>
-            </details>
-        </li>
-        {{- else if eq $fileEntry.Name "output/themes" }}
-        <li class="flex flex-wrap items-center bb pv2">
-            <span class="flex items-center mr1">{{ template "heroicons-folder-open" }}</span>
-            <a href="/{{ join `files` $.SitePrefix `output/themes` }}/">themes/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative" data-autoclose-details>
-                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
-                    {{ template "heroicons-information-circle" }}
-                    {{ template "octicons-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    <div class="ma2" style="min-width: 10rem;">
-                        The themes folder contains HTML templates and other global site assets.
-                        <br><br>
-                        For the basics, visit <a href="">The Definitive Guide to Writing HTML Pages in Notebrew</a>.
-                    </div>
-                </div>
-            </details>
-        </li>
-        {{- else if eq $fileEntry.Name "output" }}
-        <li class="flex flex-wrap items-center bb pv2">
-            <span class="flex items-center mr1">{{ template "heroicons-folder-open" }}</span>
-            <a href="/{{ join `files` $.SitePrefix `output` }}/">output/</a>
-            <div class="flex-grow-1"></div>
-            <details class="relative" data-autoclose-details>
-                <summary role="button" title="more information" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
-                    {{ template "heroicons-information-circle" }}
-                    {{ template "octicons-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    <div class="ma2" style="min-width: 10rem;">
-                        The output folder contains your site's output files.
-                        <br><br>
-                        <div class="f6" style="font-style: italic;">For the tech-savvy: Notebrew is a static site generator that converts your pages and posts into static files. This is where the files are kept.</div>
-                    </div>
-                </div>
-            </details>
-        </li>
-        {{- else if $fileEntry.IsSite }}
-        <li class="flex flex-wrap items-center bb pv2">
-            <a href="{{ $fileEntry.Name }}/">{{ $fileEntry.Name }}/</a>
-            {{- if not $fileEntry.IsUser }}
-            <div class="flex-grow-1"></div>
-            <details class="relative" data-autoclose-details>
-                <summary role="button" title="more actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1 pointer" data-disable-click-selection>
-                    {{ template "octicons-triangle-down" }}
-                </summary>
-                <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                    <div class="tr ma2"><a href="/files/deletesite/?name={{ trimPrefix $fileEntry.Name `@` }}" class="dark-red nowrap">delete site</a></div>
-                </div>
-            </details>
+    <li class='bb pv2'>
+      <label for='{{ $fileEntry.Name }}' class='flex items-center pointer' data-disable-click-selection>
+        {{ $readOnly := and (eq (head $.Path) "output") (ne (head (tail $.Path)) "themes") }}
+        {{- if not $readOnly }}
+        <div class='mr1'>
+          <input type='checkbox' id='{{ $fileEntry.Name }}' name='name' value='{{ $fileEntry.Name }}' class='pointer'>
+        </div>
+        {{- end }}
+        <div class='br2 truncate'>
+          <div class='flex items-center'>
+            {{- if $fileEntry.IsDir }}
+            {{ template 'heroicons-folder-open' }}
             {{- end }}
-        </li>
+            <a href='/{{ join "files" $.SitePrefix $.Path $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}' class='ma1 truncate'>{{ $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}</a>
+            {{- if not $fileEntry.IsDir }}
+            <span class='ma1 f6 mid-gray'>{{ fileSizeToString $fileEntry.Size }}</span>
+            {{- end }}
+          </div>
+          {{- if and (not $fileEntry.IsDir) (or (eq (head $.Path) 'notes') (eq (head $.Path) 'posts')) }}
+          <div class='mh1 b'>{{ if $fileEntry.Title }}{{ $fileEntry.Title }}{{ else }}Untitled{{ end }}</div>
+          <div class='ma1 mid-gray truncate f6'>{{ if $fileEntry.Preview }}{{ $fileEntry.Preview }}{{ else }}No additional text{{ end }}</div>
+          {{- end }}
+        </div>
+        <div class='flex-grow-1'></div>
+        {{- if not $readOnly }}
+        <details class='relative' data-autoclose-details>
+          <summary role='button' title='more actions' class='flex items-center button ba br2 b--black h2 hide-marker ph1' data-disable-click-selection>
+            {{ template "octicons-triangle-down" }}
+          </summary>
+          <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
+            <div class='ma2 tc'><a href=''>Rename</a></div>
+            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Regenerate</button></div>
+            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Cut</button></div>
+            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Copy</button></div>
+            <div class='ma2'><button type='submit' formaction='/{{ join "files" $.SitePrefix "delete" }}/' name='name' value='{{ $fileEntry.Name }}' class='button-danger ba br2 b--dark-red pa2 w-100'>Delete</button></div>
+          </div>
+        </details>
         {{- end }}
-        {{- else }}
-        <li class="bb pv2">
-            <label for="{{ $fileEntry.Name }}" class="flex items-center pointer" data-disable-click-selection>
-                {{ $readOnly := and (eq (head $.Path) "output") (ne (head (tail $.Path)) "themes") }}
-                {{- if not $readOnly }}
-                <div class="mr1">
-                    <input type="checkbox" id="{{ $fileEntry.Name }}" name="name" value="{{ $fileEntry.Name }}" class="pointer">
-                </div>
-                {{- end }}
-                <div class="br2 truncate">
-                    <div class="flex items-center">
-                        {{- if $fileEntry.IsDir }}
-                        {{ template "heroicons-folder-open" }}
-                        {{- end }}
-                        <a href="/{{ join `files` $.SitePrefix $.Path $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}" class="ma1 truncate">{{ $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}</a>
-                        {{- if not $fileEntry.IsDir }}
-                        <span class="ma1 f6 mid-gray">{{ fileSizeToString $fileEntry.Size }}</span>
-                        {{- end }}
-                    </div>
-                    {{- if and (not $fileEntry.IsDir) (or (eq (head $.Path) "notes") (eq (head $.Path) "posts")) }}
-                    <div class="mh1 b">{{ if $fileEntry.Title }}{{ $fileEntry.Title }}{{ else }}Untitled{{ end }}</div>
-                    <div class="ma1 mid-gray truncate f6">{{ if $fileEntry.Preview }}{{ $fileEntry.Preview }}{{ else }}No additional text{{ end }}</div>
-                    {{- end }}
-                </div>
-                <div class="flex-grow-1"></div>
-                {{- if not $readOnly }}
-                <details class="relative" data-autoclose-details>
-                    <summary role="button" title="more actions" class="flex items-center button ba br2 b--black h2 hide-marker ph1" data-disable-click-selection>
-                        {{ template "octicons-triangle-down" }}
-                    </summary>
-                    <div class="absolute bg-white br2" style="top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;">
-                        <div class="ma2 tc"><a href="">Rename</a></div>
-                        <div class="ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">Regenerate</button></div>
-                        <div class="ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">Cut</button></div>
-                        <div class="ma2"><button type="submit" name="name" value="{{ $fileEntry.Name }}" class="button ba br2 pa2 w-100">Copy</button></div>
-                        <div class="ma2"><button type="submit" formaction="/{{ join `files` $.SitePrefix `delete` }}/" name="name" value="{{ $fileEntry.Name }}" class="button-danger ba br2 b--dark-red pa2 w-100">Delete</button></div>
-                    </div>
-                </details>
-                {{- end }}
-            </label>
-        </li>
-        {{- end }}
-        {{- end }}
-    </ul>
+      </label>
+    </li>
     {{- end }}
+  {{- end }}
+</ul>
+{{- end }}
 {{- if $.Path }}
 </form>
+{{- else }}
+</div>
 {{- end }}
 
 {{- define "octicons-plus" }}
-<svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-plus">
-    <path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"></path>
+<svg aria-hidden='true' height='16' viewBox='0 0 16 16' version='1.1' width='16' data-view-component='true' class='octicon octicon-plus'>
+  <path d='M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z'></path>
 </svg>
 {{- end }}
 
 {{- define "octicons-triangle-down" }}
-<svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-triangle-down">
-    <path d="m4.427 7.427 3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z"></path>
+<svg aria-hidden='true' height='16' viewBox='0 0 16 16' version='1.1' width='16' data-view-component='true' class='octicon octicon-triangle-down'>
+  <path d='m4.427 7.427 3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z'></path>
 </svg>
 {{- end }}
 
 {{- define "heroicons-folder" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'>
+  <path stroke-linecap='round' stroke-linejoin='round' d='M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z' />
 </svg>
 {{- end }}
 
 {{- define "heroicons-folder-open" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" />
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'>
+  <path stroke-linecap='round' stroke-linejoin='round' d='M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776' />
 </svg>
 {{- end }}
 
 {{- define "heroicons-document" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'>
+  <path stroke-linecap='round' stroke-linejoin='round' d='M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z' />
 </svg>
 {{- end }}
 
 {{- define "octicons-directory" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-    <path d="M0 2.75C0 1.784.784 1 1.75 1H5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1h6.75c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25Zm1.75-.25a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H7.5c-.55 0-1.07-.26-1.4-.7l-.9-1.2a.25.25 0 0 0-.2-.1Z"></path>
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>
+  <path d='M0 2.75C0 1.784.784 1 1.75 1H5c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1h6.75c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25Zm1.75-.25a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H7.5c-.55 0-1.07-.26-1.4-.7l-.9-1.2a.25.25 0 0 0-.2-.1Z'></path>
 </svg>
 {{- end }}
 
 {{- define "octicons-file" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-    <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"></path>
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>
+  <path d='M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z'></path>
 </svg>
 {{- end }}
 
 {{- define "heroicons-globe-alt" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="ma1">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' class='ma1'>
+  <path stroke-linecap='round' stroke-linejoin='round' d='M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418' />
 </svg>
 {{- end }}
 
 {{- define "octicons-sort-desc" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-    <path d="M0 4.25a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 4.25Zm0 4a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8.25Zm0 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75ZM13.5 10h2.25a.25.25 0 0 1 .177.427l-3 3a.25.25 0 0 1-.354 0l-3-3A.25.25 0 0 1 9.75 10H12V3.75a.75.75 0 0 1 1.5 0V10Z"></path>
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>
+  <path d='M0 4.25a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 4.25Zm0 4a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8.25Zm0 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75ZM13.5 10h2.25a.25.25 0 0 1 .177.427l-3 3a.25.25 0 0 1-.354 0l-3-3A.25.25 0 0 1 9.75 10H12V3.75a.75.75 0 0 1 1.5 0V10Z'></path>
 </svg>
 {{- end }}
 
 {{- define "heroicons-clipboard" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'>
+  <path stroke-linecap='round' stroke-linejoin='round' d='M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184' />
 </svg>
 {{- end }}
 
 {{- define "octicons-search" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-    <path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"></path>
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>
+  <path d='M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z'></path>
 </svg>
 {{- end }}
 
 {{- define "heroicons-question-mark-circle" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-  <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' viewBox='0 0 24 24' strokeWidth={1.5} stroke='currentColor'>
+  <path strokeLinecap='round' strokeLinejoin='round' d='M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z' />
 </svg>
 {{- end }}
 
 {{- define "heroicons-information-circle" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'>
+  <path stroke-linecap='round' stroke-linejoin='round' d='M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z' />
 </svg>
 {{- end }}
 
 {{- define "heroicons-ellipsis-horizontal" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" class="ma1">
-    <path d="M5 12H5.01M12 12H12.01M19 12H19.01M6 12C6 12.5523 5.55228 13 5 13C4.44772 13 4 12.5523 4 12C4 11.4477 4.44772 11 5 11C5.55228 11 6 11.4477 6 12ZM13 12C13 12.5523 12.5523 13 12 13C11.4477 13 11 12.5523 11 12C11 11.4477 11.4477 11 12 11C12.5523 11 13 11.4477 13 12ZM20 12C20 12.5523 19.5523 13 19 13C18.4477 13 18 12.5523 18 12C18 11.4477 18.4477 11 19 11C19.5523 11 20 11.4477 20 12Z" stroke="#4A5568" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' class='ma1'>
+  <path d='M5 12H5.01M12 12H12.01M19 12H19.01M6 12C6 12.5523 5.55228 13 5 13C4.44772 13 4 12.5523 4 12C4 11.4477 4.44772 11 5 11C5.55228 11 6 11.4477 6 12ZM13 12C13 12.5523 12.5523 13 12 13C11.4477 13 11 12.5523 11 12C11 11.4477 11.4477 11 12 11C12.5523 11 13 11.4477 13 12ZM20 12C20 12.5523 19.5523 13 19 13C18.4477 13 18 12.5523 18 12C18 11.4477 18.4477 11 19 11C19.5523 11 20 11.4477 20 12Z' stroke='#4A5568' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/>
 </svg>
 {{- end }}
 
 {{- define "jam-icons-document" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="-4 -2 24 24" fill="currentColor">
-    <path d="M3 0h10a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H3a3 3 0 0 1-3-3V3a3 3 0 0 1 3-3zm0 2a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H3zm2 1h6a1 1 0 0 1 0 2H5a1 1 0 1 1 0-2zm0 12h2a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2zm0-4h6a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2zm0-4h6a1 1 0 0 1 0 2H5a1 1 0 1 1 0-2z"></path>
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='-4 -2 24 24' fill='currentColor'>
+  <path d='M3 0h10a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H3a3 3 0 0 1-3-3V3a3 3 0 0 1 3-3zm0 2a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H3zm2 1h6a1 1 0 0 1 0 2H5a1 1 0 1 1 0-2zm0 12h2a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2zm0-4h6a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2zm0-4h6a1 1 0 0 1 0 2H5a1 1 0 1 1 0-2z'></path>
 </svg>
 {{- end }}
 
 {{- define "heroicons-scissors" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l2.077-1.199m0-3.328a4.323 4.323 0 012.068-1.379l5.325-1.628a4.5 4.5 0 012.48-.044l.803.215-7.794 4.5m-2.882-1.664A4.331 4.331 0 0010.607 12m3.736 0l7.794 4.5-.802.215a4.5 4.5 0 01-2.48-.043l-5.326-1.629a4.324 4.324 0 01-2.068-1.379M14.343 12l-2.882 1.664" />
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor'>
+  <path stroke-linecap='round' stroke-linejoin='round' d='M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l2.077-1.199m0-3.328a4.323 4.323 0 012.068-1.379l5.325-1.628a4.5 4.5 0 012.48-.044l.803.215-7.794 4.5m-2.882-1.664A4.331 4.331 0 0010.607 12m3.736 0l7.794 4.5-.802.215a4.5 4.5 0 01-2.48-.043l-5.326-1.629a4.324 4.324 0 01-2.068-1.379M14.343 12l-2.882 1.664' />
 </svg>
 {{- end }}
 
 {{- define "octicons-sync" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-    <path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"></path>
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>
+  <path d='M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z'></path>
 </svg>
 {{- end }}
 
 {{- define "octicons-three-bars" }}
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-    <path d="M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z"></path>
+<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>
+  <path d='M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z'></path>
 </svg>
 {{- end }}
