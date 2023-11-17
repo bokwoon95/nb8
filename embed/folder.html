@@ -257,14 +257,14 @@
         <div class='br2 truncate'>
           <div class='flex items-center'>
             {{- if $fileEntry.IsDir }}
-            {{ template 'heroicons-folder-open' }}
+            {{ template "heroicons-folder-open" }}
             {{- end }}
             <a href='/{{ join "files" $.SitePrefix $.Path $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}' class='ma1 truncate'>{{ $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}</a>
             {{- if not $fileEntry.IsDir }}
             <span class='ma1 f6 mid-gray'>{{ fileSizeToString $fileEntry.Size }}</span>
             {{- end }}
           </div>
-          {{- if and (not $fileEntry.IsDir) (or (eq (head $.Path) 'notes') (eq (head $.Path) 'posts')) }}
+          {{- if and (not $fileEntry.IsDir) (or (eq (head $.Path) "notes") (eq (head $.Path) "posts")) }}
           <div class='mh1 b'>{{ if $fileEntry.Title }}{{ $fileEntry.Title }}{{ else }}Untitled{{ end }}</div>
           <div class='ma1 mid-gray truncate f6'>{{ if $fileEntry.Preview }}{{ $fileEntry.Preview }}{{ else }}No additional text{{ end }}</div>
           {{- end }}
