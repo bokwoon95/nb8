@@ -11,6 +11,7 @@ p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
 <div><a href='/'>{{ $.Site.Title }}</a> &boxv; <a href='/{{ join "posts" $.Category }}/'>{{ if $.Category }}{{ $.Category }}{{ else }}posts{{ end }}</a></div>
 <hr>
 <h1>{{ if $.Category }}{{ $.Category }}{{ else }}posts{{ end }}</h1>
+{{- if $.Posts }}
 <ul>
   {{- range $post := $.Posts }}
   <li style='margin: 1rem 0;'>
@@ -22,7 +23,8 @@ p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
       {{ $post.Preview }}
     </div>
   </li>
-  {{- else }}
-  <p>No posts</p>
   {{- end }}
 </ul>
+{{- else }}
+<p>No posts</p>
+{{- end }}
