@@ -124,7 +124,7 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 	var node parse.Node
 	var nodes []parse.Node
 	for _, tmpl := range primaryTemplates {
-		if tmpl.Tree == nil {
+		if tmpl.Tree == nil || tmpl.Tree.Root == nil {
 			continue
 		}
 		nodes = append(nodes, tmpl.Tree.Root.Nodes...)
