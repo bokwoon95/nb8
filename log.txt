@@ -18,7 +18,6 @@ if name matches pages/**/*.html => regenerate pages
 if name posts/**/*.md => regenerate posts
 else just update the file
 
-TODO: look through static/index.html, static/post.html, static/posts.html and rewrite them to properly take advantage of the new template data structs you have in place.
 TODO: add the dotted alert for the clipboard
 TODO: add the settings button for site and posts
 TODO: RegenerateFile()
