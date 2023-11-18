@@ -20,6 +20,7 @@ type SiteGenerator struct {
 	templates            map[string]*template.Template
 	templateErrors       map[string][]string
 	templateInProgress   map[string]chan struct{}
+	cleanupErrors        []string
 }
 
 func NewSiteGenerator(fsys fs.FS, sitePrefix string, cleanupOrphanedPages bool) (*SiteGenerator, error) {
