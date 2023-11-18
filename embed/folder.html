@@ -45,19 +45,6 @@
 </div>
 <div class='mv2 flex flex-wrap items-center'>
   <div class='flex-grow-1'></div>
-  <div class='flex items-center'>
-    <details class='relative ml2' data-autoclose-details>
-      <summary role='button' title='Clipboard' class='pointer flex items-center br2 ph2 h2 transparent-button dashed-border hide-marker' data-disable-click-selection>
-        <div class='flex items-center'>{{ template "heroicons-clipboard" }}</div>
-        {{ template "octicons-triangle-down" }}
-      </summary>
-      <div class='absolute bg-white br2 hide-marker' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
-        <div class='tc ma2'><a href='' class='nowrap'>5 items copied</a></div>
-        <div class='tr ma2'><button type='button' class='button ba br2 pa2 w-100'>Paste</button></div>
-        <div class='tr ma2'><button type='button' class='button-danger ba br2 b--dark-red pa2 w-100'>Clear</button></div>
-      </div>
-    </details>
-  </div>
   {{- if and $.Path (ne (head $.Path) "output") }}
   <div class='flex items-center'>
     <details class='relative ml2' data-autoclose-details>
