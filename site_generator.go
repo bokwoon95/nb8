@@ -52,6 +52,8 @@ func (siteGenerator *SiteGenerator) Generate(ctx context.Context, parent string,
 
 func (siteGenerator *SiteGenerator) generate(ctx context.Context, parent string, names []string, callers []string) error {
 	// TODO: each generate() call uses its own errgroup, and each goroutine inside that errgroup may nest another errgroup (and so on and so forth).
+	// TODO: hardcode the postsPerPage as 100 first, later on we can use
+	// TODO: note down where is the appropriate point to regenerate the RSS feed: we will fill this in later. Perhaps this
 	return nil
 }
 
