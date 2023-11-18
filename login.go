@@ -112,7 +112,7 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 	}
 
 	sanitizeRedirect := func(redirect string) string {
-		if getHost(r) != nbrew.Domain {
+		if r.Host != nbrew.Domain {
 			return ""
 		}
 		uri, err := url.Parse(path.Clean(redirect))

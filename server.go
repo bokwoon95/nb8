@@ -229,19 +229,18 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Redirect any www subdomains to the bare domain.
-	host := getHost(r)
-	if host == "www."+nbrew.Domain {
+	if r.Host == "www."+nbrew.Domain {
 		http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+r.URL.RequestURI(), http.StatusMovedPermanently)
 		return
 	}
-	if host == "www."+nbrew.ContentDomain {
+	if r.Host == "www."+nbrew.ContentDomain {
 		http.Redirect(w, r, nbrew.Scheme+nbrew.ContentDomain+r.URL.RequestURI(), http.StatusMovedPermanently)
 		return
 	}
 
 	// Special case: make these files available on the root path of the main
 	// domain.
-	if host == nbrew.Domain {
+	if r.Host == nbrew.Domain {
 		switch strings.Trim(r.URL.Path, "/") {
 		case "app.webmanifest":
 			serveFile(w, r, rootFS, "static/app.webmanifest")
@@ -257,7 +256,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	head, tail, _ := strings.Cut(urlPath, "/")
 
 	// Handle the /users/* route on the main domain.
-	if host == nbrew.Domain && head == "users" {
+	if r.Host == nbrew.Domain && head == "users" {
 		switch tail {
 		case "signup":
 			nbrew.signup(w, r, ip)
@@ -273,7 +272,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle the /files/* route on the main domain.
-	if host == nbrew.Domain && head == "files" {
+	if r.Host == nbrew.Domain && head == "files" {
 		urlPath := tail
 		head, tail, _ := strings.Cut(urlPath, "/")
 		if head == "static" {
@@ -414,8 +413,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Figure out the sitePrefix of the site we have to serve.
 	var sitePrefix string
-	if certmagic.MatchWildcard(host, "*."+nbrew.ContentDomain) {
-		subdomain := strings.TrimSuffix(host, "."+nbrew.ContentDomain)
+	if certmagic.MatchWildcard(r.Host, "*."+nbrew.ContentDomain) {
+		subdomain := strings.TrimSuffix(r.Host, "."+nbrew.ContentDomain)
 		switch subdomain {
 		case "cdn", "assets":
 			// examples:
@@ -446,8 +445,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		default:
 			sitePrefix = "@" + subdomain
 		}
-	} else if host != nbrew.ContentDomain {
-		sitePrefix = host
+	} else if r.Host != nbrew.ContentDomain {
+		sitePrefix = r.Host
 	}
 
 	// custom404 is a 404 handler that will use the site's custom 404 page if

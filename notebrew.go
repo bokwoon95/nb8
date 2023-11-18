@@ -340,16 +340,6 @@ func urlSafe(s string) string {
 	return strings.Trim(b.String(), ".")
 }
 
-func getHost(r *http.Request) string {
-	if r.Host == "127.0.0.1" {
-		return "localhost"
-	}
-	if strings.HasPrefix(r.Host, "127.0.0.1:") {
-		return "localhost" + strings.TrimPrefix(r.Host, "127.0.0.1:")
-	}
-	return r.Host
-}
-
 var (
 	commonPasswordHashes = make(map[string]struct{})
 	stylesCSS            string
