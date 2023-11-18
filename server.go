@@ -49,8 +49,8 @@ func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
 		return nil, fmt.Errorf("ContentDomain cannot be empty")
 	}
 	server := &http.Server{
-		Addr:         config.Addr,
-		Handler:      nbrew,
+		Addr:    config.Addr,
+		Handler: nbrew,
 	}
 	if config.Addr != ":443" {
 		return server, nil
