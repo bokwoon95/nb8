@@ -18,7 +18,21 @@ if name matches pages/**/*.html => regenerate pages
 if name posts/**/*.md => regenerate posts
 else just update the file
 
-TODO: RegenerateFile()
+TODO:
+Generate(parent string, names []string)
+- If names is provided, sort the directories (no extension) before the files (with extensions)
+    - If names are not provided, means we read the whole directory. We can either use ReadDir or paginate with ReadDirByName, either way sorting by name should place all extensionless directories before files with extensions so it works out.
+- If head is "pages", generate all directories first before moving on to files (use separate errgroups).
+    - Generating the directories should store all its results in a map[string][]Page, which can be reused by the corresponding pages to avoid re-reading the same page twice.
+    - If we generate a page but we didn't generate the directory, we can just call ReadDir on the directory to extract the info.
+    - The map[string]Page scope only lasts within the method call, so it can be garbage collected once it exits.
+- If the head is "posts", for every post we generate we store it in map[string]Post.
+    - Once all posts have been regenerated, we have to regenerate its post list page. Unconditionally, because the titles and previews may have changed underfoot (and also we don't want to expose a separate knob for users just to specifically generate posts vs post list pages. It is always generated).
+- As we generate files, if head is "pages" we cache all their metadata in a map[string][]Page (keyed by parent directory) and if head is "posts" we cache their titles
+- At the end of generating the files, if head is "posts" we also need to regenerate the post list pages.
+    - Before we generate the names, we need to note down
+
+TODO: in delete.go, when we delete a post or page we must also include its output/ directory in the deletion list so that the user has a chance to click in and check for any assets before really deleting it.
 
 It's over bros I think we need to add a new icon to the folder page... a settings icon. For configuring the current page or post category. So in the worst case you might have clipboard, sort, search, settings and plus (5 icons, ugh).
 ooor... we could add a new "alert" bar just to indicate that the clipboard is currently active, that way its no longer an icon and is very prominent and people are incentivised to make it go away as soon as possible (as a bonus, we no longer have to have the transparent-button class).

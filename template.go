@@ -276,34 +276,21 @@ func (nbrew *Notebrew) Regenerate(ctx context.Context, sitePrefix string, dir st
 }
 
 type Site struct {
-	Title   string
-	Favicon string
-	Lang    string
-}
-
-type Page struct {
-	Name  string
-	Title string
-}
-
-type Post struct {
-	Name      string
-	Title     string
-	Preview   string
-	CreatedAt time.Time
+	Title          string
+	Favicon        string
+	Lang           string
+	PostCategories []string
 }
 
 type Image struct {
-	Name string
+	Parent string
+	Name   string
 }
 
-type Pagination struct {
-	Numbers []string
-	First   string
-	Prev    string
-	Current string
-	Next    string
-	Last    string
+type Page struct {
+	Parent string
+	Name   string
+	Title  string
 }
 
 type PageData struct {
@@ -329,9 +316,27 @@ type PostData struct {
 	Images    []Image
 }
 
-type PostsData struct {
+type Pagination struct {
+	Numbers []string
+	First   string
+	Prev    string
+	Current string
+	Next    string
+	Last    string
+}
+
+type Post struct {
+	Category  string
+	Name      string
+	Title     string
+	Preview   string
+	CreatedAt time.Time
+	Images    []Image
+}
+
+type PostListData struct {
 	Site       Site
 	Category   string
 	Pagination Pagination
-	Posts      []Post
+	PostList   []Post
 }
