@@ -27,11 +27,11 @@ generate(ctx context.Context, parent string, names []string, callers []string)
 - If head is "pages", generate all directories first before moving on to files (use separate errgroups for directories and for files).
     - Generating the directories should store all its results in a map[string][]Page, which can be reused by the corresponding pages to avoid re-reading the same page twice later on when generating the parent page. If we didn't comb the directory and we're generating the parent page, we can just call ReadDir on the directory and peek each file's contents to extract the info.
     - The map[string][]Page scope only lasts within the method call, so it will be garbage collected once it exits.
-    - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the pages that we did generate and remove any orphaned pages that are still hanging around in the output folder
+    - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the pages that we did generate and remove any orphaned pages that are still hanging around in the output folder (use RemoveAll on the entire directory).
 - If the head is "posts",
     - (sanity check) If we are nested more than one level of folders, return.
     - If we called ReadDir earlier, for every post we generate we append it to a []Post. Once all posts have been generated we have to regenerate the post list page using that list of posts.
-    - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the posts that we did generate and remove any orphaned posts that are still hanging around in the output folder
+    - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the posts that we did generate and remove any orphaned posts that are still hanging around in the output folder (use RemoveAll on the entire directory).
 
 TODO: in delete.go, when we delete a post or page we must also include its output/ directory in the deletion list so that the user has a chance to click in and check for any assets before really deleting it.
 
