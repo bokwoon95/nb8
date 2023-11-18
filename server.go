@@ -49,9 +49,6 @@ func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
 		return nil, fmt.Errorf("ContentDomain cannot be empty")
 	}
 	server := &http.Server{
-		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  120 * time.Second,
 		Addr:         config.Addr,
 		Handler:      nbrew,
 	}
