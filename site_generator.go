@@ -14,7 +14,7 @@ import (
 
 type SiteGenerator struct {
 	ctx                  context.Context
-	group                errgroup.Group
+	group                *errgroup.Group
 	fsys                 fs.FS
 	sitePrefix           string
 	cleanupOrphanedPages bool
@@ -22,6 +22,21 @@ type SiteGenerator struct {
 	templates            map[string]*template.Template
 	templateErrors       map[string][]string
 	templateInProgress   map[string]chan struct{}
+}
+
+func NewSiteGenerator(ctx context.Context, fsys fs.FS, sitePrefix string, cleanupOrphanedPages bool) *SiteGenerator {
+	group, groupCtx := errgroup.WithContext(ctx)
+	return &SiteGenerator{
+		ctx:                  groupCtx,
+		group:                group,
+		fsys:                 fsys,
+		sitePrefix:           sitePrefix,
+		cleanupOrphanedPages: cleanupOrphanedPages,
+		mu:                   sync.Mutex{},
+		templates:            make(map[string]*template.Template),
+		templateErrors:       make(map[string][]string),
+		templateInProgress:   make(map[string]chan struct{}),
+	}
 }
 
 // parent=pages&name=index.html&name=abcd.html&cat.html
