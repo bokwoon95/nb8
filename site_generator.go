@@ -8,10 +8,13 @@ import (
 	"path"
 	"strings"
 	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type SiteGenerator struct {
 	ctx                context.Context
+	group              errgroup.Group
 	fsys               fs.FS
 	sitePrefix         string
 	mu                 sync.Mutex

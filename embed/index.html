@@ -8,7 +8,13 @@ html { max-width: 70ch; padding: 3em 1em; margin: auto; line-height: 1.75; font-
 p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
 </style>
 <title>{{ $.Site.Title }}</title>
-<div><a href='/'>{{ $.Site.Title }}</a> &boxv; <a href='/posts/'>posts</a></div>
+<div>
+  <a href='/'>{{ $.Site.Title }}</a>
+  &boxv; <a href='/posts/'>posts</a>
+  {{- range $category := $.Site.Categories }}
+  &boxv; <a href='/posts/{{ $category }}/'>{{ $category }}</a>
+  {{- end }}
+</div>
 <hr>
 <h1>Hello World!</h1>
 <p>Welcome to my blog.</p>

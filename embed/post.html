@@ -8,7 +8,13 @@ html { max-width: 70ch; padding: 3em 1em; margin: auto; line-height: 1.75; font-
 p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
 </style>
 <title>{{ $.Title }}</title>
-<div><a href='/'>{{ $.Site.Title }}</a> &boxv; <a href='/{{ join "posts" $.Category }}/'>{{ if $.Category }}{{ $.Category }}{{ else }}posts{{ end }}</a></div>
+<div>
+  <a href='/'>{{ $.Site.Title }}</a>
+  &boxv; <a href='/posts/'>posts</a>
+  {{- range $category := $.Site.Categories }}
+  &boxv; <a href='/posts/{{ $category }}/'>{{ $category }}</a>
+  {{- end }}
+</div>
 <hr>
 <div style='font-size: .875rem; color: #555555;'>{{ $.CreatedAt.Format '2006-01-02' }}</div>
 {{ $.Content }}

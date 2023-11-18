@@ -1159,7 +1159,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 		return err
 	}
 	if !oldnameIsDir && textExtensions[path.Ext(oldname)] != textExtensions[path.Ext(newname)] {
-		return fmt.Errorf("cannot rename file from %q to %q because of incompatible storage locations", oldname, newname)
+		return fmt.Errorf("cannot rename file from %q to %q because their extensions are not compatible", oldname, newname)
 	}
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
