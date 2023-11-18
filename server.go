@@ -578,8 +578,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Else if the URL has an extension, serve the file based on the
 		// file extension.
-		fileType, ok := fileTypes[ext]
-		if !ok {
+		fileType = fileTypes[ext]
+		if fileType == (FileType{}) {
 			custom404(w, r, sitePrefix)
 			return
 		}

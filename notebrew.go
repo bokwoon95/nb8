@@ -585,7 +585,7 @@ var fileTypes = map[string]FileType{
 	".js":    {Ext: ".js", ContentType: "text/javascript; charset=utf-8", IsGzippable: true},
 	".md":    {Ext: ".md", ContentType: "text/markdown; charset=utf-8", IsGzippable: true},
 	".txt":   {Ext: ".txt", ContentType: "text/plain; charset=utf-8", IsGzippable: true},
-	".svg":   {Ext: ".svg", ContentType: "image/svg", IsGzippable: true},
+	".svg":   {Ext: ".svg", ContentType: "image/svg+xml", IsGzippable: true},
 	".ico":   {Ext: ".ico", ContentType: "image/ico", IsGzippable: true},
 	".jpeg":  {Ext: ".jpeg", ContentType: "image/jpeg", IsGzippable: false},
 	".jpg":   {Ext: ".jpg", ContentType: "image/jpeg", IsGzippable: false},
