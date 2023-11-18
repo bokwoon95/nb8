@@ -13,14 +13,15 @@ import (
 )
 
 type SiteGenerator struct {
-	ctx                context.Context
-	group              errgroup.Group
-	fsys               fs.FS
-	sitePrefix         string
-	mu                 sync.Mutex
-	templates          map[string]*template.Template
-	templateErrors     map[string][]string
-	templateInProgress map[string]chan struct{}
+	ctx                  context.Context
+	group                errgroup.Group
+	fsys                 fs.FS
+	sitePrefix           string
+	cleanupOrphanedPages bool
+	mu                   sync.Mutex
+	templates            map[string]*template.Template
+	templateErrors       map[string][]string
+	templateInProgress   map[string]chan struct{}
 }
 
 // parent=pages&name=index.html&name=abcd.html&cat.html
