@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 	"text/template/parse"
-	"time"
 )
 
 type TemplateParser struct {
@@ -273,70 +272,4 @@ func (templateErrors TemplateError) Errors() []Error {
 
 func (nbrew *Notebrew) Regenerate(ctx context.Context, sitePrefix string, dir string, names ...string) error {
 	return nil
-}
-
-type Site struct {
-	Title          string
-	Favicon        string
-	Lang           string
-	PostCategories []string
-}
-
-type Image struct {
-	Parent string
-	Name   string
-}
-
-type Page struct {
-	Parent string
-	Name   string
-	Title  string
-}
-
-type PageData struct {
-	Site       Site
-	Parent     string
-	Name       string
-	Title      string
-	ChildPages []Page
-	NextPage   Page
-	PrevPage   Page
-	Markdown   map[string]template.HTML
-	Images     []Image
-}
-
-type PostData struct {
-	Site      Site
-	Category  string
-	Name      string
-	Title     string
-	Content   template.HTML
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Images    []Image
-}
-
-type Pagination struct {
-	Numbers []string
-	First   string
-	Prev    string
-	Current string
-	Next    string
-	Last    string
-}
-
-type Post struct {
-	Category  string
-	Name      string
-	Title     string
-	Preview   string
-	CreatedAt time.Time
-	Images    []Image
-}
-
-type PostListData struct {
-	Site       Site
-	Category   string
-	Pagination Pagination
-	PostList   []Post
 }

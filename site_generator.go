@@ -8,15 +8,13 @@ import (
 	"path"
 	"strings"
 	"sync"
-
-	"golang.org/x/sync/errgroup"
+	"time"
 )
 
 type SiteGenerator struct {
-	ctx                  context.Context
-	group                *errgroup.Group
 	fsys                 fs.FS
 	sitePrefix           string
+	site                 Site
 	cleanupOrphanedPages bool
 	mu                   sync.Mutex
 	templates            map[string]*template.Template
@@ -24,11 +22,8 @@ type SiteGenerator struct {
 	templateInProgress   map[string]chan struct{}
 }
 
-func NewSiteGenerator(ctx context.Context, fsys fs.FS, sitePrefix string, cleanupOrphanedPages bool) *SiteGenerator {
-	group, groupCtx := errgroup.WithContext(ctx)
-	return &SiteGenerator{
-		ctx:                  groupCtx,
-		group:                group,
+func NewSiteGenerator(fsys fs.FS, sitePrefix string, cleanupOrphanedPages bool) (*SiteGenerator, error) {
+	siteGenerator := &SiteGenerator{
 		fsys:                 fsys,
 		sitePrefix:           sitePrefix,
 		cleanupOrphanedPages: cleanupOrphanedPages,
@@ -37,6 +32,8 @@ func NewSiteGenerator(ctx context.Context, fsys fs.FS, sitePrefix string, cleanu
 		templateErrors:       make(map[string][]string),
 		templateInProgress:   make(map[string]chan struct{}),
 	}
+	// TODO: populate siteGenerator.site
+	return siteGenerator, nil
 }
 
 // parent=pages&name=index.html&name=abcd.html&cat.html
@@ -44,7 +41,17 @@ func NewSiteGenerator(ctx context.Context, fsys fs.FS, sitePrefix string, cleanu
 // {{ template "/themes/word-up.html" }}
 // {{ template "/themes/github.com/bokwoon95/plainsimple/very/long/path/to/file.html" }}
 
-func (siteGenerator *SiteGenerator) Generate(parent string, names []string) {
+// TODO: we need a new structure that encapsulates template errors into an
+// error, so that we can return it instead of asking the user to check the
+// templateErrors themselves.
+
+func (siteGenerator *SiteGenerator) Generate(ctx context.Context, parent string, names []string) error {
+	return siteGenerator.generate(ctx, parent, names, nil)
+}
+
+func (siteGenerator *SiteGenerator) generate(ctx context.Context, parent string, names []string, callers []string) error {
+	// TODO: each generate() call uses its own errgroup, and each goroutine inside that errgroup may nest another errgroup (and so on and so forth).
+	return nil
 }
 
 var funcMap = map[string]any{
@@ -85,4 +92,70 @@ var funcMap = map[string]any{
 		// tag.
 		return ""
 	},
+}
+
+type Site struct {
+	Title          string
+	Favicon        string
+	Lang           string
+	PostCategories []string
+}
+
+type Image struct {
+	Parent string
+	Name   string
+}
+
+type Page struct {
+	Parent string
+	Name   string
+	Title  string
+}
+
+type PageData struct {
+	Site       Site
+	Parent     string
+	Name       string
+	Title      string
+	ChildPages []Page
+	NextPage   Page
+	PrevPage   Page
+	Markdown   map[string]template.HTML
+	Images     []Image
+}
+
+type PostData struct {
+	Site      Site
+	Category  string
+	Name      string
+	Title     string
+	Content   template.HTML
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Images    []Image
+}
+
+type Pagination struct {
+	Numbers []string
+	First   string
+	Prev    string
+	Current string
+	Next    string
+	Last    string
+}
+
+type Post struct {
+	Category  string
+	Name      string
+	Title     string
+	Preview   string
+	CreatedAt time.Time
+	Images    []Image
+}
+
+type PostListData struct {
+	Site       Site
+	Category   string
+	Pagination Pagination
+	PostList   []Post
 }
