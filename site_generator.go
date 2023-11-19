@@ -172,6 +172,7 @@ func (siteGenerator *SiteGenerator) generatePages(ctx context.Context, parent st
 	if err != nil {
 		return err
 	}
+	// parent=x&name=y
 	// fileGroup, ctx := errgroup.WithContext(ctx)
 	// for _, fileName := range fileNames {
 	// }

@@ -45,6 +45,8 @@ var embedFS embed.FS
 
 var rootFS fs.FS = embedFS
 
+// trusted-proxies.txt: "", "", ""
+
 // Notebrew represents a notebrew instance.
 type Notebrew struct {
 	// ConfigFS is the where the configuration files are stored.
@@ -75,6 +77,10 @@ type Notebrew struct {
 	ContentDomain string // localhost:6444, example.com
 
 	CompressGeneratedHTML atomic.Bool
+
+	Proxies map[netip.Addr]struct{}
+
+	ProxyForwardedIPHeader map[netip.Addr]string
 
 	Logger *slog.Logger
 }
@@ -409,29 +415,54 @@ func IsCommonPassword(password []byte) bool {
 	return ok
 }
 
-func getIP(r *http.Request) string {
-	// Get IP from the X-REAL-IP header
-	ip := r.Header.Get("X-REAL-IP")
-	_, err := netip.ParseAddr(ip)
-	if err == nil {
-		return ip
-	}
-	// Get IP from X-FORWARDED-FOR header
-	ips := r.Header.Get("X-FORWARDED-FOR")
-	splitIps := strings.Split(ips, ",")
-	for _, ip := range splitIps {
-		_, err = netip.ParseAddr(ip)
-		if err == nil {
-			return ip
-		}
-	}
-	// Get IP from RemoteAddr
-	ip, _, err = net.SplitHostPort(r.RemoteAddr)
+func (nbrew *Notebrew) realClientIP(r *http.Request) string {
+	// proxies.json example:
+	// {proxyIPs: ["<ip>", "<ip>", "<ip>"], forwardedIPHeaders: {"<ip>": "X-Real-IP", "<ip>": "CF-Connecting-IP"}}
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return ""
 	}
-	_, err = netip.ParseAddr(ip)
-	if err == nil {
+	remoteAddr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return ""
+	}
+	// If we don't have any proxy servers configured, treat remoteAddr as the
+	// real client IP.
+	if len(nbrew.ProxyForwardedIPHeader) == 0 && len(nbrew.Proxies) == 0 {
+		return ip
+	}
+	// If remoteAddr is trusted to populate a known header with the real client
+	// IP, look in that header.
+	if headerName, ok := nbrew.ProxyForwardedIPHeader[remoteAddr]; ok {
+		ip := strings.Join(r.Header.Values(headerName), ",")
+		if i := strings.LastIndex(ip, ","); i > 0 {
+			ip = ip[i:]
+		}
+		_, err = netip.ParseAddr(ip)
+		if err != nil {
+			return ""
+		}
+		return ip
+	}
+	// If remoteAddr is not a trusted IP address at all, don't bother looking
+	// at the X-Forwarded-For header.
+	_, ok := nbrew.Proxies[remoteAddr]
+	if !ok {
+		return ""
+	}
+	// Merge all X-Forwarded-For headers and split them by comma. We want to
+	// rightmost IP address that isn't a proxy server's IP address.
+	ips := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
+	for i := len(ips) - 1; i >= 0; i-- {
+		ip := ips[i]
+		ipAddr, err := netip.ParseAddr(ip)
+		if err != nil {
+			continue
+		}
+		_, ok := nbrew.Proxies[ipAddr]
+		if ok {
+			continue
+		}
 		return ip
 	}
 	return ""

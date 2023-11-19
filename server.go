@@ -208,7 +208,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.TLS == nil {
 		scheme = "http://"
 	}
-	ip := getIP(r)
+	ip := nbrew.realClientIP(r)
 	logger = logger.With(
 		slog.String("method", r.Method),
 		slog.String("url", scheme+r.Host+r.URL.RequestURI()),

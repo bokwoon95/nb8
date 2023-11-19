@@ -338,7 +338,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 			values := url.Values{
 				"secret":   []string{captchaCredentials.SecretKey},
 				"response": []string{request.CaptchaResponse},
-				"remoteip": []string{getIP(r)},
+				"remoteip": []string{nbrew.realClientIP(r)},
 				"sitekey":  []string{captchaCredentials.SiteKey},
 			}
 			resp, err := client.Post("https://api.hcaptcha.com/siteverify", "application/x-www-form-urlencoded", strings.NewReader(values.Encode()))
