@@ -416,6 +416,7 @@ func IsCommonPassword(password []byte) bool {
 }
 
 func (nbrew *Notebrew) realClientIP(r *http.Request) string {
+	// Reference: https://adam-p.ca/blog/2022/03/x-forwarded-for/
 	// proxies.json example:
 	// {proxyIPs: ["<ip>", "<ip>", "<ip>"], forwardedIPHeaders: {"<ip>": "X-Real-IP", "<ip>": "CF-Connecting-IP"}}
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -448,7 +449,7 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 	// at the X-Forwarded-For header.
 	_, ok := nbrew.Proxies[remoteAddr]
 	if !ok {
-		return ""
+		return ip
 	}
 	// Merge all X-Forwarded-For headers and split them by comma. We want to
 	// rightmost IP address that isn't a proxy server's IP address.
