@@ -18,26 +18,10 @@ if name matches pages/**/*.html => regenerate pages
 if name posts/**/*.md => regenerate posts
 else just update the file
 
-== posts ==
-settings
-search
-regenerate list
-regenerate all
-
-TODO:
-Generate(parent string, names []string)
-generate(ctx context.Context, parent string, names []string, callers []string)
-- Populate the Site struct first (title, favicon, lang, post categories)
-- If names is provided, sort the directories (no extension) before the files (with extensions)
-    - If names are not provided, use ReadDir to get all the files.
-- If head is "pages", generate all directories first before moving on to files (use separate errgroups for directories and for files).
-    - Generating the directories should store all its results in a map[string][]Page, which can be reused by the corresponding pages to avoid re-reading the same page twice later on when generating the parent page. If we didn't comb the directory and we're generating the parent page, we can just call ReadDir on the directory and peek each file's contents to extract the info.
-    - The map[string][]Page scope only lasts within the method call, so it will be garbage collected once it exits.
-    - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the pages that we did generate and remove any orphaned pages that are still hanging around in the output folder (use RemoveAll on the entire directory).
-- If the head is "posts",
-    - (sanity check) If we are nested more than one level of folders, return.
-    - If we called ReadDir earlier, for every post we generate we append it to a []Post. Once all posts have been generated we have to regenerate the post list page using that list of posts.
-    - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the posts that we did generate and remove any orphaned posts that are still hanging around in the output folder (use RemoveAll on the entire directory).
+TODO: principle: on save, do the bare minimum that will most likely satisfy the user's requirements. leave everything else as a manual knob to trigger.
+save a post => update the post, but don't update the post list. instead put a button in the alert asking if the user wants to also regenerate the post list. Whenever the post list is updated, all pages are generated (this may take a long time if there are many posts, but that's unavoidable).
+    - automatic: updating a post on save
+    - manual: updating the post list for a category
 
 TODO: in delete.go, when we delete a post or page we must also include its output/ directory in the deletion list so that the user has a chance to click in and check for any assets before really deleting it.
 

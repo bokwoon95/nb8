@@ -25,12 +25,27 @@ p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
       <a href='{{ $post.Name }}/' style='font-weight: bold;'>{{ $post.Title }}</a>
       <span style='margin-left: 0.5rem; font-size: 0.875rem; color: #555555;'>{{ $post.CreatedAt.Format '2006-01-02' }}</span>
     </div>
-    <div title='{{ $post.Preview }}' style='margin: 0.25rem 0 0.25rem 0; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
+    <div title='{{ $post.Preview }}' style='margin: 0.25rem 0; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
       {{ $post.Preview }}
     </div>
   </li>
   {{- end }}
 </ul>
+  {{- if $.Pagination.Numbers }}
+  <div>
+    {{- if $.Pagination.Last }}
+    <a href='{{ $.Pagination.Last }}/' class='mr1'>last</a>
+    <span class="mh1">&hellip;</span>
+    {{- end }}
+    {{- range $number := $.Pagination.Numbers }}
+    <a href='{{ $number }}/' class='mr1{{ if eq $number $.Pagination.Current }} b{{ end }}'>{{ $number }}</a>
+    {{- end }}
+    {{- if $.Pagination.First }}
+    <span class="mh1">&hellip;</span>
+    <a href='{{ $.Pagination.First }}/' class='mr1'>first</a>
+    {{- end }}
+  </div>
+  {{- end }}
 {{- else }}
 <p>No posts</p>
 {{- end }}

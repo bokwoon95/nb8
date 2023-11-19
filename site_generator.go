@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"path"
 	"strings"
@@ -36,7 +37,7 @@ type Site struct {
 }
 
 func NewSiteGenerator(fsys FS, sitePrefix string, cleanupOrphanedPages bool) (*SiteGenerator, error) {
-	siteGenerator := &SiteGenerator{
+	siteGen := &SiteGenerator{
 		fsys:                 fsys,
 		sitePrefix:           sitePrefix,
 		cleanupOrphanedPages: cleanupOrphanedPages,
@@ -53,22 +54,23 @@ func NewSiteGenerator(fsys FS, sitePrefix string, cleanupOrphanedPages bool) (*S
 	} else {
 		decoder := json.NewDecoder(file)
 		decoder.DisallowUnknownFields()
-		err := decoder.Decode(&siteGenerator.site)
+		err := decoder.Decode(&siteGen.site)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", path.Join(sitePrefix, "site-config.json"), err)
 		}
 	}
-	if siteGenerator.site.Title == "" {
-		siteGenerator.site.Title = "My blog"
+	if siteGen.site.Title == "" {
+		siteGen.site.Title = "My blog"
 	}
-	char, size := utf8.DecodeRuneInString(siteGenerator.site.Favicon)
-	if size == len(siteGenerator.site.Favicon) {
-		siteGenerator.site.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>" + string(char) + "</text></svg>"
-	} else {
-		siteGenerator.site.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>"
+	char, size := utf8.DecodeRuneInString(siteGen.site.Favicon)
+	if size == len(siteGen.site.Favicon) {
+		siteGen.site.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>" + string(char) + "</text></svg>"
 	}
-	if siteGenerator.site.Lang == "" {
-		siteGenerator.site.Lang = "en"
+	if siteGen.site.Favicon == "" {
+		siteGen.site.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>"
+	}
+	if siteGen.site.Lang == "" {
+		siteGen.site.Lang = "en"
 	}
 	dirEntries, err := fsys.ReadDir(path.Join(sitePrefix, "posts"))
 	if err != nil {
@@ -76,10 +78,10 @@ func NewSiteGenerator(fsys FS, sitePrefix string, cleanupOrphanedPages bool) (*S
 	}
 	for _, dirEntry := range dirEntries {
 		if dirEntry.IsDir() {
-			siteGenerator.site.PostCategories = append(siteGenerator.site.PostCategories, dirEntry.Name())
+			siteGen.site.PostCategories = append(siteGen.site.PostCategories, dirEntry.Name())
 		}
 	}
-	return siteGenerator, nil
+	return siteGen, nil
 }
 
 // parent=pages&name=index.html&name=abcd.html&cat.html
@@ -91,14 +93,15 @@ func NewSiteGenerator(fsys FS, sitePrefix string, cleanupOrphanedPages bool) (*S
 // error, so that we can return it instead of asking the user to check the
 // templateErrors themselves.
 
-func (siteGenerator *SiteGenerator) Generate(ctx context.Context, parent string, names []string) error {
+func (siteGen *SiteGenerator) Generate(ctx context.Context, parent string, names []string) error {
+	fsys := siteGen.fsys.WithContext(ctx)
 	head, _, _ := strings.Cut(parent, "/")
 	switch head {
 	case "pages":
 		var dirNames, fileNames []string
 		if len(names) > 0 {
 			for _, name := range names {
-				fileInfo, err := fs.Stat(siteGenerator.fsys, path.Join(siteGenerator.sitePrefix, parent, name))
+				fileInfo, err := fs.Stat(fsys, path.Join(siteGen.sitePrefix, parent, name))
 				if err != nil {
 					if errors.Is(err, fs.ErrNotExist) {
 						continue
@@ -112,7 +115,7 @@ func (siteGenerator *SiteGenerator) Generate(ctx context.Context, parent string,
 				}
 			}
 		} else {
-			dirEntries, err := siteGenerator.fsys.ReadDir(path.Join(siteGenerator.sitePrefix, parent))
+			dirEntries, err := fsys.ReadDir(path.Join(siteGen.sitePrefix, parent))
 			if err != nil {
 				return err
 			}
@@ -147,13 +150,38 @@ func (siteGenerator *SiteGenerator) Generate(ctx context.Context, parent string,
 
 // generatePages doesn't have to return a pages
 
-func (siteGenerator *SiteGenerator) generatePages(ctx context.Context, parent string, dirNames, fileNames []string) error {
-	dirGroup, ctx := errgroup.WithContext(ctx)
+type Page struct {
+	Parent    string
+	Name      string
+	Title     string
+	Images    []Image
+	UpdatedAt time.Time
+}
+
+type PageData struct {
+	Site       Site
+	Parent     string
+	Name       string
+	Title      string
+	ChildPages []Page
+	NextPage   Page
+	PrevPage   Page
+	Markdown   map[string]template.HTML
+	Images     []Image
+	UpdatedAt  time.Time
+}
+
+func (siteGen *SiteGenerator) generatePages(ctx context.Context, parent string, dirNames, fileNames []string) error {
+	g, ctx := errgroup.WithContext(ctx)
+	fsys := siteGen.fsys.WithContext(ctx)
 	for _, dirName := range dirNames {
 		newParent := path.Join(parent, dirName)
-		dirGroup.Go(func() error {
-			dirEntries, err := siteGenerator.fsys.ReadDir(newParent)
+		g.Go(func() error {
+			dirEntries, err := fsys.ReadDir(newParent)
 			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return nil
+				}
 				return err
 			}
 			var newDirNames, newFileNames []string
@@ -165,21 +193,46 @@ func (siteGenerator *SiteGenerator) generatePages(ctx context.Context, parent st
 					newFileNames = append(newFileNames, name)
 				}
 			}
-			return siteGenerator.generatePages(ctx, newParent, newDirNames, newFileNames)
+			return siteGen.generatePages(ctx, newParent, newDirNames, newFileNames)
 		})
 	}
-	err := dirGroup.Wait()
+	err := g.Wait()
 	if err != nil {
 		return err
 	}
-	// parent=x&name=y
-	// fileGroup, ctx := errgroup.WithContext(ctx)
-	// for _, fileName := range fileNames {
-	// }
+	// generate page children: parent=x&name=y
+	// generate page: parent=x&name=y.html
+	// generate ?: parent=x
+	// generate post: parent=x&name=y.md
+	// generate post list: parent=x
+	g, ctx = errgroup.WithContext(ctx)
+	for _, fileName := range fileNames {
+		fileName := fileName
+		g.Go(func() error {
+			file, err := fsys.Open(path.Join(parent, fileName))
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return nil
+				}
+				return err
+			}
+			fileInfo, err := file.Stat()
+			if err != nil {
+				return err
+			}
+			var b strings.Builder
+			b.Grow(int(fileInfo.Size()))
+			_, err = io.Copy(&b, file)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	}
 	return nil
 }
 
-func (siteGenerator *SiteGenerator) parseTemplate(ctx context.Context, name string, callers []string) (*template.Template, error) {
+func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name string, callers []string) (*template.Template, error) {
 	return nil, nil
 }
 
@@ -228,41 +281,21 @@ type Image struct {
 	Name   string
 }
 
-type Page struct {
-	Parent string
-	Name   string
-	Title  string
-}
-
-type PageData struct {
-	Site       Site
-	Parent     string
-	Name       string
-	Title      string
-	ChildPages []Page
-	NextPage   Page
-	PrevPage   Page
-	Markdown   map[string]template.HTML
-	Images     []Image
-}
-
 type PostData struct {
 	Site      Site
 	Category  string
 	Name      string
 	Title     string
 	Content   template.HTML
+	Images    []Image
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	Images    []Image
 }
 
 type Pagination struct {
-	Numbers []string
 	First   string
-	Prev    string
+	Numbers []string
 	Current string
-	Next    string
 	Last    string
 }
 
@@ -271,8 +304,10 @@ type Post struct {
 	Name      string
 	Title     string
 	Preview   string
-	CreatedAt time.Time
+	Content   template.HTML
 	Images    []Image
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type PostListData struct {
