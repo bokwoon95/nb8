@@ -448,24 +448,24 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 	// Check X-Forwarded-For header only if remoteAddr is the IP of a proxy
 	// server.
 	_, ok := nbrew.Proxies[remoteAddr]
-	if ok {
-		// Merge all X-Forwarded-For headers and split them by comma. We want to
-		// rightmost IP address that isn't a proxy server's IP address.
-		ips := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
-		for i := len(ips) - 1; i >= 0; i-- {
-			ipAddr, err := netip.ParseAddr(strings.TrimSpace(ips[i]))
-			if err != nil {
-				continue
-			}
-			_, ok := nbrew.Proxies[ipAddr]
-			if ok {
-				continue
-			}
-			return ipAddr.String()
-		}
-		return ""
+	if !ok {
+		return remoteAddr.String()
 	}
-	return remoteAddr.String()
+	// Merge all X-Forwarded-For headers and split them by comma. We want to
+	// rightmost IP address that isn't a proxy server's IP address.
+	ips := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
+	for i := len(ips) - 1; i >= 0; i-- {
+		ipAddr, err := netip.ParseAddr(strings.TrimSpace(ips[i]))
+		if err != nil {
+			continue
+		}
+		_, ok := nbrew.Proxies[ipAddr]
+		if ok {
+			continue
+		}
+		return ipAddr.String()
+	}
+	return ""
 }
 
 func fileSizeToString(size int64) string {
