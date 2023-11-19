@@ -53,8 +53,10 @@
       </summary>
       <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
         <div class='ma2'><a href='' class='nowrap'>Settings</a></div>
+        {{- if eq (head $.Path) "posts" }}
         <div class='ma2'><a href='' class='nowrap'>View List</a></div>
         <div class='ma2'><button type='button' class='button ba br2 pa2 nowrap'>Regenerate List</button></div>
+        {{- end }}
       </div>
     </details>
   </div>
@@ -281,8 +283,7 @@
             {{ template "octicons-triangle-down" }}
           </summary>
           <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
-            <div class='ma2 tc'><a href=''>Rename</a></div>
-            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Regenerate</button></div>
+            <div class='ma2'><a href=''>Rename</a></div>
             <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Cut</button></div>
             <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Copy</button></div>
             <div class='ma2'><button type='submit' formaction='/{{ join "files" $.SitePrefix "delete" }}/' name='name' value='{{ $fileEntry.Name }}' class='button-danger ba br2 b--dark-red pa2 w-100'>Delete</button></div>
