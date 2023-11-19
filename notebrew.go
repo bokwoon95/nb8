@@ -463,6 +463,7 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 			}
 			return ipAddr.String()
 		}
+		return ""
 	}
 	return remoteAddr.String()
 }
