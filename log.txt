@@ -18,6 +18,12 @@ if name matches pages/**/*.html => regenerate pages
 if name posts/**/*.md => regenerate posts
 else just update the file
 
+== posts ==
+settings
+search
+regenerate list
+regenerate all
+
 TODO:
 Generate(parent string, names []string)
 generate(ctx context.Context, parent string, names []string, callers []string)

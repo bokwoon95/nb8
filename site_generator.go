@@ -8,7 +8,6 @@ import (
 	"html/template"
 	"io/fs"
 	"path"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -36,9 +35,6 @@ type Site struct {
 	PostCategories []string `json:"-"`
 }
 
-// site-config.json
-// post-config.json
-
 func NewSiteGenerator(fsys FS, sitePrefix string, cleanupOrphanedPages bool) (*SiteGenerator, error) {
 	siteGenerator := &SiteGenerator{
 		fsys:                 fsys,
@@ -65,13 +61,11 @@ func NewSiteGenerator(fsys FS, sitePrefix string, cleanupOrphanedPages bool) (*S
 	if siteGenerator.site.Title == "" {
 		siteGenerator.site.Title = "My blog"
 	}
-	if siteGenerator.site.Favicon == "" {
-		siteGenerator.site.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>"
+	char, size := utf8.DecodeRuneInString(siteGenerator.site.Favicon)
+	if size == len(siteGenerator.site.Favicon) {
+		siteGenerator.site.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>" + string(char) + "</text></svg>"
 	} else {
-		char, size := utf8.DecodeRuneInString(siteGenerator.site.Favicon)
-		if size == len(siteGenerator.site.Favicon) {
-			siteGenerator.site.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>" + string(char) + "</text></svg>"
-		}
+		siteGenerator.site.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>"
 	}
 	if siteGenerator.site.Lang == "" {
 		siteGenerator.site.Lang = "en"
@@ -98,46 +92,22 @@ func NewSiteGenerator(fsys FS, sitePrefix string, cleanupOrphanedPages bool) (*S
 // templateErrors themselves.
 
 func (siteGenerator *SiteGenerator) Generate(ctx context.Context, parent string, names []string) error {
-	return siteGenerator.generate(ctx, parent, names, nil)
-}
-
-func (siteGenerator *SiteGenerator) generate(ctx context.Context, parent string, names []string, callers []string) error {
 	head, _, _ := strings.Cut(parent, "/")
-	if head != "pages" && head != "posts" {
-		return fmt.Errorf("invalid parent")
-	}
-	var readDir bool
-	if len(names) == 0 {
-		readDir = true
-		dirEntries, err := siteGenerator.fsys.ReadDir(path.Join(siteGenerator.sitePrefix, parent))
-		if err != nil {
-			return err
-		}
-		for _, dirEntry := range dirEntries {
-			names = append(names, dirEntry.Name())
-		}
-	} else {
-		slices.SortFunc(names, func(a, b string) int {
-			extA := path.Ext(a)
-			extB := path.Ext(b)
-			if extA != "" && extB == "" {
-				return 1
-			}
-			if extA == "" && extB != "" {
-				return -1
-			}
-			return strings.Compare(a, b)
-		})
-	}
 	switch head {
 	case "pages":
 		var dirNames, fileNames []string
 		if len(names) > 0 {
 			for _, name := range names {
-				switch path.Ext(name) {
-				case "":
+				fileInfo, err := fs.Stat(siteGenerator.fsys, path.Join(siteGenerator.sitePrefix, parent, name))
+				if err != nil {
+					if errors.Is(err, fs.ErrNotExist) {
+						continue
+					}
+					return err
+				}
+				if fileInfo.IsDir() {
 					dirNames = append(dirNames, name)
-				case ".html":
+				} else if path.Ext(name) == ".html" {
 					fileNames = append(fileNames, name)
 				}
 			}
@@ -148,82 +118,67 @@ func (siteGenerator *SiteGenerator) generate(ctx context.Context, parent string,
 			}
 			for _, dirEntry := range dirEntries {
 				name := dirEntry.Name()
-				switch path.Ext(name) {
-				case "":
+				if dirEntry.IsDir() {
 					dirNames = append(dirNames, name)
-				case ".html":
+				} else if path.Ext(name) == ".html" {
 					fileNames = append(fileNames, name)
 				}
 			}
 		}
-		// dirGroup, ctx := errgroup.WithContext(ctx)
-		// for _, dirName := range dirNames {
-		// }
-		if readDir {
-		}
+		return nil
 	case "posts":
+		return nil
+	default:
+		return fmt.Errorf("invalid parent")
 	}
-	// TODO: each generate() call uses its own errgroup, and each goroutine inside that errgroup may nest another errgroup (and so on and so forth).
-	// TODO: hardcode the postsPerPage as 100 first, later on we can use
-	// TODO: note down where is the appropriate point to regenerate the RSS feed: we will fill this in later. Perhaps this
-	// - If head is "pages", generate all directories first before moving on to files (use separate errgroups for directories and for files).
-	//     - Generating the directories should store all its results in a map[string][]Page, which can be reused by the corresponding pages to avoid re-reading the same page twice later on when generating the parent page. If we didn't comb the directory and we're generating the parent page, we can just call ReadDir on the directory and peek each file's contents to extract the info.
-	//     - The map[string][]Page scope only lasts within the method call, so it will be garbage collected once it exits.
-	//     - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the pages that we did generate and remove any orphaned pages that are still hanging around in the output folder (use RemoveAll on the entire directory).
-	// - If the head is "posts",
-	//     - (sanity check) If we are nested more than one level of folders, return.
-	//     - If we called ReadDir earlier, for every post we generate we append it to a []Post. Once all posts have been generated we have to regenerate the post list page using that list of posts.
-	//     - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the posts that we did generate and remove any orphaned posts that are still hanging around in the output folder (use RemoveAll on the entire directory).
-	return nil
 }
 
-func (siteGenerator *SiteGenerator) generatePages(ctx context.Context, parent string, names []string, callers []string) ([]Page, error) {
-	var dirNames, fileNames []string
-	if len(names) > 0 {
-		for _, name := range names {
-			switch path.Ext(name) {
-			case "":
-				dirNames = append(dirNames, name)
-			case ".html":
-				fileNames = append(fileNames, name)
-			}
-		}
-	} else {
-		dirEntries, err := siteGenerator.fsys.ReadDir(path.Join(siteGenerator.sitePrefix, parent))
-		if err != nil {
-			return nil, err
-		}
-		for _, dirEntry := range dirEntries {
-			name := dirEntry.Name()
-			switch path.Ext(name) {
-			case "":
-				dirNames = append(dirNames, name)
-			case ".html":
-				fileNames = append(fileNames, name)
-			}
-		}
-	}
-	var (
-		pagesCache   = make(map[string][]Page)
-		pagesCacheMu sync.Mutex
-	)
+// TODO: each generate() call uses its own errgroup, and each goroutine inside that errgroup may nest another errgroup (and so on and so forth).
+// TODO: hardcode the postsPerPage as 100 first, later on we can use
+// TODO: note down where is the appropriate point to regenerate the RSS feed: we will fill this in later. Perhaps this
+// - If head is "pages", generate all directories first before moving on to files (use separate errgroups for directories and for files).
+//     - Generating the directories should store all its results in a map[string][]Page, which can be reused by the corresponding pages to avoid re-reading the same page twice later on when generating the parent page. If we didn't comb the directory and we're generating the parent page, we can just call ReadDir on the directory and peek each file's contents to extract the info.
+//     - The map[string][]Page scope only lasts within the method call, so it will be garbage collected once it exits.
+//     - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the pages that we did generate and remove any orphaned pages that are still hanging around in the output folder (use RemoveAll on the entire directory).
+// - If the head is "posts",
+//     - (sanity check) If we are nested more than one level of folders, return.
+//     - If we called ReadDir earlier, for every post we generate we append it to a []Post. Once all posts have been generated we have to regenerate the post list page using that list of posts.
+//     - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the posts that we did generate and remove any orphaned posts that are still hanging around in the output folder (use RemoveAll on the entire directory).
+
+// generatePages doesn't have to return a pages
+
+func (siteGenerator *SiteGenerator) generatePages(ctx context.Context, parent string, dirNames, fileNames []string) error {
 	dirGroup, ctx := errgroup.WithContext(ctx)
 	for _, dirName := range dirNames {
-		dirName := dirName
+		newParent := path.Join(parent, dirName)
 		dirGroup.Go(func() error {
-			// TODO: what do we still need callers for? Callers is only used
-			// for recursive parse() operations, not the multithreaded
-			// dispatching of jobs right?
-			pages, err := siteGenerator.generatePages(ctx, path.Join(parent, dirName), nil, callers)
+			dirEntries, err := siteGenerator.fsys.ReadDir(newParent)
 			if err != nil {
 				return err
 			}
-			pagesCacheMu.Lock()
-			defer pagesCacheMu.Unlock()
-			pagesCache[dirName] = pages
-			return nil
+			var newDirNames, newFileNames []string
+			for _, dirEntry := range dirEntries {
+				name := dirEntry.Name()
+				if dirEntry.IsDir() {
+					newDirNames = append(newDirNames, name)
+				} else if path.Ext(name) == ".html" {
+					newFileNames = append(newFileNames, name)
+				}
+			}
+			return siteGenerator.generatePages(ctx, newParent, newDirNames, newFileNames)
 		})
 	}
+	err := dirGroup.Wait()
+	if err != nil {
+		return err
+	}
+	// fileGroup, ctx := errgroup.WithContext(ctx)
+	// for _, fileName := range fileNames {
+	// }
+	return nil
+}
+
+func (siteGenerator *SiteGenerator) parseTemplate(ctx context.Context, name string, callers []string) (*template.Template, error) {
 	return nil, nil
 }
 
