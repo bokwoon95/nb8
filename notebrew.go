@@ -423,7 +423,7 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 	if err != nil {
 		return ""
 	}
-	remoteAddr, err := netip.ParseAddr(ip)
+	remoteAddr, err := netip.ParseAddr(strings.TrimSpace(ip))
 	if err != nil {
 		return ""
 	}
@@ -439,7 +439,7 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 		if i := strings.LastIndex(ip, ","); i > 0 {
 			ip = ip[i:]
 		}
-		_, err = netip.ParseAddr(ip)
+		_, err = netip.ParseAddr(strings.TrimSpace(ip))
 		if err != nil {
 			return ""
 		}
@@ -456,7 +456,7 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 	ips := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
 	for i := len(ips) - 1; i >= 0; i-- {
 		ip := ips[i]
-		ipAddr, err := netip.ParseAddr(ip)
+		ipAddr, err := netip.ParseAddr(strings.TrimSpace(ip))
 		if err != nil {
 			continue
 		}
