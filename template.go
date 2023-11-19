@@ -2,7 +2,6 @@ package nb8
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -246,28 +245,6 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 		}
 	}
 	return finalTemplate.Lookup(templateName), nil
-}
-
-type TemplateError map[string][]string
-
-func (templateErrors TemplateError) Error() string {
-	b, _ := json.MarshalIndent(templateErrors, "", "  ")
-	return fmt.Sprintf("the following templates have errors: %s", string(b))
-}
-
-func (templateErrors TemplateError) Errors() []Error {
-	var errmsgs []Error
-	names := make([]string, 0, len(templateErrors))
-	for name := range templateErrors {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	for _, name := range names {
-		for _, errmsg := range templateErrors[name] {
-			errmsgs = append(errmsgs, Error(errmsg))
-		}
-	}
-	return errmsgs
 }
 
 func (nbrew *Notebrew) Regenerate(ctx context.Context, sitePrefix string, dir string, names ...string) error {

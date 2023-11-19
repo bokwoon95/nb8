@@ -129,10 +129,36 @@ func (siteGenerator *SiteGenerator) generate(ctx context.Context, parent string,
 			return strings.Compare(a, b)
 		})
 	}
-	g, ctx := errgroup.WithContext(ctx)
-	_ = g
 	switch head {
 	case "pages":
+		var dirNames, fileNames []string
+		if len(names) > 0 {
+			for _, name := range names {
+				switch path.Ext(name) {
+				case "":
+					dirNames = append(dirNames, name)
+				case ".html":
+					fileNames = append(fileNames, name)
+				}
+			}
+		} else {
+			dirEntries, err := siteGenerator.fsys.ReadDir(path.Join(siteGenerator.sitePrefix, parent))
+			if err != nil {
+				return err
+			}
+			for _, dirEntry := range dirEntries {
+				name := dirEntry.Name()
+				switch path.Ext(name) {
+				case "":
+					dirNames = append(dirNames, name)
+				case ".html":
+					fileNames = append(fileNames, name)
+				}
+			}
+		}
+		// dirGroup, ctx := errgroup.WithContext(ctx)
+		// for _, dirName := range dirNames {
+		// }
 		if readDir {
 		}
 	case "posts":
@@ -140,7 +166,62 @@ func (siteGenerator *SiteGenerator) generate(ctx context.Context, parent string,
 	// TODO: each generate() call uses its own errgroup, and each goroutine inside that errgroup may nest another errgroup (and so on and so forth).
 	// TODO: hardcode the postsPerPage as 100 first, later on we can use
 	// TODO: note down where is the appropriate point to regenerate the RSS feed: we will fill this in later. Perhaps this
+	// - If head is "pages", generate all directories first before moving on to files (use separate errgroups for directories and for files).
+	//     - Generating the directories should store all its results in a map[string][]Page, which can be reused by the corresponding pages to avoid re-reading the same page twice later on when generating the parent page. If we didn't comb the directory and we're generating the parent page, we can just call ReadDir on the directory and peek each file's contents to extract the info.
+	//     - The map[string][]Page scope only lasts within the method call, so it will be garbage collected once it exits.
+	//     - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the pages that we did generate and remove any orphaned pages that are still hanging around in the output folder (use RemoveAll on the entire directory).
+	// - If the head is "posts",
+	//     - (sanity check) If we are nested more than one level of folders, return.
+	//     - If we called ReadDir earlier, for every post we generate we append it to a []Post. Once all posts have been generated we have to regenerate the post list page using that list of posts.
+	//     - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the posts that we did generate and remove any orphaned posts that are still hanging around in the output folder (use RemoveAll on the entire directory).
 	return nil
+}
+
+func (siteGenerator *SiteGenerator) generatePages(ctx context.Context, parent string, names []string, callers []string) ([]Page, error) {
+	var dirNames, fileNames []string
+	if len(names) > 0 {
+		for _, name := range names {
+			switch path.Ext(name) {
+			case "":
+				dirNames = append(dirNames, name)
+			case ".html":
+				fileNames = append(fileNames, name)
+			}
+		}
+	} else {
+		dirEntries, err := siteGenerator.fsys.ReadDir(path.Join(siteGenerator.sitePrefix, parent))
+		if err != nil {
+			return nil, err
+		}
+		for _, dirEntry := range dirEntries {
+			name := dirEntry.Name()
+			switch path.Ext(name) {
+			case "":
+				dirNames = append(dirNames, name)
+			case ".html":
+				fileNames = append(fileNames, name)
+			}
+		}
+	}
+	var (
+		pagesCache   = make(map[string][]Page)
+		pagesCacheMu sync.Mutex
+	)
+	dirGroup, ctx := errgroup.WithContext(ctx)
+	for _, dirName := range dirNames {
+		dirName := dirName
+		dirGroup.Go(func() error {
+			pages, err := siteGenerator.generatePages(ctx, path.Join(parent, dirName), nil, callers)
+			if err != nil {
+				return err
+			}
+			pagesCacheMu.Lock()
+			defer pagesCacheMu.Unlock()
+			pagesCache[dirName] = pages
+			return nil
+		})
+	}
+	return nil, nil
 }
 
 var funcMap = map[string]any{
@@ -240,4 +321,11 @@ type PostListData struct {
 	Category   string
 	Pagination Pagination
 	PostList   []Post
+}
+
+type TemplateError map[string][]string
+
+func (templateErrors TemplateError) Error() string {
+	b, _ := json.MarshalIndent(templateErrors, "", "  ")
+	return fmt.Sprintf("the following templates have errors: %s", string(b))
 }
