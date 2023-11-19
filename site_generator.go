@@ -211,6 +211,9 @@ func (siteGenerator *SiteGenerator) generatePages(ctx context.Context, parent st
 	for _, dirName := range dirNames {
 		dirName := dirName
 		dirGroup.Go(func() error {
+			// TODO: what do we still need callers for? Callers is only used
+			// for recursive parse() operations, not the multithreaded
+			// dispatching of jobs right?
 			pages, err := siteGenerator.generatePages(ctx, path.Join(parent, dirName), nil, callers)
 			if err != nil {
 				return err
