@@ -18,10 +18,19 @@ if name matches pages/**/*.html => regenerate pages
 if name posts/**/*.md => regenerate posts
 else just update the file
 
+gear: settings
+sync
+sort
+plus
+
 TODO: principle: on save, do the bare minimum that will most likely satisfy the user's requirements. leave everything else as a manual knob to trigger.
 save a post => update the post, but don't update the post list. instead put a button in the alert asking if the user wants to also regenerate the post list. Whenever the post list is updated, all pages are generated (this may take a long time if there are many posts, but that's unavoidable).
     - automatic: updating a post on save
-    - manual: updating the post list for a category
+    - manual: updating the post list for a category. button is a sync icon
+save a page => just update the page
+    - we never have to do recursive page generation! Instead we just have to dip into the child pages and assets folder to get the template data (can be parallelized) but that's it.
+    - automatic: updating a page on save
+    - manual: none. every page can be updated by going into the edit page and pressing "save".
 
 TODO: in delete.go, when we delete a post or page we must also include its output/ directory in the deletion list so that the user has a chance to click in and check for any assets before really deleting it.
 

@@ -52,8 +52,8 @@
         {{ template "octicons-triangle-down" }}
       </summary>
       <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
-        <div class='tr ma2'><a href='' class='nowrap'>Settings</a></div>
-        <div class='tr ma2'><a href='' class='nowrap'>Search</a></div>
+        <div class='ma2'><a href='' class='nowrap'>Settings</a></div>
+        <div class='ma2'><a href='' class='nowrap'>Search</a></div>
       </div>
     </details>
   </div>
@@ -65,7 +65,7 @@
         {{ template "octicons-triangle-down" }}
       </summary>
       <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
-        <div class='tr ma2'><a href='' class='nowrap'>No roots</a></div>
+        <div class='ma2'><a href='' class='nowrap'>No roots</a></div>
       </div>
     </details>
   </div>
@@ -91,19 +91,19 @@
       </summary>
       <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
         {{- if and (eq $.SitePrefix "") (eq $.Path "") }}
-        <div class='tr ma2'><a href='/files/createsite/' class='nowrap'>Create site</a></div>
+        <div class='ma2'><a href='/files/createsite/' class='nowrap'>Create Site</a></div>
         {{- else if eq (head $.Path) "notes" }}
-        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfile" }}/?parent={{ $.Path }}&ext=md' class='nowrap'>Create file</a></div>
-        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create folder</a></div>
+        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfile" }}/?parent={{ $.Path }}&ext=md' class='nowrap'>Create File</a></div>
+        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Folder</a></div>
         {{- else if eq (head $.Path) "pages" }}
-        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createpage" }}/?parent={{ $.Path }}' class='nowrap'>Create page</a></div>
-        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create folder</a></div>
+        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createpage" }}/?parent={{ $.Path }}' class='nowrap'>Create Page</a></div>
+        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Folder</a></div>
         {{- else if eq (head $.Path) "posts" }}
-        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createpost" }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}' class='nowrap'>Create post</a></div>
-        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create category</a></div>
+        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createpost" }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}' class='nowrap'>Create Post</a></div>
+        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Category</a></div>
         {{- else if eq (head $.Path) "output" }}
-        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfile" }}/?parent={{ $.Path }}&ext=html' class='nowrap'>Create file</a></div>
-        <div class='tr ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create folder</a></div>
+        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfile" }}/?parent={{ $.Path }}&ext=html' class='nowrap'>Create File</a></div>
+        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Folder</a></div>
         {{- end }}
       </div>
     </details>
@@ -172,7 +172,7 @@
               For the basics, visit <a href=''>The Definitive Guide to Writing HTML Pages in Notebrew</a>.
             </div>
             <hr>
-            <div class='tr ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Regenerate</button></div>
+            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Regenerate</button></div>
           </div>
         </details>
       </li>
@@ -191,7 +191,7 @@
               Your posts can be viewed at <a href='/posts/'>{{- if contains $.SitePrefix "." }}{{- $.SitePrefix }}{{- else if $.SitePrefix }}{{- trimPrefix $.SitePrefix "@" }}.{{ $.ContentDomain }}{{- else }}{{- $.ContentDomain }}{{- end }}/posts</a>.
             </div>
             <hr>
-            <div class='tr ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Regenerate</button></div>
+            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Regenerate</button></div>
           </div>
         </details>
       </li>
@@ -243,7 +243,7 @@
             {{ template "octicons-triangle-down" }}
           </summary>
           <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
-            <div class='tr ma2'><a href='/files/deletesite/?name={{ trimPrefix $fileEntry.Name "@" }}' class='dark-red nowrap'>delete site</a></div>
+            <div class='ma2'><a href='/files/deletesite/?name={{ trimPrefix $fileEntry.Name "@" }}' class='dark-red nowrap'>Delete Site</a></div>
           </div>
         </details>
         {{- end }}
