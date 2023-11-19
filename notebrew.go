@@ -430,7 +430,7 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 	// If we don't have any proxy servers configured, treat remoteAddr as the
 	// real client IP.
 	if len(nbrew.ProxyForwardedIPHeader) == 0 && len(nbrew.Proxies) == 0 {
-		return ip
+		return remoteAddr.String()
 	}
 	// If remoteAddr is trusted to populate a known header with the real client
 	// IP, look in that header.
@@ -439,24 +439,23 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 		if i := strings.LastIndex(ip, ","); i > 0 {
 			ip = ip[i:]
 		}
-		_, err = netip.ParseAddr(strings.TrimSpace(ip))
+		ipAddr, err := netip.ParseAddr(strings.TrimSpace(ip))
 		if err != nil {
 			return ""
 		}
-		return ip
+		return ipAddr.String()
 	}
 	// If remoteAddr is not a trusted IP address at all, don't bother looking
 	// at the X-Forwarded-For header.
 	_, ok := nbrew.Proxies[remoteAddr]
 	if !ok {
-		return ip
+		return remoteAddr.String()
 	}
 	// Merge all X-Forwarded-For headers and split them by comma. We want to
 	// rightmost IP address that isn't a proxy server's IP address.
 	ips := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
 	for i := len(ips) - 1; i >= 0; i-- {
-		ip := ips[i]
-		ipAddr, err := netip.ParseAddr(strings.TrimSpace(ip))
+		ipAddr, err := netip.ParseAddr(strings.TrimSpace(ips[i]))
 		if err != nil {
 			continue
 		}
@@ -464,7 +463,7 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 		if ok {
 			continue
 		}
-		return ip
+		return ipAddr.String()
 	}
 	return ""
 }
