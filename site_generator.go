@@ -102,8 +102,11 @@ func (siteGenerator *SiteGenerator) Generate(ctx context.Context, parent string,
 }
 
 func (siteGenerator *SiteGenerator) generate(ctx context.Context, parent string, names []string, callers []string) error {
+	head, _, _ := strings.Cut(parent, "/")
+	if head != "pages" && head != "posts" {
+		return fmt.Errorf("invalid parent")
+	}
 	var readDir bool
-	_ = readDir
 	if len(names) == 0 {
 		readDir = true
 		dirEntries, err := siteGenerator.fsys.ReadDir(path.Join(siteGenerator.sitePrefix, parent))
@@ -126,17 +129,13 @@ func (siteGenerator *SiteGenerator) generate(ctx context.Context, parent string,
 			return strings.Compare(a, b)
 		})
 	}
-	head, _, _ := strings.Cut(parent, "/")
-	if head != "pages" && head != "posts" {
-		return fmt.Errorf("invalid parent")
-	}
 	g, ctx := errgroup.WithContext(ctx)
 	_ = g
 	switch head {
 	case "pages":
+		if readDir {
+		}
 	case "posts":
-	default:
-		return fmt.Errorf("invalid parent")
 	}
 	// TODO: each generate() call uses its own errgroup, and each goroutine inside that errgroup may nest another errgroup (and so on and so forth).
 	// TODO: hardcode the postsPerPage as 100 first, later on we can use
