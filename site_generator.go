@@ -96,6 +96,8 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	// for external templates, use an errgroup to get all these templates
 	// concurrently then merge them again using the same logic. Good god I'm
 	// basically duplicating almost everything that getTemplate does :/.
+	//
+	// maybe getTemplate gets a template text instead, like how it used to be...
 	return nil
 }
 
