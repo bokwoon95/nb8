@@ -449,86 +449,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sitePrefix = r.Host
 	}
 
-	// custom404 is a 404 handler that will use the site's custom 404 page if
-	// present, otherwise it will fall back to http.Error().
-	//
-	// We use http.Error() instead of notFound() because notFound() depends on
-	// CSS/JS files hosted on the main domain, and we don't want that
-	// dependency (the content domain should be self-sufficient).
-	custom404 := func(w http.ResponseWriter, r *http.Request, sitePrefix string) {
-		// Check if the user's custom 404 page is available.
-		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output/404/index.html"))
-		if err != nil {
-			if !errors.Is(err, fs.ErrNotExist) {
-				logger.Error(err.Error())
-			}
-			http.Error(w, "404 Not Found", http.StatusNotFound)
-			return
-		}
-		fileInfo, err := file.Stat()
-		if err != nil {
-			logger.Error(err.Error())
-			http.Error(w, "404 Not Found", http.StatusNotFound)
-			return
-		}
-
-		buf := bufPool.Get().(*bytes.Buffer)
-		buf.Reset()
-		defer bufPool.Put(buf)
-
-		hasher := hashPool.Get().(hash.Hash)
-		hasher.Reset()
-		defer hashPool.Put(hasher)
-
-		reader := readerPool.Get().(*bufio.Reader)
-		reader.Reset(file)
-		defer readerPool.Put(reader)
-
-		// Peek the first 512 bytes to check if 404/index.html is gzipped and
-		// write it into the buffer + ETag hasher accordingly. The buffer
-		// always receives gzipped data, the only difference is whether the
-		// data has been pre-gzipped or not.
-		b, err := reader.Peek(512)
-		if err != nil && err != io.EOF {
-			logger.Error(err.Error())
-			http.Error(w, "404 Not Found", http.StatusNotFound)
-			return
-		}
-		contentType := http.DetectContentType(b)
-		multiWriter := io.MultiWriter(buf, hasher)
-		if contentType == "application/x-gzip" || contentType == "application/gzip" {
-			_, err := io.Copy(multiWriter, reader)
-			if err != nil {
-				logger.Error(err.Error())
-				http.Error(w, "404 Not Found", http.StatusNotFound)
-				return
-			}
-		} else {
-			gzipWriter := gzipPool.Get().(*gzip.Writer)
-			gzipWriter.Reset(multiWriter)
-			defer gzipPool.Put(gzipWriter)
-			_, err := io.Copy(gzipWriter, reader)
-			if err != nil {
-				logger.Error(err.Error())
-				http.Error(w, "404 Not Found", http.StatusNotFound)
-				return
-			}
-			err = gzipWriter.Close()
-			if err != nil {
-				logger.Error(err.Error())
-				http.Error(w, "404 Not Found", http.StatusNotFound)
-				return
-			}
-		}
-
-		w.Header().Set("Content-Encoding", "gzip")
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(b[:0]))+`"`)
-		w.WriteHeader(http.StatusNotFound)
-		http.ServeContent(w, r, "", fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
-		return
-	}
-
 	var fileType FileType
 	var isGzipped bool
 	var modTime time.Time
@@ -542,7 +462,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output", urlPath, "index.html"))
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
-				custom404(w, r, sitePrefix)
+				nbrew.site404(w, r, sitePrefix)
 				return
 			}
 			logger.Error(err.Error())
@@ -557,7 +477,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if fileInfo.IsDir() {
-			custom404(w, r, sitePrefix)
+			nbrew.site404(w, r, sitePrefix)
 			return
 		}
 		// index.html may be a gzipped file (to save space). Peek the first 512
@@ -580,7 +500,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// file extension.
 		fileType = fileTypes[ext]
 		if fileType == (FileType{}) {
-			custom404(w, r, sitePrefix)
+			nbrew.site404(w, r, sitePrefix)
 			return
 		}
 		// Special case: display all .html files as plaintext so that their raw
@@ -592,7 +512,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output", urlPath))
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
-				custom404(w, r, sitePrefix)
+				nbrew.site404(w, r, sitePrefix)
 				return
 			}
 			logger.Error(err.Error())
@@ -670,4 +590,84 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", fileType.ContentType)
 	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
 	http.ServeContent(w, r, "", modTime, bytes.NewReader(buf.Bytes()))
+}
+
+// site404 is a 404 handler that will use the site's 404 page if present,
+// otherwise it will fall back to http.Error().
+//
+// We fall back to http.Error() instead of notFound() because notFound()
+// depends on CSS/JS files hosted on the main domain and we don't want that
+// dependency.
+func (nbrew *Notebrew) site404(w http.ResponseWriter, r *http.Request, sitePrefix string) {
+	// Check if the user's custom 404 page is available.
+	file, err := nbrew.FS.Open(path.Join(sitePrefix, "output/404/index.html"))
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			getLogger(r.Context()).Error(err.Error())
+		}
+		http.Error(w, "404 Not Found", http.StatusNotFound)
+		return
+	}
+	fileInfo, err := file.Stat()
+	if err != nil {
+		getLogger(r.Context()).Error(err.Error())
+		http.Error(w, "404 Not Found", http.StatusNotFound)
+		return
+	}
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	hasher := hashPool.Get().(hash.Hash)
+	hasher.Reset()
+	defer hashPool.Put(hasher)
+
+	reader := readerPool.Get().(*bufio.Reader)
+	reader.Reset(file)
+	defer readerPool.Put(reader)
+
+	// Peek the first 512 bytes to check if 404/index.html is gzipped and
+	// write it into the buffer + ETag hasher accordingly. The buffer
+	// always receives gzipped data, the only difference is whether the
+	// data has been pre-gzipped or not.
+	b, err := reader.Peek(512)
+	if err != nil && err != io.EOF {
+		getLogger(r.Context()).Error(err.Error())
+		http.Error(w, "404 Not Found", http.StatusNotFound)
+		return
+	}
+	contentType := http.DetectContentType(b)
+	multiWriter := io.MultiWriter(buf, hasher)
+	if contentType == "application/x-gzip" || contentType == "application/gzip" {
+		_, err := io.Copy(multiWriter, reader)
+		if err != nil {
+			getLogger(r.Context()).Error(err.Error())
+			http.Error(w, "404 Not Found", http.StatusNotFound)
+			return
+		}
+	} else {
+		gzipWriter := gzipPool.Get().(*gzip.Writer)
+		gzipWriter.Reset(multiWriter)
+		defer gzipPool.Put(gzipWriter)
+		_, err := io.Copy(gzipWriter, reader)
+		if err != nil {
+			getLogger(r.Context()).Error(err.Error())
+			http.Error(w, "404 Not Found", http.StatusNotFound)
+			return
+		}
+		err = gzipWriter.Close()
+		if err != nil {
+			getLogger(r.Context()).Error(err.Error())
+			http.Error(w, "404 Not Found", http.StatusNotFound)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Encoding", "gzip")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(b[:0]))+`"`)
+	w.WriteHeader(http.StatusNotFound)
+	http.ServeContent(w, r, "", fileInfo.ModTime(), bytes.NewReader(buf.Bytes()))
+	return
 }
