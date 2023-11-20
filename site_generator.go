@@ -336,7 +336,7 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	}
 
 	// It is possible that some of the subdirectories of the outputDir don't
-	// have an index.html, resulting in an empty childPage. Filter these out.
+	// have an index.html, resulting in an empty child page. Filter these out.
 	n := 0
 	for _, page := range pageData.ChildPages {
 		if page == (Page{}) {
