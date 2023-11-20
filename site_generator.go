@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"text/template/parse"
 	"time"
 	"unicode/utf8"
@@ -23,9 +24,9 @@ type SiteGenerator struct {
 	fsys               FS
 	sitePrefix         string
 	site               Site
+	baseTemplate       *template.Template
 	mu                 sync.Mutex
-	templates          map[string]*template.Template
-	templateErrors     map[string][]string
+	templateCache      map[string]*template.Template
 	templateInProgress map[string]chan struct{}
 }
 
@@ -38,11 +39,12 @@ type Site struct {
 
 func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
 	siteGen := &SiteGenerator{
-		fsys:                 fsys,
-		sitePrefix:           sitePrefix,
-		mu:                   sync.Mutex{},
-		templates:            make(map[string]*template.Template),
-		templateInProgress:   make(map[string]chan struct{}),
+		fsys:               fsys,
+		sitePrefix:         sitePrefix,
+		baseTemplate:       template.New("").Funcs(funcMap),
+		mu:                 sync.Mutex{},
+		templateCache:      make(map[string]*template.Template),
+		templateInProgress: make(map[string]chan struct{}),
 	}
 	file, err := fsys.Open(path.Join(sitePrefix, "site-config.json"))
 	if err != nil {
@@ -92,6 +94,32 @@ func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
 // templateErrors themselves.
 
 func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) error {
+	fsys := siteGen.fsys.WithContext(ctx)
+	file, err := fsys.Open(path.Join(siteGen.sitePrefix, "pages", name))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	if fileInfo.IsDir() {
+		return fmt.Errorf("%s is not a template", name)
+	}
+	var b strings.Builder
+	b.Grow(int(fileInfo.Size()))
+	_, err = io.Copy(&b, file)
+	if err != nil {
+		return err
+	}
+	text := b.String()
+	err = file.Close()
+	if err != nil {
+		return err
+	}
+	tmpl, err := siteGen.parseTemplate(ctx, name, text, nil)
+	_ = tmpl
 	// read the page contents, parse the page contents, walk the tree looking
 	// for external templates, use an errgroup to get all these templates
 	// concurrently then merge them again using the same logic. Good god I'm
@@ -101,51 +129,38 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	return nil
 }
 
-func (siteGen *SiteGenerator) getTemplate(ctx context.Context, name string, callers []string) (*template.Template, error) {
-	file, err := siteGen.fsys.Open(path.Join(siteGen.sitePrefix, "output", name))
+func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text string, callers []string) (*template.Template, error) {
+	fsys := siteGen.fsys.WithContext(ctx)
+	tmpl, err := siteGen.baseTemplate.Clone()
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
-	fileInfo, err := file.Stat()
+	tmpl, err = tmpl.New(name).Parse(text)
 	if err != nil {
-		return nil, err
+		return nil, TemplateErrors{
+			name: {
+				err.Error(),
+			},
+		}
 	}
-	if fileInfo.IsDir() {
-		return nil, fmt.Errorf("%s is not a template", name)
-	}
-	var b strings.Builder
-	b.Grow(int(fileInfo.Size()))
-	_, err = io.Copy(&b, file)
-	if err != nil {
-		return nil, err
-	}
-	err = file.Close()
-	if err != nil {
-		return nil, err
-	}
-	primaryTemplate, err := template.New(name).Funcs(funcMap).Parse(b.String())
-	if err != nil {
-		return nil, TemplateErrors{name: {err.Error()}}
-	}
-	primaryTemplates := primaryTemplate.Templates()
-	slices.SortFunc(primaryTemplates, func(t1, t2 *template.Template) int {
-		return strings.Compare(t1.Name(), t2.Name())
-	})
 	var errmsgs []string
-	for _, tmpl := range primaryTemplates {
+	internalTemplates := tmpl.Templates()
+	for _, tmpl := range internalTemplates {
 		internalName := tmpl.Name()
 		if strings.HasSuffix(internalName, ".html") && internalName != name {
 			errmsgs = append(errmsgs, fmt.Sprintf("%s: define %q: internal template name cannot end with .html", name, internalName))
 		}
 	}
 	if len(errmsgs) > 0 {
-		return nil, TemplateErrors{name: errmsgs}
+		return nil, TemplateErrors{
+			name: errmsgs,
+		}
 	}
-	var names []string
+
+	var externalNames []string
 	var node parse.Node
 	var nodes []parse.Node
-	for _, tmpl := range primaryTemplates {
+	for _, tmpl := range internalTemplates {
 		if tmpl.Tree == nil || tmpl.Tree.Root == nil {
 			continue
 		}
@@ -164,36 +179,39 @@ func (siteGen *SiteGenerator) getTemplate(ctx context.Context, name string, call
 				nodes = append(nodes, node.List, node.ElseList)
 			case *parse.TemplateNode:
 				if strings.HasSuffix(node.Name, ".html") {
-					if strings.HasPrefix(node.Name, "/themes/") {
-						names = append(names, node.Name)
-					} else {
+					if !strings.HasPrefix(node.Name, "/themes/") {
 						errmsgs = append(errmsgs, fmt.Sprintf("%s: template %q: external template name must start with /themes/", name, node.Name))
+						continue
 					}
+					externalNames = append(externalNames, node.Name)
 				}
 			}
 		}
 	}
 	if len(errmsgs) > 0 {
-		return nil, TemplateErrors{name: errmsgs}
+		return nil, TemplateErrors{
+			name: errmsgs,
+		}
 	}
-	slices.Sort(names)
-	names = slices.Compact(names)
+
+	slices.Sort(externalNames)
+	externalNames = slices.Compact(externalNames)
 	g, ctx := errgroup.WithContext(ctx)
-	templates := make([]*template.Template, len(names))
-	errs := make([]error, len(name))
-	for i, name := range names {
-		i, name := i, name
+	externalTemplates := make([]*template.Template, len(externalNames))
+	externalTemplateErrs := make([]error, len(externalNames))
+	for i, externalName := range externalNames {
+		i, externalName := i, externalName
 		g.Go(func() error {
-			if slices.Contains(callers, name) {
-				errs[i] = fmt.Errorf(
-					"calling %s ends in a circular reference: %s",
-					callers[0],
-					strings.Join(append(callers, name), " => "),
-				)
+			n := slices.Index(callers, externalName)
+			if n > 0 {
+				externalTemplateErrs[i] = fmt.Errorf("%s has a circular reference: %s", externalName, strings.Join(callers[n:], "=>")+" => "+externalName)
 				return nil
 			}
+
+			// If a template is currently being parsed, wait for it to finish
+			// before checking the templateCache for the result.
 			siteGen.mu.Lock()
-			wait := siteGen.templateInProgress[name]
+			wait := siteGen.templateInProgress[externalName]
 			siteGen.mu.Unlock()
 			if wait != nil {
 				select {
@@ -204,58 +222,143 @@ func (siteGen *SiteGenerator) getTemplate(ctx context.Context, name string, call
 				}
 			}
 			siteGen.mu.Lock()
-			tmpl := siteGen.templates[name]
+			cachedTemplate, ok := siteGen.templateCache[externalName]
 			siteGen.mu.Unlock()
-			if tmpl != nil {
-				templates[i] = tmpl
+			if ok {
+				// We found the template; add it to the slice and exit. The
+				// cachedTemplate may be nil, if parsing that template had
+				// errors.
+				externalTemplates[i] = cachedTemplate
 				return nil
 			}
+
+			// We unconditionally put the cachedTemplate pointer into the
+			// templateCache first. This is to indicate that we have already
+			// seen this template. If parsing succeeds, we simply populate the
+			// template pointer (bypassing the need to write to the
+			// templateCache again). If we fail, the cachedTemplate pointer
+			// stays nil and should be treated as a signal by other goroutines
+			// that this parsing this template has errors. Other goroutines are
+			// blocked from accessing the cachedTemplate pointer until the wait
+			// channel is closed by the defer function below (once this
+			// goroutine exits).
 			wait = make(chan struct{})
 			siteGen.mu.Lock()
-			siteGen.templateInProgress[name] = wait
+			siteGen.templateInProgress[externalName] = wait
+			siteGen.templateCache[externalName] = cachedTemplate
 			siteGen.mu.Unlock()
-			tmpl, err := siteGen.getTemplate(ctx, name, append(callers, name))
+			defer func() {
+				siteGen.mu.Lock()
+				delete(siteGen.templateInProgress, externalName)
+				close(wait)
+				siteGen.mu.Unlock()
+			}()
+
+			file, err := fsys.Open(path.Join(siteGen.sitePrefix, "output", externalName))
 			if err != nil {
-				errs[i] = err
+				// If we cannot find the referenced template, it is not the
+				// external template's fault but rather the current template's
+				// fault for referencing a non-existent external template.
+				// Therefore we return the error (associating it with the
+				// current template) instead of adding it to the
+				// externalTemplateErrs list.
+				if errors.Is(err, fs.ErrNotExist) {
+					return &fs.PathError{Op: "parsetemplate", Path: externalName, Err: fs.ErrNotExist}
+				}
+				externalTemplateErrs[i] = err
+				return nil
 			}
-			siteGen.mu.Lock()
-			siteGen.templates[name] = tmpl
-			delete(siteGen.templateInProgress, name)
-			close(wait)
-			siteGen.mu.Unlock()
+			defer file.Close()
+			fileInfo, err := file.Stat()
+			if err != nil {
+				externalTemplateErrs[i] = err
+				return nil
+			}
+			if fileInfo.IsDir() {
+				// If the referenced template is not a file but a directory, it
+				// is the current template's fault for referencing a directory
+				// instead of a file. Therefore we return the error
+				// (associating it with the current template) instead of adding
+				// it to the externalTemplateErrs list.
+				return &fs.PathError{Op: "parsetemplate", Path: externalName, Err: syscall.EISDIR}
+			}
+			var b strings.Builder
+			b.Grow(int(fileInfo.Size()))
+			_, err = io.Copy(&b, file)
+			if err != nil {
+				externalTemplateErrs[i] = err
+				return nil
+			}
+			err = file.Close()
+			if err != nil {
+				externalTemplateErrs[i] = err
+				return nil
+			}
+			externalTemplate, err := siteGen.parseTemplate(ctx, externalName, b.String(), append(slices.Clone(callers), externalName))
+			if err != nil {
+				externalTemplateErrs[i] = err
+				return nil
+			}
+			externalTemplates[i] = externalTemplate
+			*cachedTemplate = *externalTemplate
 			return nil
 		})
 	}
 	err = g.Wait()
 	if err != nil {
+		return nil, TemplateErrors{
+			name: {
+				err.Error(),
+			},
+		}
+	}
+	mergedErrs := make(map[string][]string)
+	for i, err := range externalTemplateErrs {
+		switch err := err.(type) {
+		case nil:
+			continue
+		case TemplateErrors:
+			for externalName, errmsgs := range err {
+				mergedErrs[externalName] = append(mergedErrs[externalName], errmsgs...)
+			}
+		default:
+			externalName := externalNames[i]
+			mergedErrs[externalName] = append(mergedErrs[externalName], err.Error())
+		}
+	}
+	if len(mergedErrs) > 0 {
+		return nil, TemplateErrors(mergedErrs)
+	}
+	var nilTemplates []string
+	for i, tmpl := range externalTemplates {
+		if tmpl == nil {
+			nilTemplates = append(nilTemplates, externalNames[i])
+		}
+	}
+	if len(nilTemplates) > 0 {
+		return nil, TemplateErrors{
+			name: {
+				fmt.Sprintf("the following templates have errors: %s", strings.Join(nilTemplates, ", ")),
+			},
+		}
+	}
+	finalTemplate, err := siteGen.baseTemplate.Clone()
+	if err != nil {
 		return nil, err
 	}
-	errMap := make(map[string][]string)
-	for _, err := range errs {
-		if err == nil {
-			continue
-		}
-		if templateErrors, ok := err.(TemplateErrors); ok {
-			for name, errmsgs := range templateErrors {
-				errMap[name] = append(errMap[name], errmsgs...)
-			}
-			continue
-		}
-		errMap[name] = append(errMap[name], err.Error())
-	}
-	if len(errMap) > 0 {
-		for name, errmsgs := range errMap {
-			slices.Sort(errmsgs)
-			errMap[name] = slices.Compact(errmsgs)
-		}
-		return nil, TemplateErrors(errMap)
-	}
-	finalTemplate := template.New(name).Funcs(funcMap)
-	for i, tmpl := range templates {
+	for i, tmpl := range externalTemplates {
 		for _, tmpl := range tmpl.Templates() {
 			_, err = finalTemplate.AddParseTree(tmpl.Name(), tmpl.Tree)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %s: add %s: %w", name, names[i], tmpl.Name(), err)
+				return nil, fmt.Errorf("%s: %s: add %s: %w", name, externalNames[i], tmpl.Name(), err)
+			}
+		}
+	}
+	for _, tmpl := range internalTemplates {
+		for _, tmpl := range tmpl.Templates() {
+			_, err = finalTemplate.AddParseTree(tmpl.Name(), tmpl.Tree)
+			if err != nil {
+				return nil, fmt.Errorf("%s: add %s: %w", name, tmpl.Name(), err)
 			}
 		}
 	}
@@ -341,8 +444,8 @@ type PageData struct {
 }
 
 func (siteGen *SiteGenerator) generatePages(ctx context.Context, parent string, dirNames, fileNames []string) error {
-	g, ctx := errgroup.WithContext(ctx)
 	fsys := siteGen.fsys.WithContext(ctx)
+	g, ctx := errgroup.WithContext(ctx)
 	for _, dirName := range dirNames {
 		newParent := path.Join(parent, dirName)
 		g.Go(func() error {
