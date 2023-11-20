@@ -8,7 +8,6 @@ import (
 	"html/template"
 	"io/fs"
 	"log/slog"
-	"mime"
 	"net/http"
 	"path"
 	"strings"
@@ -254,8 +253,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		}
 	}
 
-	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-	if accept == "application/json" {
+	if r.Form.Has("api") {
 		w.Header().Set("Content-Type", "application/json")
 		encoder := json.NewEncoder(w)
 		encoder.SetEscapeHTML(false)

@@ -129,8 +129,7 @@ func badRequest(w http.ResponseWriter, r *http.Request, serverErr error) {
 			msg = serverErr.Error()
 		}
 	}
-	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-	if accept == "application/json" {
+	if r.Form.Has("api") {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		encoder := json.NewEncoder(w)
@@ -162,8 +161,7 @@ func badRequest(w http.ResponseWriter, r *http.Request, serverErr error) {
 }
 
 func notAuthenticated(w http.ResponseWriter, r *http.Request) {
-	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-	if accept == "application/json" {
+	if r.Form.Has("api") {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		encoder := json.NewEncoder(w)
@@ -203,8 +201,7 @@ func notAuthenticated(w http.ResponseWriter, r *http.Request) {
 }
 
 func notAuthorized(w http.ResponseWriter, r *http.Request) {
-	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-	if accept == "application/json" {
+	if r.Form.Has("api") {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
 		encoder := json.NewEncoder(w)
@@ -237,8 +234,7 @@ func notAuthorized(w http.ResponseWriter, r *http.Request) {
 }
 
 func notFound(w http.ResponseWriter, r *http.Request) {
-	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-	if accept == "application/json" {
+	if r.Form.Has("api") {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		encoder := json.NewEncoder(w)
@@ -271,8 +267,7 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 }
 
 func methodNotAllowed(w http.ResponseWriter, r *http.Request) {
-	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-	if accept == "application/json" {
+	if r.Form.Has("api") {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		encoder := json.NewEncoder(w)
@@ -311,8 +306,7 @@ func unsupportedContentType(w http.ResponseWriter, r *http.Request) {
 	} else {
 		msg = "unsupported Content-Type: " + contentType
 	}
-	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-	if accept == "application/json" {
+	if r.Form.Has("api") {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		encoder := json.NewEncoder(w)
@@ -344,8 +338,7 @@ func unsupportedContentType(w http.ResponseWriter, r *http.Request) {
 }
 
 func internalServerError(w http.ResponseWriter, r *http.Request, serverErr error) {
-	accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-	if accept == "application/json" {
+	if r.Form.Has("api") {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		encoder := json.NewEncoder(w)

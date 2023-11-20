@@ -132,8 +132,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 			}
 			response.CaptchaSiteKey = captchaCredentials.SiteKey
 			response.RequireCaptcha = captchaCredentials.SecretKey != "" && captchaCredentials.SiteKey != "" && response.SignupToken == ""
-			accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-			if accept == "application/json" {
+			if r.Form.Has("api") {
 				w.Header().Set("Content-Type", "application/json")
 				encoder := json.NewEncoder(w)
 				encoder.SetEscapeHTML(false)
@@ -205,8 +204,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 		writeResponse(w, r, response)
 	case "POST":
 		writeResponse := func(w http.ResponseWriter, r *http.Request, response Response) {
-			accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-			if accept == "application/json" {
+			if r.Form.Has("api") {
 				w.Header().Set("Content-Type", "application/json")
 				encoder := json.NewEncoder(w)
 				encoder.SetEscapeHTML(false)

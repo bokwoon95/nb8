@@ -157,8 +157,7 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 					response.RequireCaptcha = true
 				}
 			}
-			accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-			if accept == "application/json" {
+			if r.Form.Has("api") {
 				w.Header().Set("Content-Type", "application/json")
 				encoder := json.NewEncoder(w)
 				encoder.SetEscapeHTML(false)
@@ -283,8 +282,7 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 					return
 				}
 			}
-			accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-			if accept == "application/json" {
+			if r.Form.Has("api") {
 				w.Header().Set("Content-Type", "application/json")
 				encoder := json.NewEncoder(w)
 				encoder.SetEscapeHTML(false)

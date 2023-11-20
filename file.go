@@ -251,8 +251,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			}
 		}
 
-		accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-		if accept == "application/json" {
+		if r.Form.Has("api") {
 			w.Header().Set("Content-Type", "application/json")
 			encoder := json.NewEncoder(w)
 			encoder.SetEscapeHTML(false)
@@ -304,8 +303,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		executeTemplate(w, r, fileInfo.ModTime(), tmpl, &response)
 	case "POST":
 		writeResponse := func(w http.ResponseWriter, r *http.Request, response Response) {
-			accept, _, _ := mime.ParseMediaType(r.Header.Get("Accept"))
-			if accept == "application/json" {
+			if r.Form.Has("api") {
 				w.Header().Set("Content-Type", "application/json")
 				encoder := json.NewEncoder(w)
 				encoder.SetEscapeHTML(false)

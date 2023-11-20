@@ -19,11 +19,9 @@ if (form) {
         }
         const formData = new FormData(form);
         formData.set("dryRun", "true");
+        formData.set("api", "");
         const result = await (await fetch(form.action, {
             method: form.method,
-            headers: {
-                "Accept": "application/json",
-            },
             body: formData,
         })).json();
         console.log(result);
