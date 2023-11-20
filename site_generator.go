@@ -256,6 +256,8 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 					return err
 				}
 				defer file.Close()
+				// Wrap the file in a bufio.Reader so we can read the file line
+				// by line.
 				reader := readerPool.Get().(*bufio.Reader)
 				reader.Reset(file)
 				defer readerPool.Put(reader)
@@ -287,6 +289,8 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 					defer readerPool.Put(newReader)
 					reader = newReader
 				}
+				// Reading the file line by line, start writing into the buffer
+				// once we find <title> and stop writing once we find </title>.
 				buf := bufPool.Get().(*bytes.Buffer)
 				buf.Reset()
 				defer bufPool.Put(buf)
@@ -304,6 +308,8 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 						i := bytes.Index(line, []byte("<title>"))
 						if i > 0 {
 							found = true
+							// If we find </title> on the same line, we can
+							// break immediately.
 							j := bytes.Index(line, []byte("</title>"))
 							if j > 0 {
 								buf.Write(line[i+len("<title>") : j])
@@ -314,6 +320,7 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 					} else {
 						i := bytes.Index(line, []byte("</title>"))
 						if i > 0 {
+							buf.WriteByte(' ')
 							buf.Write(line[:i])
 							break
 						}
