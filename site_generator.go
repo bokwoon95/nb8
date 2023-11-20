@@ -9,8 +9,10 @@ import (
 	"io"
 	"io/fs"
 	"path"
+	"slices"
 	"strings"
 	"sync"
+	"text/template/parse"
 	"time"
 	"unicode/utf8"
 
@@ -18,15 +20,13 @@ import (
 )
 
 type SiteGenerator struct {
-	fsys                 FS
-	sitePrefix           string
-	site                 Site
-	cleanupOrphanedPages bool
-	mu                   sync.Mutex
-	templates            map[string]*template.Template
-	templateErrors       map[string][]string
-	templateInProgress   map[string]chan struct{}
-	cleanupErrors        []string
+	fsys               FS
+	sitePrefix         string
+	site               Site
+	mu                 sync.Mutex
+	templates          map[string]*template.Template
+	templateErrors     map[string][]string
+	templateInProgress map[string]chan struct{}
 }
 
 type Site struct {
@@ -36,14 +36,12 @@ type Site struct {
 	PostCategories []string `json:"-"`
 }
 
-func NewSiteGenerator(fsys FS, sitePrefix string, cleanupOrphanedPages bool) (*SiteGenerator, error) {
+func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
 	siteGen := &SiteGenerator{
 		fsys:                 fsys,
 		sitePrefix:           sitePrefix,
-		cleanupOrphanedPages: cleanupOrphanedPages,
 		mu:                   sync.Mutex{},
 		templates:            make(map[string]*template.Template),
-		templateErrors:       make(map[string][]string),
 		templateInProgress:   make(map[string]chan struct{}),
 	}
 	file, err := fsys.Open(path.Join(sitePrefix, "site-config.json"))
@@ -92,6 +90,171 @@ func NewSiteGenerator(fsys FS, sitePrefix string, cleanupOrphanedPages bool) (*S
 // TODO: we need a new structure that encapsulates template errors into an
 // error, so that we can return it instead of asking the user to check the
 // templateErrors themselves.
+
+func (siteGen *SiteGenerator) GeneratePage(ctx context.Context) error {
+	return nil
+}
+
+func (siteGen *SiteGenerator) getTemplate(ctx context.Context, name string, callers []string) (*template.Template, error) {
+	file, err := siteGen.fsys.Open(path.Join(siteGen.sitePrefix, "output", name))
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if fileInfo.IsDir() {
+		return nil, fmt.Errorf("%s is not a template", name)
+	}
+	var b strings.Builder
+	b.Grow(int(fileInfo.Size()))
+	_, err = io.Copy(&b, file)
+	if err != nil {
+		return nil, err
+	}
+	err = file.Close()
+	if err != nil {
+		return nil, err
+	}
+	primaryTemplate, err := template.New(name).Funcs(funcMap).Parse(b.String())
+	if err != nil {
+		return nil, TemplateErrors{name: {err.Error()}}
+	}
+	primaryTemplates := primaryTemplate.Templates()
+	slices.SortFunc(primaryTemplates, func(t1, t2 *template.Template) int {
+		return strings.Compare(t1.Name(), t2.Name())
+	})
+	var errmsgs []string
+	for _, tmpl := range primaryTemplates {
+		internalName := tmpl.Name()
+		if strings.HasSuffix(internalName, ".html") && internalName != name {
+			errmsgs = append(errmsgs, fmt.Sprintf("%s: define %q: internal template name cannot end with .html", name, internalName))
+		}
+	}
+	if len(errmsgs) > 0 {
+		return nil, TemplateErrors{name: errmsgs}
+	}
+	var names []string
+	var node parse.Node
+	var nodes []parse.Node
+	for _, tmpl := range primaryTemplates {
+		if tmpl.Tree == nil || tmpl.Tree.Root == nil {
+			continue
+		}
+		nodes = append(nodes, tmpl.Tree.Root.Nodes...)
+		for len(nodes) > 0 {
+			node, nodes = nodes[len(nodes)-1], nodes[:len(nodes)-1]
+			switch node := node.(type) {
+			case *parse.ListNode:
+				if node == nil {
+					continue
+				}
+				nodes = append(nodes, node.Nodes...)
+			case *parse.BranchNode:
+				nodes = append(nodes, node.List, node.ElseList)
+			case *parse.RangeNode:
+				nodes = append(nodes, node.List, node.ElseList)
+			case *parse.TemplateNode:
+				if strings.HasSuffix(node.Name, ".html") {
+					if strings.HasPrefix(node.Name, "/themes/") {
+						names = append(names, node.Name)
+					} else {
+						errmsgs = append(errmsgs, fmt.Sprintf("%s: template %q: external template name must start with /themes/", name, node.Name))
+					}
+				}
+			}
+		}
+	}
+	if len(errmsgs) > 0 {
+		return nil, TemplateErrors{name: errmsgs}
+	}
+	slices.Sort(names)
+	names = slices.Compact(names)
+	g, ctx := errgroup.WithContext(ctx)
+	templates := make([]*template.Template, len(names))
+	errs := make([]error, len(name))
+	for i, name := range names {
+		i, name := i, name
+		g.Go(func() error {
+			if slices.Contains(callers, name) {
+				errs[i] = fmt.Errorf(
+					"calling %s ends in a circular reference: %s",
+					callers[0],
+					strings.Join(append(callers, name), " => "),
+				)
+				return nil
+			}
+			siteGen.mu.Lock()
+			wait := siteGen.templateInProgress[name]
+			siteGen.mu.Unlock()
+			if wait != nil {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-wait:
+					break
+				}
+			}
+			siteGen.mu.Lock()
+			tmpl := siteGen.templates[name]
+			siteGen.mu.Unlock()
+			if tmpl != nil {
+				templates[i] = tmpl
+				return nil
+			}
+			wait = make(chan struct{})
+			siteGen.mu.Lock()
+			siteGen.templateInProgress[name] = wait
+			siteGen.mu.Unlock()
+			tmpl, err := siteGen.getTemplate(ctx, name, append(callers, name))
+			if err != nil {
+				errs[i] = err
+			}
+			siteGen.mu.Lock()
+			siteGen.templates[name] = tmpl
+			delete(siteGen.templateInProgress, name)
+			close(wait)
+			siteGen.mu.Unlock()
+			return nil
+		})
+	}
+	err = g.Wait()
+	if err != nil {
+		return nil, err
+	}
+	errMap := make(map[string][]string)
+	for _, err := range errs {
+		if err == nil {
+			continue
+		}
+		if templateErrors, ok := err.(TemplateErrors); ok {
+			for name, errmsgs := range templateErrors {
+				errMap[name] = append(errMap[name], errmsgs...)
+			}
+			continue
+		}
+		errMap[name] = append(errMap[name], err.Error())
+	}
+	if len(errMap) > 0 {
+		for name, errmsgs := range errMap {
+			slices.Sort(errmsgs)
+			errMap[name] = slices.Compact(errmsgs)
+		}
+		return nil, TemplateErrors(errMap)
+	}
+	finalTemplate := template.New(name).Funcs(funcMap)
+	for i, tmpl := range templates {
+		for _, tmpl := range tmpl.Templates() {
+			_, err = finalTemplate.AddParseTree(tmpl.Name(), tmpl.Tree)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %s: add %s: %w", name, names[i], tmpl.Name(), err)
+			}
+		}
+	}
+	return finalTemplate.Lookup(name), nil
+}
 
 func (siteGen *SiteGenerator) Generate(ctx context.Context, parent string, names []string) error {
 	fsys := siteGen.fsys.WithContext(ctx)
@@ -232,10 +395,6 @@ func (siteGen *SiteGenerator) generatePages(ctx context.Context, parent string, 
 	return nil
 }
 
-func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name string, callers []string) (*template.Template, error) {
-	return nil, nil
-}
-
 var funcMap = map[string]any{
 	"join":             path.Join,
 	"base":             path.Base,
@@ -317,9 +476,9 @@ type PostListData struct {
 	PostList   []Post
 }
 
-type TemplateError map[string][]string
+type TemplateErrors map[string][]string
 
-func (templateErrors TemplateError) Error() string {
-	b, _ := json.MarshalIndent(templateErrors, "", "  ")
+func (e TemplateErrors) Error() string {
+	b, _ := json.MarshalIndent(e, "", "  ")
 	return fmt.Sprintf("the following templates have errors: %s", string(b))
 }

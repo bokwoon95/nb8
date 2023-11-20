@@ -98,7 +98,7 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 		// make the error more obvious?
 		parser.errmsgs[templateName] = append(parser.errmsgs[templateName], strings.TrimSpace(strings.TrimPrefix(err.Error(), "template:")))
 		parser.mu.Unlock()
-		return nil, TemplateError(parser.errmsgs)
+		return nil, TemplateErrors(parser.errmsgs)
 	}
 	primaryTemplates := primaryTemplate.Templates()
 	slices.SortFunc(primaryTemplates, func(t1, t2 *template.Template) int {
@@ -116,7 +116,7 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 	errmsgs := parser.errmsgs
 	parser.mu.Unlock()
 	if len(errmsgs) > 0 {
-		return nil, TemplateError(errmsgs)
+		return nil, TemplateErrors(errmsgs)
 	}
 	var names []string
 	var node parse.Node
@@ -159,7 +159,7 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 				strings.Join(append(callers, name), " => "),
 			))
 			parser.mu.Unlock()
-			return nil, TemplateError(parser.errmsgs)
+			return nil, TemplateErrors(parser.errmsgs)
 		}
 		parser.mu.Lock()
 		wait := parser.inProgress[name]
@@ -236,7 +236,7 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 	errmsgs = parser.errmsgs
 	parser.mu.Unlock()
 	if len(errmsgs) > 0 {
-		return nil, TemplateError(errmsgs)
+		return nil, TemplateErrors(errmsgs)
 	}
 	for _, tmpl := range primaryTemplates {
 		_, err = finalTemplate.AddParseTree(tmpl.Name(), tmpl.Tree)
