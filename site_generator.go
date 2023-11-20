@@ -91,7 +91,7 @@ func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
 // error, so that we can return it instead of asking the user to check the
 // templateErrors themselves.
 
-func (siteGen *SiteGenerator) GeneratePage(ctx context.Context) error {
+func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) error {
 	return nil
 }
 
