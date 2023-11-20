@@ -421,10 +421,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// cdn.nbrew.io/foo/bar.jpg             => sitePrefix: <none>,      urlPath: foo/bar.jpg
 			// cdn.nbrew.io/@username/foo/bar.jpg   => sitePrefix: @username,   urlPath: foo/bar.jpg
 			// cdn.nbrew.io/example.com/foo/bar.jpg => sitePrefix: example.com, urlPath: foo/bar.jpg
-			if ext == "" {
-				http.Error(w, "404 Not Found", http.StatusNotFound)
-				return
-			}
 			if strings.HasPrefix(head, "@") {
 				sitePrefix, urlPath = head, tail
 			} else if strings.Contains(head, ".") {
