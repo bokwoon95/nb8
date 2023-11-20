@@ -185,6 +185,12 @@ func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
 }
 
 func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Redirect the www subdomain to the bare domain.
+	if r.Host == "www."+nbrew.Domain {
+		http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+r.URL.RequestURI(), http.StatusMovedPermanently)
+		return
+	}
+
 	// Clean the path and redirect if necessary.
 	if r.Method == "GET" {
 		cleanedPath := path.Clean(r.URL.Path)
@@ -226,16 +232,6 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Cross-Origin-Resource-Policy", "same-origin")
 	if nbrew.Scheme == "https://" {
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
-	}
-
-	// Redirect any www subdomains to the bare domain.
-	if r.Host == "www."+nbrew.Domain {
-		http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+r.URL.RequestURI(), http.StatusMovedPermanently)
-		return
-	}
-	if r.Host == "www."+nbrew.ContentDomain {
-		http.Redirect(w, r, nbrew.Scheme+nbrew.ContentDomain+r.URL.RequestURI(), http.StatusMovedPermanently)
-		return
 	}
 
 	// Special case: make these files available on the root path of the main
@@ -416,7 +412,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if certmagic.MatchWildcard(r.Host, "*."+nbrew.ContentDomain) {
 		subdomain := strings.TrimSuffix(r.Host, "."+nbrew.ContentDomain)
 		switch subdomain {
-		case "cdn", "assets":
+		case "cdn", "www":
 			// examples:
 			// cdn.nbrew.io/foo/bar.jpg             => sitePrefix: <none>,      urlPath: foo/bar.jpg
 			// cdn.nbrew.io/@username/foo/bar.jpg   => sitePrefix: @username,   urlPath: foo/bar.jpg
@@ -433,6 +429,14 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
+			// TODO: if we don't set CORS on the www subdomain, can't users
+			// just bypass the CORS restrictions on the cdn subdomain by
+			// visiting the www subdomain instead? Another thing, do we really
+			// want the public to be able to embed our resources on their web
+			// pages? Is it possible to whitelist the CDN server in ConfigFS
+			// such that we only Access-Control-Allow-Origin if the person
+			// knocking on the www subdomain is the CDN service? Think this
+			// through (needs more testing).
 			if subdomain == "cdn" {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
 				w.Header().Set("Access-Control-Allow-Methods", "GET")
@@ -589,7 +593,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // site404 is a 404 handler that will use the site's 404 page if present,
-// otherwise it will fall back to http.Error().
+// otherwise it falls back to http.Error().
 //
 // We fall back to http.Error() instead of notFound() because notFound()
 // depends on CSS/JS files hosted on the main domain and we don't want that
