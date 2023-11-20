@@ -318,6 +318,8 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 							buf.Write(line[i+len("<title>"):])
 						}
 					} else {
+						// Otherwise we keep writing subsequent lines whole
+						// until we find </title>.
 						i := bytes.Index(line, []byte("</title>"))
 						if i > 0 {
 							buf.WriteByte(' ')
