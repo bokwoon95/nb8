@@ -19,7 +19,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"golang.org/x/net/html"
+	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	goldmarkhtml "github.com/yuin/goldmark/renderer/html"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -27,6 +31,7 @@ type SiteGenerator struct {
 	fsys               FS
 	sitePrefix         string
 	site               Site
+	markdown           goldmark.Markdown
 	baseTemplate       *template.Template
 	mu                 sync.Mutex
 	templateCache      map[string]*template.Template
@@ -34,20 +39,18 @@ type SiteGenerator struct {
 }
 
 type Site struct {
-	Title          string   `json:"title"`
-	Favicon        string   `json:"favicon"`
-	Lang           string   `json:"lang"`
-	PostCategories []string `json:"-"`
+	Title          string
+	Favicon        string
+	Lang           string
+	PostCategories []string
 }
 
 func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
-	siteGen := &SiteGenerator{
-		fsys:               fsys,
-		sitePrefix:         sitePrefix,
-		baseTemplate:       template.New("").Funcs(funcMap),
-		mu:                 sync.Mutex{},
-		templateCache:      make(map[string]*template.Template),
-		templateInProgress: make(map[string]chan struct{}),
+	var config struct {
+		Title     string `json:"title"`
+		Favicon   string `json:"favicon"`
+		Lang      string `json:"lang"`
+		CodeStyle string `json:"codeStyle"`
 	}
 	file, err := fsys.Open(path.Join(sitePrefix, "site-config.json"))
 	if err != nil {
@@ -57,23 +60,47 @@ func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
 	} else {
 		decoder := json.NewDecoder(file)
 		decoder.DisallowUnknownFields()
-		err := decoder.Decode(&siteGen.site)
+		err := decoder.Decode(&config)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", path.Join(sitePrefix, "site-config.json"), err)
 		}
 	}
+	char, size := utf8.DecodeRuneInString(config.Favicon)
+	if size == len(config.Favicon) {
+		config.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>" + string(char) + "</text></svg>"
+	}
+	if config.Favicon == "" {
+		config.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>"
+	}
+	if config.Lang == "" {
+		config.Lang = "en"
+	}
+	if config.CodeStyle == "" {
+		config.CodeStyle = "dracula"
+	}
+	siteGen := &SiteGenerator{
+		fsys:       fsys,
+		sitePrefix: sitePrefix,
+		site: Site{
+			Title:   config.Title,
+			Favicon: config.Favicon,
+			Lang:    config.Lang,
+		},
+		markdown: goldmark.New(
+			goldmark.WithParserOptions(parser.WithAttribute()),
+			goldmark.WithExtensions(
+				extension.Table,
+				highlighting.NewHighlighting(highlighting.WithStyle(config.CodeStyle)),
+			),
+			goldmark.WithRendererOptions(goldmarkhtml.WithUnsafe()),
+		),
+		baseTemplate:       template.New("").Funcs(funcMap),
+		mu:                 sync.Mutex{},
+		templateCache:      make(map[string]*template.Template),
+		templateInProgress: make(map[string]chan struct{}),
+	}
 	if siteGen.site.Title == "" {
 		siteGen.site.Title = "My blog"
-	}
-	char, size := utf8.DecodeRuneInString(siteGen.site.Favicon)
-	if size == len(siteGen.site.Favicon) {
-		siteGen.site.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>" + string(char) + "</text></svg>"
-	}
-	if siteGen.site.Favicon == "" {
-		siteGen.site.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>"
-	}
-	if siteGen.site.Lang == "" {
-		siteGen.site.Lang = "en"
 	}
 	dirEntries, err := fsys.ReadDir(path.Join(sitePrefix, "posts"))
 	if err != nil {
@@ -88,11 +115,14 @@ func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
 }
 
 type Page struct {
-	Parent    string
-	Name      string
-	Title     string
-	Images    []Image
-	UpdatedAt time.Time
+	Parent string
+	Name   string
+	Title  string
+}
+
+type Image struct {
+	Parent string
+	Name   string
 }
 
 type PageData struct {
@@ -106,6 +136,7 @@ type PageData struct {
 }
 
 func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) error {
+	// Open the page source file and read its contents.
 	file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "pages", name))
 	if err != nil {
 		return err
@@ -128,10 +159,14 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	if err != nil {
 		return err
 	}
+
+	// Prepare the page template.
 	tmpl, err := siteGen.parseTemplate(ctx, name, b.String(), nil)
 	if err != nil {
 		return err
 	}
+
+	// Prepare the page data.
 	ext := path.Ext(name)
 	pageData := PageData{
 		Site:      siteGen.site,
@@ -139,35 +174,91 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		Name:      strings.TrimSuffix(path.Base(name), ext),
 		UpdatedAt: fileInfo.ModTime(),
 	}
-	dirEntries, err := siteGen.fsys.WithContext(ctx).ReadDir(path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext)))
+
+	// Read the outputDir of the page to get a list of its subdirectories,
+	// markdown files and image files.
+	var dirNames, markdownNames []string
+	parent := path.Join(pageData.Parent, pageData.Name)
+	outputDir := path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext))
+	dirEntries, err := siteGen.fsys.WithContext(ctx).ReadDir(outputDir)
 	if err != nil {
 		return err
 	}
-	// var (
-	// 	childPagesMu sync.Mutex
-	// 	markdownMu   sync.Mutex
-	// 	imagesMu     sync.Mutex
-	// )
-	g, ctx := errgroup.WithContext(ctx)
-	parent := path.Join(pageData.Parent, pageData.Name)
 	for _, dirEntry := range dirEntries {
-		dirEntry := dirEntry
-		g.Go(func() error {
-			if dirEntry.IsDir() {
-				file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext), "index.html"))
+		name := dirEntry.Name()
+		if dirEntry.IsDir() {
+			dirNames = append(dirNames, name)
+			continue
+		}
+		fileType := fileTypes[path.Ext(name)]
+		if strings.HasPrefix(fileType.ContentType, "text/markdown") {
+			markdownNames = append(markdownNames, name)
+			continue
+		}
+		if strings.HasPrefix(fileType.ContentType, "image") {
+			pageData.Images = append(pageData.Images, Image{Parent: parent, Name: name})
+			continue
+		}
+	}
+
+	// For each markdown file, read its contents, convert to HTML and populate
+	// the pageData.Markdown map.
+	g, ctx := errgroup.WithContext(ctx)
+	var markdownMu sync.Mutex
+	g.Go(func() error {
+		g, ctx := errgroup.WithContext(ctx)
+		for _, markdownName := range markdownNames {
+			markdownName := markdownName
+			g.Go(func() error {
+				file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(outputDir, markdownName))
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+				buf := bufPool.Get().(*bytes.Buffer)
+				buf.Reset()
+				defer bufPool.Put(buf)
+				_, err = buf.ReadFrom(file)
+				if err != nil {
+					return err
+				}
+				var b strings.Builder
+				err = siteGen.markdown.Convert(buf.Bytes(), &b)
+				if err != nil {
+					return err
+				}
+				markdownMu.Lock()
+				pageData.Markdown[markdownName] = template.HTML(b.String())
+				markdownMu.Unlock()
+				return nil
+			})
+		}
+		return g.Wait()
+	})
+
+	// For each subdirectory in the outputDir, check if it has a child page
+	// (contains index.html) and get its title.
+	pageData.ChildPages = make([]Page, len(dirNames))
+	g.Go(func() error {
+		g, ctx := errgroup.WithContext(ctx)
+		for i, dirName := range dirNames {
+			i, dirName := i, dirName
+			g.Go(func() error {
+				file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(outputDir, dirName, "index.html"))
 				if err != nil {
 					if errors.Is(err, fs.ErrNotExist) {
 						return nil
 					}
 					return err
 				}
+				defer file.Close()
 				reader := readerPool.Get().(*bufio.Reader)
 				reader.Reset(file)
 				defer readerPool.Put(reader)
 				buf := bufPool.Get().(*bytes.Buffer)
 				buf.Reset()
 				defer bufPool.Put(buf)
-				next := true
+				next, found := true, false
 				for next {
 					line, err := reader.ReadSlice('\n')
 					if err != nil {
@@ -177,63 +268,57 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 						next = false
 					}
 					line = bytes.TrimSpace(line)
-					if buf.Len() == 0 {
+					if !found {
 						i := bytes.Index(line, []byte("<title>"))
 						if i > 0 {
+							found = true
+							j := bytes.Index(line, []byte("</title>"))
+							if j > 0 {
+								buf.Write(line[i+len("<title>") : j])
+								break
+							}
 							buf.Write(line[i+len("<title>"):])
 						}
-						continue
-					}
-					i := bytes.Index(line, []byte("</title>"))
-					if i > 0 {
-						buf.Write(line[:i])
-						break
-					}
-					buf.Write(line)
-				}
-				var title string
-				if buf.Len() > 0 {
-					node, err := html.Parse(bytes.NewReader(buf.Bytes()))
-					if err != nil {
-						return nil
-					}
-					buf.Reset()
-					nodes := []*html.Node{node}
-					for len(nodes) > 0 {
-						node, nodes = nodes[len(nodes)-1], nodes[:len(nodes)-1]
-						if node == nil {
-							continue
+					} else {
+						i := bytes.Index(line, []byte("</title>"))
+						if i > 0 {
+							buf.Write(line[:i])
+							break
 						}
-						if node.Type == html.TextNode {
-							buf.WriteString(node.Data)
-							continue
-						}
-						nodes = append(nodes, node.NextSibling, node.FirstChild)
+						buf.WriteByte(' ')
+						buf.Write(line)
 					}
-					title = buf.String()
 				}
-				fileInfo, err := file.Stat()
-				if err != nil {
-					return err
+				pageData.ChildPages[i] = Page{
+					Parent: parent,
+					Name:   dirName,
+					Title:  buf.String(),
 				}
-				page := Page{
-					Parent:    parent,
-					Name:      dirEntry.Name(),
-					Title:     title,
-					UpdatedAt: fileInfo.ModTime(),
-				}
-				_ = page
-			}
-			return nil
-		})
-	}
+				return nil
+			})
+		}
+		return g.Wait()
+	})
+
 	err = g.Wait()
 	if err != nil {
 		return err
 	}
-	// TODO: an errgroup with functions, each which start their own errgroups
-	// for populating ChildPages, Markdown and Images respectively.
-	writer, err := siteGen.fsys.WithContext(ctx).OpenWriter(path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext), "index.html"), 0644)
+
+	// It is possible that some of the subdirectories of the outputDir don't
+	// have an index.html, resulting in an empty childPage. Filter these out.
+	n := 0
+	for _, page := range pageData.ChildPages {
+		if page == (Page{}) {
+			continue
+		}
+		pageData.ChildPages[n] = page
+		n++
+	}
+	pageData.ChildPages = pageData.ChildPages[:n]
+
+	// Render the template contents into the output index.html.
+	writer, err := siteGen.fsys.WithContext(ctx).OpenWriter(path.Join(outputDir, "index.html"), 0644)
 	if err != nil {
 		return err
 	}
@@ -243,6 +328,42 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		return err
 	}
 	return nil
+}
+
+type PostData struct {
+	Site      Site
+	Category  string
+	Name      string
+	Title     string
+	Content   template.HTML
+	Images    []Image
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type Pagination struct {
+	First   string
+	Numbers []string
+	Current string
+	Last    string
+}
+
+type Post struct {
+	Category  string
+	Name      string
+	Title     string
+	Preview   string
+	Content   template.HTML
+	Images    []Image
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type PostListData struct {
+	Site       Site
+	Category   string
+	Pagination Pagination
+	PostList   []Post
 }
 
 func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text string, callers []string) (*template.Template, error) {
@@ -537,47 +658,6 @@ var funcMap = map[string]any{
 		// tag.
 		return ""
 	},
-}
-
-type Image struct {
-	Parent string
-	Name   string
-}
-
-type PostData struct {
-	Site      Site
-	Category  string
-	Name      string
-	Title     string
-	Content   template.HTML
-	Images    []Image
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-type Pagination struct {
-	First   string
-	Numbers []string
-	Current string
-	Last    string
-}
-
-type Post struct {
-	Category  string
-	Name      string
-	Title     string
-	Preview   string
-	Content   template.HTML
-	Images    []Image
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-type PostListData struct {
-	Site       Site
-	Category   string
-	Pagination Pagination
-	PostList   []Post
 }
 
 type TemplateErrors map[string][]string
