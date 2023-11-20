@@ -259,8 +259,8 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 				defer readerPool.Put(reader)
 				// Peek the first 512 bytes of index.html to detect if it is
 				// gzipped. If so, wrap the reader in a gzip.Reader followed by
-				// another bufio.Reader (so that we can still read the file
-				// line by line).
+				// another bufio.Reader (so that we retain the ability to read
+				// the file line by line).
 				b, err := reader.Peek(512)
 				if err != nil && err != io.EOF {
 					return err
