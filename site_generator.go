@@ -1,6 +1,8 @@
 package nb8
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,6 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"golang.org/x/net/html"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -84,15 +87,6 @@ func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
 	return siteGen, nil
 }
 
-// parent=pages&name=index.html&name=abcd.html&cat.html
-
-// {{ template "/themes/word-up.html" }}
-// {{ template "/themes/github.com/bokwoon95/plainsimple/very/long/path/to/file.html" }}
-
-// TODO: we need a new structure that encapsulates template errors into an
-// error, so that we can return it instead of asking the user to check the
-// templateErrors themselves.
-
 type Page struct {
 	Parent    string
 	Name      string
@@ -105,18 +99,14 @@ type PageData struct {
 	Site       Site
 	Parent     string
 	Name       string
-	Title      string
 	ChildPages []Page
-	NextPage   Page
-	PrevPage   Page
 	Markdown   map[string]template.HTML
 	Images     []Image
 	UpdatedAt  time.Time
 }
 
 func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) error {
-	fsys := siteGen.fsys.WithContext(ctx)
-	file, err := fsys.Open(path.Join(siteGen.sitePrefix, "pages", name))
+	file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "pages", name))
 	if err != nil {
 		return err
 	}
@@ -143,12 +133,112 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		return err
 	}
 	ext := path.Ext(name)
-	writer, err := fsys.OpenWriter(path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext), "index.html"), 0644)
+	pageData := PageData{
+		Site:      siteGen.site,
+		Parent:    path.Dir(name),
+		Name:      strings.TrimSuffix(path.Base(name), ext),
+		UpdatedAt: fileInfo.ModTime(),
+	}
+	dirEntries, err := siteGen.fsys.WithContext(ctx).ReadDir(path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext)))
+	if err != nil {
+		return err
+	}
+	// var (
+	// 	childPagesMu sync.Mutex
+	// 	markdownMu   sync.Mutex
+	// 	imagesMu     sync.Mutex
+	// )
+	g, ctx := errgroup.WithContext(ctx)
+	parent := path.Join(pageData.Parent, pageData.Name)
+	for _, dirEntry := range dirEntries {
+		dirEntry := dirEntry
+		g.Go(func() error {
+			if dirEntry.IsDir() {
+				file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext), "index.html"))
+				if err != nil {
+					if errors.Is(err, fs.ErrNotExist) {
+						return nil
+					}
+					return err
+				}
+				reader := readerPool.Get().(*bufio.Reader)
+				reader.Reset(file)
+				defer readerPool.Put(reader)
+				buf := bufPool.Get().(*bytes.Buffer)
+				buf.Reset()
+				defer bufPool.Put(buf)
+				next := true
+				for next {
+					line, err := reader.ReadSlice('\n')
+					if err != nil {
+						if err != io.EOF {
+							return err
+						}
+						next = false
+					}
+					line = bytes.TrimSpace(line)
+					if buf.Len() == 0 {
+						i := bytes.Index(line, []byte("<title>"))
+						if i > 0 {
+							buf.Write(line[i+len("<title>"):])
+						}
+						continue
+					}
+					i := bytes.Index(line, []byte("</title>"))
+					if i > 0 {
+						buf.Write(line[:i])
+						break
+					}
+					buf.Write(line)
+				}
+				var title string
+				if buf.Len() > 0 {
+					node, err := html.Parse(bytes.NewReader(buf.Bytes()))
+					if err != nil {
+						return nil
+					}
+					buf.Reset()
+					nodes := []*html.Node{node}
+					for len(nodes) > 0 {
+						node, nodes = nodes[len(nodes)-1], nodes[:len(nodes)-1]
+						if node == nil {
+							continue
+						}
+						if node.Type == html.TextNode {
+							buf.WriteString(node.Data)
+							continue
+						}
+						nodes = append(nodes, node.NextSibling, node.FirstChild)
+					}
+					title = buf.String()
+				}
+				fileInfo, err := file.Stat()
+				if err != nil {
+					return err
+				}
+				page := Page{
+					Parent:    parent,
+					Name:      dirEntry.Name(),
+					Title:     title,
+					UpdatedAt: fileInfo.ModTime(),
+				}
+				_ = page
+			}
+			return nil
+		})
+	}
+	err = g.Wait()
+	if err != nil {
+		return err
+	}
+	// TODO: an errgroup with functions, each which start their own errgroups
+	// for populating ChildPages, Markdown and Images respectively.
+	writer, err := siteGen.fsys.WithContext(ctx).OpenWriter(path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext), "index.html"), 0644)
 	if err != nil {
 		return err
 	}
 	defer writer.Close()
-	err = tmpl.Execute(writer, nil)
+	err = tmpl.Execute(writer, &pageData)
 	if err != nil {
 		return err
 	}
@@ -156,7 +246,6 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 }
 
 func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text string, callers []string) (*template.Template, error) {
-	fsys := siteGen.fsys.WithContext(ctx)
 	tmpl, err := siteGen.baseTemplate.Clone()
 	if err != nil {
 		return nil, err
@@ -282,7 +371,7 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 				siteGen.mu.Unlock()
 			}()
 
-			file, err := fsys.Open(path.Join(siteGen.sitePrefix, "output", externalName))
+			file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "output", externalName))
 			if err != nil {
 				// If we cannot find the referenced template, it is not the
 				// external template's fault but rather the current template's
