@@ -93,6 +93,27 @@ func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
 // error, so that we can return it instead of asking the user to check the
 // templateErrors themselves.
 
+type Page struct {
+	Parent    string
+	Name      string
+	Title     string
+	Images    []Image
+	UpdatedAt time.Time
+}
+
+type PageData struct {
+	Site       Site
+	Parent     string
+	Name       string
+	Title      string
+	ChildPages []Page
+	NextPage   Page
+	PrevPage   Page
+	Markdown   map[string]template.HTML
+	Images     []Image
+	UpdatedAt  time.Time
+}
+
 func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) error {
 	fsys := siteGen.fsys.WithContext(ctx)
 	file, err := fsys.Open(path.Join(siteGen.sitePrefix, "pages", name))
@@ -113,19 +134,24 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	if err != nil {
 		return err
 	}
-	text := b.String()
 	err = file.Close()
 	if err != nil {
 		return err
 	}
-	tmpl, err := siteGen.parseTemplate(ctx, name, text, nil)
-	_ = tmpl
-	// read the page contents, parse the page contents, walk the tree looking
-	// for external templates, use an errgroup to get all these templates
-	// concurrently then merge them again using the same logic. Good god I'm
-	// basically duplicating almost everything that getTemplate does :/.
-	//
-	// maybe getTemplate gets a template text instead, like how it used to be...
+	tmpl, err := siteGen.parseTemplate(ctx, name, b.String(), nil)
+	if err != nil {
+		return err
+	}
+	ext := path.Ext(name)
+	writer, err := fsys.OpenWriter(path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext), "index.html"), 0644)
+	if err != nil {
+		return err
+	}
+	defer writer.Close()
+	err = tmpl.Execute(writer, nil)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -157,6 +183,7 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 		}
 	}
 
+	// Get the list of external templates referenced by the current template.
 	var externalNames []string
 	var node parse.Node
 	var nodes []parse.Node
@@ -193,9 +220,10 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 			name: errmsgs,
 		}
 	}
-
+	// sort | uniq deduplication.
 	slices.Sort(externalNames)
 	externalNames = slices.Compact(externalNames)
+
 	g, ctx := errgroup.WithContext(ctx)
 	externalTemplates := make([]*template.Template, len(externalNames))
 	externalTemplateErrs := make([]error, len(externalNames))
@@ -368,49 +396,6 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 	return finalTemplate.Lookup(name), nil
 }
 
-func (siteGen *SiteGenerator) Generate(ctx context.Context, parent string, names []string) error {
-	fsys := siteGen.fsys.WithContext(ctx)
-	head, _, _ := strings.Cut(parent, "/")
-	switch head {
-	case "pages":
-		var dirNames, fileNames []string
-		if len(names) > 0 {
-			for _, name := range names {
-				fileInfo, err := fs.Stat(fsys, path.Join(siteGen.sitePrefix, parent, name))
-				if err != nil {
-					if errors.Is(err, fs.ErrNotExist) {
-						continue
-					}
-					return err
-				}
-				if fileInfo.IsDir() {
-					dirNames = append(dirNames, name)
-				} else if path.Ext(name) == ".html" {
-					fileNames = append(fileNames, name)
-				}
-			}
-		} else {
-			dirEntries, err := fsys.ReadDir(path.Join(siteGen.sitePrefix, parent))
-			if err != nil {
-				return err
-			}
-			for _, dirEntry := range dirEntries {
-				name := dirEntry.Name()
-				if dirEntry.IsDir() {
-					dirNames = append(dirNames, name)
-				} else if path.Ext(name) == ".html" {
-					fileNames = append(fileNames, name)
-				}
-			}
-		}
-		return nil
-	case "posts":
-		return nil
-	default:
-		return fmt.Errorf("invalid parent")
-	}
-}
-
 // TODO: each generate() call uses its own errgroup, and each goroutine inside that errgroup may nest another errgroup (and so on and so forth).
 // TODO: hardcode the postsPerPage as 100 first, later on we can use
 // TODO: note down where is the appropriate point to regenerate the RSS feed: we will fill this in later. Perhaps this
@@ -424,88 +409,6 @@ func (siteGen *SiteGenerator) Generate(ctx context.Context, parent string, names
 //     - If cleanupOrphanedPages is true and we called ReadDir earlier, note down all the posts that we did generate and remove any orphaned posts that are still hanging around in the output folder (use RemoveAll on the entire directory).
 
 // generatePages doesn't have to return a pages
-
-type Page struct {
-	Parent    string
-	Name      string
-	Title     string
-	Images    []Image
-	UpdatedAt time.Time
-}
-
-type PageData struct {
-	Site       Site
-	Parent     string
-	Name       string
-	Title      string
-	ChildPages []Page
-	NextPage   Page
-	PrevPage   Page
-	Markdown   map[string]template.HTML
-	Images     []Image
-	UpdatedAt  time.Time
-}
-
-func (siteGen *SiteGenerator) generatePages(ctx context.Context, parent string, dirNames, fileNames []string) error {
-	fsys := siteGen.fsys.WithContext(ctx)
-	g, ctx := errgroup.WithContext(ctx)
-	for _, dirName := range dirNames {
-		newParent := path.Join(parent, dirName)
-		g.Go(func() error {
-			dirEntries, err := fsys.ReadDir(newParent)
-			if err != nil {
-				if errors.Is(err, fs.ErrNotExist) {
-					return nil
-				}
-				return err
-			}
-			var newDirNames, newFileNames []string
-			for _, dirEntry := range dirEntries {
-				name := dirEntry.Name()
-				if dirEntry.IsDir() {
-					newDirNames = append(newDirNames, name)
-				} else if path.Ext(name) == ".html" {
-					newFileNames = append(newFileNames, name)
-				}
-			}
-			return siteGen.generatePages(ctx, newParent, newDirNames, newFileNames)
-		})
-	}
-	err := g.Wait()
-	if err != nil {
-		return err
-	}
-	// generate page children: parent=x&name=y
-	// generate page: parent=x&name=y.html
-	// generate ?: parent=x
-	// generate post: parent=x&name=y.md
-	// generate post list: parent=x
-	g, ctx = errgroup.WithContext(ctx)
-	for _, fileName := range fileNames {
-		fileName := fileName
-		g.Go(func() error {
-			file, err := fsys.Open(path.Join(parent, fileName))
-			if err != nil {
-				if errors.Is(err, fs.ErrNotExist) {
-					return nil
-				}
-				return err
-			}
-			fileInfo, err := file.Stat()
-			if err != nil {
-				return err
-			}
-			var b strings.Builder
-			b.Grow(int(fileInfo.Size()))
-			_, err = io.Copy(&b, file)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-	}
-	return nil
-}
 
 var funcMap = map[string]any{
 	"join":             path.Join,
