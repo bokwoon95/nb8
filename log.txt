@@ -22,6 +22,8 @@ gear: settings
 sync
 sort
 plus
+Post updated (1 file regenerated in XXms). Regenerate post list? [ Regenerate List ]
+Post list updated (5 files regenerated in XXms).
 
 TODO: principle: on save, do the bare minimum that will most likely satisfy the user's requirements. leave everything else as a manual knob to trigger.
 save a post => update the post, but don't update the post list. instead put a button in the alert asking if the user wants to also regenerate the post list. Whenever the post list is updated, all pages are generated (this may take a long time if there are many posts, but that's unavoidable).
