@@ -312,6 +312,7 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 			},
 		}
 	}
+
 	mergedErrs := make(map[string][]string)
 	for i, err := range externalTemplateErrs {
 		switch err := err.(type) {
@@ -329,6 +330,7 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 	if len(mergedErrs) > 0 {
 		return nil, TemplateErrors(mergedErrs)
 	}
+
 	var nilTemplates []string
 	for i, tmpl := range externalTemplates {
 		if tmpl == nil {
@@ -342,6 +344,7 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 			},
 		}
 	}
+
 	finalTemplate, err := siteGen.baseTemplate.Clone()
 	if err != nil {
 		return nil, err
