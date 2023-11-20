@@ -294,14 +294,14 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 				buf := bufPool.Get().(*bytes.Buffer)
 				buf.Reset()
 				defer bufPool.Put(buf)
-				next, found := true, false
-				for next {
+				var done, found bool
+				for !done {
 					line, err := reader.ReadSlice('\n')
 					if err != nil {
 						if err != io.EOF {
 							return err
 						}
-						next = false
+						done = true
 					}
 					line = bytes.TrimSpace(line)
 					if !found {
