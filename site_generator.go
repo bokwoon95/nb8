@@ -92,6 +92,9 @@ func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
 // templateErrors themselves.
 
 func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) error {
+	// read the page contents, parse the page contents, walk the tree looking
+	// for external templates, use an errgroup to get all these templates
+	// concurrently then merge them again using the same logic. Good god I'm basically duplicating almost everything that getTemplate does :/.
 	return nil
 }
 
