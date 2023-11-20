@@ -30,14 +30,15 @@ import (
 )
 
 type SiteGenerator struct {
-	fsys               FS
-	sitePrefix         string
-	site               Site
-	markdown           goldmark.Markdown
-	baseTemplate       *template.Template
-	mu                 sync.Mutex
-	templateCache      map[string]*template.Template
-	templateInProgress map[string]chan struct{}
+	fsys                  FS
+	sitePrefix            string
+	site                  Site
+	markdown              goldmark.Markdown
+	baseTemplate          *template.Template
+	mu                    sync.Mutex
+	templateCache         map[string]*template.Template
+	templateInProgress    map[string]chan struct{}
+	compressGeneratedHTML bool
 }
 
 type Site struct {
@@ -47,7 +48,7 @@ type Site struct {
 	PostCategories []string
 }
 
-func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
+func NewSiteGenerator(fsys FS, sitePrefix string, compressGeneratedHTML bool) (*SiteGenerator, error) {
 	var config struct {
 		Title     string `json:"title"`
 		Favicon   string `json:"favicon"`
@@ -96,10 +97,11 @@ func NewSiteGenerator(fsys FS, sitePrefix string) (*SiteGenerator, error) {
 			),
 			goldmark.WithRendererOptions(goldmarkhtml.WithUnsafe()),
 		),
-		baseTemplate:       template.New("").Funcs(funcMap),
-		mu:                 sync.Mutex{},
-		templateCache:      make(map[string]*template.Template),
-		templateInProgress: make(map[string]chan struct{}),
+		baseTemplate:          template.New("").Funcs(funcMap),
+		mu:                    sync.Mutex{},
+		templateCache:         make(map[string]*template.Template),
+		templateInProgress:    make(map[string]chan struct{}),
+		compressGeneratedHTML: compressGeneratedHTML,
 	}
 	if siteGen.site.Title == "" {
 		siteGen.site.Title = "My blog"
@@ -353,7 +355,25 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		return err
 	}
 	defer writer.Close()
-	err = tmpl.Execute(writer, &pageData)
+	if !siteGen.compressGeneratedHTML {
+		err = tmpl.Execute(writer, &pageData)
+		if err != nil {
+			return err
+		}
+	} else {
+		gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
+		gzipWriter.Reset(writer)
+		defer gzipWriterPool.Put(gzipWriter)
+		err = tmpl.Execute(gzipWriter, &pageData)
+		if err != nil {
+			return err
+		}
+		err = gzipWriter.Close()
+		if err != nil {
+			return err
+		}
+	}
+	err = writer.Close()
 	if err != nil {
 		return err
 	}
