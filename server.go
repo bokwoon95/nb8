@@ -562,9 +562,9 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		gzipWriter := gzipPool.Get().(*gzip.Writer)
+		gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
 		gzipWriter.Reset(multiWriter)
-		defer gzipPool.Put(gzipWriter)
+		defer gzipWriterPool.Put(gzipWriter)
 		_, err := io.Copy(gzipWriter, fileSrc)
 		if err != nil {
 			logger.Error(err.Error())
@@ -647,9 +647,9 @@ func (nbrew *Notebrew) site404(w http.ResponseWriter, r *http.Request, sitePrefi
 			return
 		}
 	} else {
-		gzipWriter := gzipPool.Get().(*gzip.Writer)
+		gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
 		gzipWriter.Reset(multiWriter)
-		defer gzipPool.Put(gzipWriter)
+		defer gzipWriterPool.Put(gzipWriter)
 		_, err := io.Copy(gzipWriter, reader)
 		if err != nil {
 			getLogger(r.Context()).Error(err.Error())

@@ -488,7 +488,7 @@ func fileSizeToString(size int64) string {
 // {{ if contains sitePrefix "." }}https://{{ sitePrefix }}/{{ else }}{{ scheme }}{{ if sitePrefix }}{{ sitePrefix }}.{{ end }}{{ $.ContentDomain }}/{{ end }}
 // {{ if contains sitePrefix "." }}{{ sitePrefix }}{{ else }}{{ if sitePrefix }}{{ sitePrefix }}.{{ end }}{{ $.ContentDomain }}{{ end }}
 
-var gzipPool = sync.Pool{
+var gzipWriterPool = sync.Pool{
 	New: func() any {
 		// Use compression level 4 for best balance between space and
 		// performance.
@@ -497,6 +497,8 @@ var gzipPool = sync.Pool{
 		return gzipWriter
 	},
 }
+
+var gzipReaderPool = sync.Pool{}
 
 var hashPool = sync.Pool{
 	New: func() any {
@@ -525,9 +527,9 @@ func executeTemplate(w http.ResponseWriter, r *http.Request, modtime time.Time, 
 	defer hashPool.Put(hasher)
 
 	multiWriter := io.MultiWriter(buf, hasher)
-	gzipWriter := gzipPool.Get().(*gzip.Writer)
+	gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
 	gzipWriter.Reset(multiWriter)
-	defer gzipPool.Put(gzipWriter)
+	defer gzipWriterPool.Put(gzipWriter)
 
 	err := tmpl.Execute(gzipWriter, data)
 	if err != nil {

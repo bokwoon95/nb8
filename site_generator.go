@@ -3,6 +3,7 @@ package nb8
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"net/http"
 	"path"
 	"slices"
 	"strings"
@@ -255,6 +257,34 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 				reader := readerPool.Get().(*bufio.Reader)
 				reader.Reset(file)
 				defer readerPool.Put(reader)
+				// Peek the first 512 bytes of index.html to detect if it is
+				// gzipped. If so, wrap the reader in a gzip.Reader followed by
+				// another bufio.Reader (so that we can still read the file
+				// line by line).
+				b, err := reader.Peek(512)
+				if err != nil && err != io.EOF {
+					return err
+				}
+				contentType := http.DetectContentType(b)
+				if contentType == "application/x-gzip" || contentType == "application/gzip" {
+					gzipReader := gzipReaderPool.Get().(*gzip.Reader)
+					if gzipReader != nil {
+						err = gzipReader.Reset(reader)
+						if err != nil {
+							return err
+						}
+					} else {
+						gzipReader, err = gzip.NewReader(reader)
+						if err != nil {
+							return err
+						}
+					}
+					defer gzipReaderPool.Put(gzipReader)
+					newReader := readerPool.Get().(*bufio.Reader)
+					newReader.Reset(gzipReader)
+					defer readerPool.Put(newReader)
+					reader = newReader
+				}
 				buf := bufPool.Get().(*bytes.Buffer)
 				buf.Reset()
 				defer bufPool.Put(buf)
