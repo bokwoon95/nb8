@@ -626,9 +626,9 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 	var nilTemplateNames []string
 	for i, tmpl := range externalTemplates {
 		// A nil template means someone else attempted to parse that template
-		// but failed (meaning it has errors). That is currently blocking us
-		// from parsing the current template. Accumulate all the failing
-		// template names and report it to the user.
+		// but failed (meaning it has errors), which blocks us from
+		// successfully parsing the current template. Accumulate all the
+		// failing template names and report it to the user.
 		if tmpl == nil {
 			nilTemplateNames = append(nilTemplateNames, externalNames[i])
 		}
