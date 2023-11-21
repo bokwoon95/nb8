@@ -431,8 +431,12 @@ func (fileInfo *RemoteFileInfo) Type() fs.FileMode { return fileInfo.Mode().Type
 func (fileInfo *RemoteFileInfo) Info() (fs.FileInfo, error) { return fileInfo, nil }
 
 var textExtensions = map[string]bool{
-	".html": true, ".css": true, ".js": true, ".md": true, ".txt": true,
-	".json": true, ".xml": true,
+	".html": true,
+	".css":  true,
+	".js":   true,
+	".md":   true,
+	".txt":  true,
+	".json": true,
 }
 
 func isFulltextIndexed(filePath string) bool {
@@ -627,7 +631,7 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 	if parentDir != "." && file.parentID == nil {
 		return nil, &fs.PathError{Op: "openwriter", Path: name, Err: fs.ErrNotExist}
 	}
-	if isFulltextIndexed(file.filePath) {
+	if textExtensions[path.Ext(file.filePath)] {
 		file.buf = bufPool.Get().(*bytes.Buffer)
 		file.buf.Reset()
 	} else {
@@ -648,7 +652,7 @@ func (file *RemoteFileWriter) Write(p []byte) (n int, err error) {
 		file.writeFailed = true
 		return 0, err
 	}
-	if isFulltextIndexed(file.filePath) {
+	if textExtensions[path.Ext(file.filePath)] {
 		n, err = file.buf.Write(p)
 		if err != nil {
 			file.writeFailed = true
@@ -665,7 +669,7 @@ func (file *RemoteFileWriter) Write(p []byte) (n int, err error) {
 }
 
 func (file *RemoteFileWriter) Close() error {
-	if isFulltextIndexed(file.filePath) {
+	if textExtensions[path.Ext(file.filePath)] {
 		defer bufPool.Put(file.buf)
 	} else {
 		file.storageWriter.Close()

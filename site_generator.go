@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,26 +49,17 @@ type Site struct {
 	PostCategories []string
 }
 
-func NewSiteGenerator(fsys FS, sitePrefix string, compressGeneratedHTML bool) (*SiteGenerator, error) {
-	var config struct {
-		Title     string `json:"title"`
-		Favicon   string `json:"favicon"`
-		Lang      string `json:"lang"`
-		CodeStyle string `json:"codeStyle"`
-	}
-	file, err := fsys.Open(path.Join(sitePrefix, "site-config.json"))
-	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return nil, err
-		}
-	} else {
-		decoder := json.NewDecoder(file)
-		decoder.DisallowUnknownFields()
-		err := decoder.Decode(&config)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", path.Join(sitePrefix, "site-config.json"), err)
-		}
-	}
+type SiteGeneratorConfig struct {
+	FS                    FS
+	SitePrefix            string
+	Title                 string
+	Favicon               string
+	Lang                  string
+	CodeStyle             string
+	CompressGeneratedHTML bool
+}
+
+func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
 	char, size := utf8.DecodeRuneInString(config.Favicon)
 	if size == len(config.Favicon) {
 		config.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>" + string(char) + "</text></svg>"
@@ -85,8 +77,8 @@ func NewSiteGenerator(fsys FS, sitePrefix string, compressGeneratedHTML bool) (*
 		config.CodeStyle = "dracula"
 	}
 	siteGen := &SiteGenerator{
-		fsys:       fsys,
-		sitePrefix: sitePrefix,
+		fsys:       config.FS,
+		sitePrefix: config.SitePrefix,
 		site: Site{
 			Title:   config.Title,
 			Favicon: config.Favicon,
@@ -104,9 +96,9 @@ func NewSiteGenerator(fsys FS, sitePrefix string, compressGeneratedHTML bool) (*
 		mu:                    sync.Mutex{},
 		templateCache:         make(map[string]*template.Template),
 		templateInProgress:    make(map[string]chan struct{}),
-		compressGeneratedHTML: compressGeneratedHTML,
+		compressGeneratedHTML: config.CompressGeneratedHTML,
 	}
-	dirEntries, err := fsys.ReadDir(path.Join(sitePrefix, "posts"))
+	dirEntries, err := siteGen.fsys.ReadDir(path.Join(siteGen.sitePrefix, "posts"))
 	if err != nil {
 		return nil, err
 	}
@@ -140,10 +132,31 @@ type PageData struct {
 }
 
 func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) error {
+	ext := path.Ext(name)
+	pageData := PageData{
+		Site:   siteGen.site,
+		Parent: path.Dir(name),
+		Name:   strings.TrimSuffix(path.Base(name), ext),
+	}
+	// path.Dir converts empty strings to ".", but we prefer an empty string so
+	// convert it back.
+	if pageData.Parent == "." {
+		pageData.Parent = ""
+	}
+
 	// Open the page source file and read its contents.
 	file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "pages", name))
 	if err != nil {
-		return err
+		// Special case: fall back to our built-in index.html if the user's
+		// index.html doesn't exist. For any other file name, we return the
+		// error as usual without falling back.
+		if !errors.Is(err, fs.ErrNotExist) && name != "index.html" {
+			return err
+		}
+		file, err = rootFS.Open("static/index.html")
+		if err != nil {
+			return err
+		}
 	}
 	defer file.Close()
 	fileInfo, err := file.Stat()
@@ -151,7 +164,7 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		return err
 	}
 	if fileInfo.IsDir() {
-		return fmt.Errorf("%s is not a template", name)
+		return fmt.Errorf("%s is a folder", name)
 	}
 	var b strings.Builder
 	b.Grow(int(fileInfo.Size()))
@@ -163,20 +176,12 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	if err != nil {
 		return err
 	}
+	pageData.UpdatedAt = fileInfo.ModTime()
 
 	// Prepare the page template.
 	tmpl, err := siteGen.parseTemplate(ctx, name, b.String(), nil)
 	if err != nil {
 		return err
-	}
-
-	// Prepare the page data.
-	ext := path.Ext(name)
-	pageData := PageData{
-		Site:      siteGen.site,
-		Parent:    path.Dir(name),
-		Name:      strings.TrimSuffix(path.Base(name), ext),
-		UpdatedAt: fileInfo.ModTime(),
 	}
 
 	// Read the outputDir of the page to get a list of its subdirectories,
@@ -400,6 +405,178 @@ type PostData struct {
 	UpdatedAt time.Time
 }
 
+func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) error {
+	ext := path.Ext(name)
+	postData := PostData{
+		Site:     siteGen.site,
+		Category: path.Dir(name),
+		Name:     strings.TrimSuffix(path.Base(name), ext),
+	}
+	// path.Dir converts empty strings to ".", but we prefer an empty string so
+	// convert it back.
+	if postData.Category == "." {
+		postData.Category = ""
+	}
+	// Precondition: posts can be nested in at most one directory (the category
+	// directory). If the category directory contains any slashes, it consists
+	// of more than one directory which means the post is nested too deep.
+	if strings.Contains(postData.Category, "/") {
+		return fmt.Errorf("%s is not a valid post (maximum 1 level of directory nesting inside the posts directory)", name)
+	}
+
+	// Open the post template file and read its contents.
+	file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "output/themes/post.html"))
+	if err != nil {
+		// If the user's post.html doesn't exist, fall back to our built-in
+		// post.html.
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		file, err = rootFS.Open("static/post.html")
+		if err != nil {
+			return err
+		}
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	if fileInfo.IsDir() {
+		return fmt.Errorf("%s is not a template", name)
+	}
+	var b strings.Builder
+	b.Grow(int(fileInfo.Size()))
+	_, err = io.Copy(&b, file)
+	if err != nil {
+		return err
+	}
+	err = file.Close()
+	if err != nil {
+		return err
+	}
+
+	// Prepare the post template.
+	tmpl, err := siteGen.parseTemplate(ctx, name, b.String(), nil)
+	if err != nil {
+		return err
+	}
+
+	// Get images belonging to the post.
+	g, ctx := errgroup.WithContext(ctx)
+	parent := path.Join(postData.Category, postData.Name)
+	outputDir := path.Join(siteGen.sitePrefix, "output/posts", strings.TrimSuffix(name, ext))
+	g.Go(func() error {
+		dirEntries, err := siteGen.fsys.WithContext(ctx).ReadDir(outputDir)
+		if err != nil {
+			return err
+		}
+		for _, dirEntry := range dirEntries {
+			name := dirEntry.Name()
+			if dirEntry.IsDir() {
+				continue
+			}
+			fileType := fileTypes[path.Ext(name)]
+			if strings.HasPrefix(fileType.ContentType, "image") {
+				postData.Images = append(postData.Images, Image{Parent: parent, Name: name})
+				continue
+			}
+		}
+		return nil
+	})
+
+	// Read the post markdown content and convert it to HTML.
+	g.Go(func() error {
+		file, err = siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "posts", name))
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		fileInfo, err := file.Stat()
+		if err != nil {
+			return err
+		}
+		if fileInfo.IsDir() {
+			return fmt.Errorf("%s is a folder", name)
+		}
+		buf := bufPool.Get().(*bytes.Buffer)
+		buf.Reset()
+		defer bufPool.Put(buf)
+		buf.Grow(int(fileInfo.Size()))
+		_, err = io.Copy(buf, file)
+		if err != nil {
+			return err
+		}
+		err = file.Close()
+		if err != nil {
+			return err
+		}
+		// UpdatedAt
+		postData.UpdatedAt = fileInfo.ModTime()
+		// CreatedAt
+		prefix, _, ok := strings.Cut(name, "-")
+		if ok && len(prefix) > 0 && len(prefix) <= 8 {
+			b, _ := base32Encoding.DecodeString(fmt.Sprintf("%08s", prefix))
+			if len(b) == 5 {
+				var timestamp [8]byte
+				copy(timestamp[len(timestamp)-5:], b)
+				postData.CreatedAt = time.Unix(int64(binary.BigEndian.Uint64(timestamp[:])), 0)
+			}
+		}
+		// Title
+		var line []byte
+		remainder := buf.Bytes()
+		for len(remainder) > 0 {
+			line, remainder, _ = bytes.Cut(remainder, []byte("\n"))
+			line = bytes.TrimSpace(line)
+			if len(line) == 0 {
+				continue
+			}
+			postData.Title = stripMarkdownStyles(line)
+		}
+		// Content
+		var b strings.Builder
+		err = siteGen.markdown.Convert(buf.Bytes(), &b)
+		if err != nil {
+			return err
+		}
+		postData.Content = template.HTML(b.String())
+		return nil
+	})
+
+	err = g.Wait()
+	if err != nil {
+		return err
+	}
+
+	// Render the template contents into the output index.html.
+	writer, err := siteGen.fsys.WithContext(ctx).OpenWriter(path.Join(outputDir, "index.html"), 0644)
+	defer writer.Close()
+	if !siteGen.compressGeneratedHTML {
+		err = tmpl.Execute(writer, &postData)
+		if err != nil {
+			return err
+		}
+	} else {
+		gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
+		gzipWriter.Reset(writer)
+		defer gzipWriterPool.Put(gzipWriter)
+		err = tmpl.Execute(gzipWriter, &postData)
+		if err != nil {
+			return err
+		}
+		err = gzipWriter.Close()
+		if err != nil {
+			return err
+		}
+	}
+	err = writer.Close()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type Pagination struct {
 	First   string
 	Numbers []string
@@ -413,7 +590,6 @@ type Post struct {
 	Title     string
 	Preview   string
 	Content   template.HTML
-	Images    []Image
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -423,6 +599,10 @@ type PostListData struct {
 	Category   string
 	Pagination Pagination
 	PostList   []Post
+}
+
+func (siteGen *SiteGenerator) ParsePostList(ctx context.Context, category string) error {
+	return nil
 }
 
 func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text string, callers []string) (*template.Template, error) {
