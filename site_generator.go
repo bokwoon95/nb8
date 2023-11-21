@@ -653,11 +653,9 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 		}
 	}
 	for _, tmpl := range internalTemplates {
-		for _, tmpl := range tmpl.Templates() {
-			_, err = finalTemplate.AddParseTree(tmpl.Name(), tmpl.Tree)
-			if err != nil {
-				return nil, fmt.Errorf("%s: add %s: %w", name, tmpl.Name(), err)
-			}
+		_, err = finalTemplate.AddParseTree(tmpl.Name(), tmpl.Tree)
+		if err != nil {
+			return nil, fmt.Errorf("%s: add %s: %w", name, tmpl.Name(), err)
 		}
 	}
 	return finalTemplate.Lookup(name), nil
