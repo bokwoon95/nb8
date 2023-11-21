@@ -35,7 +35,6 @@ type SiteGenerator struct {
 	sitePrefix            string
 	site                  Site
 	markdown              goldmark.Markdown
-	baseTemplate          *template.Template
 	mu                    sync.Mutex
 	templateCache         map[string]*template.Template
 	templateInProgress    map[string]chan struct{}
@@ -92,7 +91,6 @@ func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
 			),
 			goldmark.WithRendererOptions(goldmarkhtml.WithUnsafe()),
 		),
-		baseTemplate:          template.New("").Funcs(funcMap),
 		mu:                    sync.Mutex{},
 		templateCache:         make(map[string]*template.Template),
 		templateInProgress:    make(map[string]chan struct{}),
@@ -421,7 +419,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 	// directory). If the category directory contains any slashes, it consists
 	// of more than one directory which means the post is nested too deep.
 	if strings.Contains(postData.Category, "/") {
-		return fmt.Errorf("%s is not a valid post (maximum 1 level of directory nesting inside the posts directory)", name)
+		return fmt.Errorf("%s is not a valid post (too deep inside a directory, maximum 1 level)", name)
 	}
 
 	// Open the post template file and read its contents.
@@ -602,16 +600,12 @@ type PostListData struct {
 	PostList   []Post
 }
 
-func (siteGen *SiteGenerator) ParsePostList(ctx context.Context, category string) error {
+func (siteGen *SiteGenerator) GeneratePostList(ctx context.Context, category string) error {
 	return nil
 }
 
 func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text string, callers []string) (*template.Template, error) {
-	currentTemplate, err := siteGen.baseTemplate.Clone()
-	if err != nil {
-		return nil, err
-	}
-	currentTemplate, err = currentTemplate.New(name).Parse(text)
+	currentTemplate, err := template.New(name).Funcs(funcMap).Parse(text)
 	if err != nil {
 		return nil, TemplateErrors{
 			name: {
@@ -821,10 +815,7 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 		return nil, TemplateErrors(mergedErrs)
 	}
 
-	finalTemplate, err := siteGen.baseTemplate.Clone()
-	if err != nil {
-		return nil, err
-	}
+	finalTemplate := template.New(name).Funcs(funcMap)
 	for i, tmpl := range externalTemplates {
 		for _, tmpl := range tmpl.Templates() {
 			_, err = finalTemplate.AddParseTree(tmpl.Name(), tmpl.Tree)
