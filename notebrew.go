@@ -427,19 +427,15 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 	if err != nil {
 		return ""
 	}
-	// If we don't have any proxy servers configured, treat remoteAddr as the
-	// real client IP.
+	// If we don't have any proxy servers configured (i.e. we are directly
+	// connected to the internet), treat remoteAddr as the real client IP.
 	if len(nbrew.ProxyForwardedIPHeader) == 0 && len(nbrew.Proxies) == 0 {
 		return remoteAddr.String()
 	}
 	// If remoteAddr is trusted to populate a known header with the real client
 	// IP, look in that header.
-	if headerName, ok := nbrew.ProxyForwardedIPHeader[remoteAddr]; ok {
-		ip := strings.Join(r.Header.Values(headerName), ",")
-		if i := strings.LastIndex(ip, ","); i > 0 {
-			ip = ip[i:]
-		}
-		ipAddr, err := netip.ParseAddr(strings.TrimSpace(ip))
+	if trustedHeader, ok := nbrew.ProxyForwardedIPHeader[remoteAddr]; ok {
+		ipAddr, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get(trustedHeader)))
 		if err != nil {
 			return ""
 		}
@@ -451,19 +447,24 @@ func (nbrew *Notebrew) realClientIP(r *http.Request) string {
 	if !ok {
 		return remoteAddr.String()
 	}
-	// Merge all X-Forwarded-For headers and split them by comma. We want to
-	// rightmost IP address that isn't a proxy server's IP address.
-	ips := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
-	for i := len(ips) - 1; i >= 0; i-- {
-		ipAddr, err := netip.ParseAddr(strings.TrimSpace(ips[i]))
-		if err != nil {
-			continue
+	// Loop over all IP addresses in X-Forwarded-For headers from right to
+	// left. We want to rightmost IP address that isn't a proxy server's IP
+	// address.
+	values := r.Header.Values("X-Forwarded-For")
+	for i := len(values) - 1; i >= 0; i-- {
+		ips := strings.Split(values[i], ",")
+		for j := len(ips) - 1; j >= 0; j-- {
+			ip := ips[j]
+			ipAddr, err := netip.ParseAddr(strings.TrimSpace(ip))
+			if err != nil {
+				continue
+			}
+			_, ok := nbrew.Proxies[ipAddr]
+			if ok {
+				continue
+			}
+			return ipAddr.String()
 		}
-		_, ok := nbrew.Proxies[ipAddr]
-		if ok {
-			continue
-		}
-		return ipAddr.String()
 	}
 	return ""
 }
