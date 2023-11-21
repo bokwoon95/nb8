@@ -78,6 +78,17 @@ type FS interface {
 	// - syscall.EISDIR (newname)
 }
 
+type ReadDirFilesFS interface {
+	// An optimized version of ReadDir + Open, which lets us avoid the N+1
+	// query problem if the FS is backed by a database.
+	ReadDirFiles(name string) ([]FileDirEntry, error)
+}
+
+type FileDirEntry interface {
+	fs.DirEntry
+	File() (fs.File, error)
+}
+
 type LocalFS struct {
 	ctx     context.Context
 	rootDir string
@@ -1462,6 +1473,15 @@ func RemoveAll(fsys FS, root string) error {
 	return nil
 }
 
+func ReadDirFiles(fsys FS, name string) ([]FileDirEntry, error) {
+	if fsys, ok := fsys.(ReadDirFilesFS); ok {
+		return fsys.ReadDirFiles(name)
+	}
+	// TODO: if not, we run ReadDir then put it inside a custom DirEntry struct
+	// that has the File() (fs.File, error) method.
+	return nil, nil
+}
+
 // TODO: we should be able to scrap this entirely. The localFS can be summed
 // using filepath.WalkDir + goroutines + atomic.Int64, while remoteFS can be
 // summed using a single SQL query. All this will be locally within the file.go
@@ -1521,6 +1541,7 @@ func GetSize(fsys fs.FS, root string) (int64, error) {
 }
 
 // TODO: what would a directory pagination interface look like?
+// NOTE: maybe we don't need to paginate a directory
 // NOTE: rachelbythebay who has been writing since 2011 only has 1153 posts, which comfortably fits within one page. we'll do fine with a batch size of 1000.
 // NOTE: sort=name|created|updated order=asc|desc limit=1000 v=value
 // NOTE: for each batch size, we'll unconditionally sort it such that directories always rise to the top. no exceptions. and directories are always sorted in alphabetical order because the name is the only thing we can count on being accurate (created, updated and size require additional computation which I'm not willing to spare). this will be done in folder.go, not by PaginateDir itself. The filesystem never has to concern itself with whether or not it has to sort directories to the top.

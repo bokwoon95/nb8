@@ -39,6 +39,8 @@ type SiteGenerator struct {
 	templateCache         map[string]*template.Template
 	templateInProgress    map[string]chan struct{}
 	compressGeneratedHTML bool
+	// Each post list has its own post
+	// category settings: postsPerPage (Number of posts per page), visiblePages (Number of pages displayed)
 }
 
 type Site struct {
@@ -187,6 +189,8 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	var dirNames, markdownNames []string
 	parent := path.Join(pageData.Parent, pageData.Name)
 	outputDir := path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext))
+	// TODO: this should be ReadDirFiles instead, and instead of appending to
+	// markdownNames we append to markdownEntries []FileDirEntry.
 	dirEntries, err := siteGen.fsys.WithContext(ctx).ReadDir(outputDir)
 	if err != nil {
 		return err
@@ -601,6 +605,19 @@ type PostListData struct {
 }
 
 func (siteGen *SiteGenerator) GeneratePostList(ctx context.Context, category string) error {
+	postListData := PostListData{
+		Site:     siteGen.site,
+		Category: category,
+	}
+	// NOTE: we eventually want some way to paginate
+	dirEntries, err := siteGen.fsys.WithContext(ctx).ReadDir(path.Join(siteGen.sitePrefix, "posts", category))
+	if err != nil {
+		return err
+	}
+	for _, dirEntry := range dirEntries {
+		_ = dirEntry
+	}
+	_ = postListData
 	return nil
 }
 
