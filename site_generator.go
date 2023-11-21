@@ -627,16 +627,18 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 		return nil, TemplateErrors(mergedErrs)
 	}
 
-	var nilTemplates []string
+	// A nil template means someone else attempted to parse that template but
+	// it had errors; without it, we cannot parse the current template.
+	var nilTemplateNames []string
 	for i, tmpl := range externalTemplates {
 		if tmpl == nil {
-			nilTemplates = append(nilTemplates, externalNames[i])
+			nilTemplateNames = append(nilTemplateNames, externalNames[i])
 		}
 	}
-	if len(nilTemplates) > 0 {
+	if len(nilTemplateNames) > 0 {
 		return nil, TemplateErrors{
 			name: {
-				fmt.Sprintf("the following templates have errors: %s", strings.Join(nilTemplates, ", ")),
+				fmt.Sprintf("the following templates have errors: %s", strings.Join(nilTemplateNames, ", ")),
 			},
 		}
 	}
