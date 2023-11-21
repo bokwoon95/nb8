@@ -533,6 +533,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 				continue
 			}
 			postData.Title = stripMarkdownStyles(line)
+			break
 		}
 		// Content
 		var b strings.Builder
