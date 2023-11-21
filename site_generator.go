@@ -179,7 +179,7 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	pageData.UpdatedAt = fileInfo.ModTime()
 
 	// Prepare the page template.
-	tmpl, err := siteGen.parseTemplate(ctx, name, b.String(), nil)
+	tmpl, err := siteGen.parseTemplate(ctx, "/"+path.Join("pages", name), b.String(), nil)
 	if err != nil {
 		return err
 	}
@@ -457,7 +457,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 	}
 
 	// Prepare the post template.
-	tmpl, err := siteGen.parseTemplate(ctx, name, b.String(), nil)
+	tmpl, err := siteGen.parseTemplate(ctx, "/themes/post.html", b.String(), nil)
 	if err != nil {
 		return err
 	}
