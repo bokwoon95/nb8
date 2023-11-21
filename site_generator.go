@@ -72,6 +72,9 @@ func NewSiteGenerator(fsys FS, sitePrefix string, compressGeneratedHTML bool) (*
 	if size == len(config.Favicon) {
 		config.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>" + string(char) + "</text></svg>"
 	}
+	if config.Title == "" {
+		config.Title = "My blog"
+	}
 	if config.Favicon == "" {
 		config.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>"
 	}
@@ -102,9 +105,6 @@ func NewSiteGenerator(fsys FS, sitePrefix string, compressGeneratedHTML bool) (*
 		templateCache:         make(map[string]*template.Template),
 		templateInProgress:    make(map[string]chan struct{}),
 		compressGeneratedHTML: compressGeneratedHTML,
-	}
-	if siteGen.site.Title == "" {
-		siteGen.site.Title = "My blog"
 	}
 	dirEntries, err := fsys.ReadDir(path.Join(sitePrefix, "posts"))
 	if err != nil {
