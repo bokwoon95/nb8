@@ -426,11 +426,11 @@ type PostListData struct {
 }
 
 func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text string, callers []string) (*template.Template, error) {
-	tmpl, err := siteGen.baseTemplate.Clone()
+	currentTemplate, err := siteGen.baseTemplate.Clone()
 	if err != nil {
 		return nil, err
 	}
-	tmpl, err = tmpl.New(name).Parse(text)
+	currentTemplate, err = currentTemplate.New(name).Parse(text)
 	if err != nil {
 		return nil, TemplateErrors{
 			name: {
@@ -439,7 +439,7 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 		}
 	}
 	var errmsgs []string
-	internalTemplates := tmpl.Templates()
+	internalTemplates := currentTemplate.Templates()
 	for _, tmpl := range internalTemplates {
 		internalName := tmpl.Name()
 		if strings.HasSuffix(internalName, ".html") && internalName != name {
