@@ -185,7 +185,6 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
-	parent := path.Join(pageData.Parent, pageData.Name)
 
 	// Read the outputDir of the page to get a list of its markdown files and
 	// image files.
@@ -203,7 +202,10 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		name := dirFile.Name()
 		fileType := fileTypes[path.Ext(name)]
 		if strings.HasPrefix(fileType.ContentType, "image") {
-			pageData.Images = append(pageData.Images, Image{Parent: parent, Name: name})
+			pageData.Images = append(pageData.Images, Image{
+				Parent: strings.TrimSuffix(name, ext),
+				Name:   name,
+			})
 			continue
 		}
 		if strings.HasPrefix(fileType.ContentType, "text/markdown") {
@@ -236,8 +238,9 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		}
 	}
 
-	// For each subdirectory in the outputDir, check if it has a child page
-	// (contains index.html) and get its title.
+	// TODO: loop over path.Join(siteGen.sitePrefix, "pages",
+	// strings.TrimSuffix(name, ext)) and for each HTML file we pull the Page
+	// data (Parent, Name, Title) from it.
 	var dirNames []string
 	pageData.ChildPages = make([]Page, len(dirNames))
 	for i, dirName := range dirNames {
@@ -326,7 +329,7 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 				}
 			}
 			pageData.ChildPages[i] = Page{
-				Parent: parent,
+				Parent: strings.TrimSuffix(name, ext),
 				Name:   dirName,
 				Title:  buf.String(),
 			}
