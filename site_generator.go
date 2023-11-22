@@ -185,11 +185,11 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
+	outputDir := path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext))
 
 	// Read the outputDir of the page to get a list of its markdown files and
 	// image files.
 	var markdownMu sync.Mutex
-	outputDir := path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext))
 	dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx), outputDir)
 	if err != nil {
 		return err
