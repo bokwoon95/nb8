@@ -602,6 +602,10 @@ type PostListData struct {
 }
 
 func (siteGen *SiteGenerator) GeneratePostList(ctx context.Context, category string) error {
+	// Chris Coyier OPML: https://chriscoyier.net/files/personal-developer-blogs.xml
+	// Everytime we generate the post list, we also generate feed.xml
+	// (Content-Type application/xml). feed.xml itself follows the same
+	// compression settings as index.html.
 	postListData := PostListData{
 		Site:     siteGen.site,
 		Category: category,
