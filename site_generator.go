@@ -48,10 +48,10 @@ type SiteGenerator struct {
 }
 
 type Site struct {
-	Title          string
-	Favicon        string
-	Lang           string
-	PostCategories []string
+	Title      string
+	Favicon    string
+	Lang       string
+	Categories []string
 }
 
 type SiteGeneratorConfig struct {
@@ -108,7 +108,7 @@ func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
 	}
 	for _, dirEntry := range dirEntries {
 		if dirEntry.IsDir() {
-			siteGen.site.PostCategories = append(siteGen.site.PostCategories, dirEntry.Name())
+			siteGen.site.Categories = append(siteGen.site.Categories, dirEntry.Name())
 		}
 	}
 	return siteGen, nil
@@ -441,12 +441,14 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 	}
 
 	// Get images belonging to the post.
-	g, ctx := errgroup.WithContext(ctx)
-	parent := path.Join(postData.Category, postData.Name)
+	g1, ctx1 := errgroup.WithContext(ctx)
 	outputDir := path.Join(siteGen.sitePrefix, "output/posts", strings.TrimSuffix(name, ext))
-	g.Go(func() error {
-		dirEntries, err := siteGen.fsys.WithContext(ctx).ReadDir(outputDir)
+	g1.Go(func() error {
+		dirEntries, err := siteGen.fsys.WithContext(ctx1).ReadDir(outputDir)
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
 			return err
 		}
 		for _, dirEntry := range dirEntries {
@@ -456,7 +458,10 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 			}
 			fileType := fileTypes[path.Ext(name)]
 			if strings.HasPrefix(fileType.ContentType, "image") {
-				postData.Images = append(postData.Images, Image{Parent: parent, Name: name})
+				postData.Images = append(postData.Images, Image{
+					Parent: strings.TrimSuffix(name, ext),
+					Name:   name,
+				})
 				continue
 			}
 		}
@@ -464,8 +469,8 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 	})
 
 	// Read the post markdown content and convert it to HTML.
-	g.Go(func() error {
-		file, err = siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "posts", name))
+	g1.Go(func() error {
+		file, err = siteGen.fsys.WithContext(ctx1).Open(path.Join(siteGen.sitePrefix, "posts", name))
 		if err != nil {
 			return err
 		}
@@ -523,13 +528,26 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 		return nil
 	})
 
-	err = g.Wait()
+	err = g1.Wait()
 	if err != nil {
 		return err
 	}
 
 	// Render the template contents into the output index.html.
 	writer, err := siteGen.fsys.WithContext(ctx).OpenWriter(path.Join(outputDir, "index.html"), 0644)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		err := MkdirAll(siteGen.fsys.WithContext(ctx), outputDir, 0755)
+		if err != nil {
+			return err
+		}
+		writer, err = siteGen.fsys.WithContext(ctx).OpenWriter(path.Join(outputDir, "index.html"), 0644)
+		if err != nil {
+			return err
+		}
+	}
 	defer writer.Close()
 	if !siteGen.compressGeneratedHTML {
 		err = tmpl.Execute(writer, &postData)

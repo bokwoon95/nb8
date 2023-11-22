@@ -409,6 +409,22 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				internalServerError(w, r, err)
 				return
 			}
+		case "posts":
+			siteGen, err := NewSiteGenerator(SiteGeneratorConfig{
+				FS:         nbrew.FS,
+				SitePrefix: sitePrefix,
+			})
+			if err != nil {
+				getLogger(r.Context()).Error(err.Error())
+				internalServerError(w, r, err)
+				return
+			}
+			err = siteGen.GeneratePost(r.Context(), tail)
+			if err != nil {
+				getLogger(r.Context()).Error(err.Error())
+				internalServerError(w, r, err)
+				return
+			}
 		}
 		response.Status = UpdateSuccess
 		writeResponse(w, r, response)
