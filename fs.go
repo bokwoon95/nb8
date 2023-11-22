@@ -81,12 +81,12 @@ type FS interface {
 type ReadDirFilesFS interface {
 	// An optimized version of ReadDir + Open, which lets us avoid the N+1
 	// query problem if the FS is backed by a database.
-	ReadDirFiles(name string) ([]FileDirEntry, error)
+	ReadDirFiles(name string) ([]DirFile, error)
 }
 
-type FileDirEntry interface {
+type DirFile interface {
 	fs.DirEntry
-	File() (fs.File, error)
+	Open() (fs.File, error)
 }
 
 type LocalFS struct {
@@ -1473,13 +1473,33 @@ func RemoveAll(fsys FS, root string) error {
 	return nil
 }
 
-func ReadDirFiles(fsys FS, name string) ([]FileDirEntry, error) {
+type dirFile struct {
+	fs.DirEntry
+	fsys FS
+	name string
+}
+
+func (dfile *dirFile) Open() (fs.File, error) {
+	return dfile.fsys.Open(dfile.name)
+}
+
+func ReadDirFiles(fsys FS, name string) ([]DirFile, error) {
 	if fsys, ok := fsys.(ReadDirFilesFS); ok {
 		return fsys.ReadDirFiles(name)
 	}
-	// TODO: if not, we run ReadDir then put it inside a custom DirEntry struct
-	// that has the File() (fs.File, error) method.
-	return nil, nil
+	dirEntries, err := fsys.ReadDir(name)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]DirFile, 0, len(dirEntries))
+	for _, dirEntry := range dirEntries {
+		entries = append(entries, &dirFile{
+			DirEntry: dirEntry,
+			fsys:     fsys,
+			name:     name,
+		})
+	}
+	return entries, nil
 }
 
 // TODO: we should be able to scrap this entirely. The localFS can be summed
