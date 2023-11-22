@@ -34,6 +34,16 @@ fsys.GetTreeSize
 fsys.GetTreeCount
 fsys.GetListCount
 
+{{ block "title" . }}<title>word</title>{{  end }}
+
+{{ template "/themes/base.html" }}{{ end }}
+{{ define "title" }}<title>abcd</title>{{ end }}
+{{ define "content" }}{{ index $.Markdown "content.md" }}{{ end }}
+
+abcd.html
+abcd/content.md
+abcd/subfile.html
+
 TODO: we need to provide the scheme for all pages bc we need to specify the full host name, not just '/'
 TODO: principle: on save, do the bare minimum that will most likely satisfy the user's requirements. leave everything else as a manual knob to trigger.
 save a post => update the post, but don't update the post list. instead put a button in the alert asking if the user wants to also regenerate the post list. Whenever the post list is updated, all pages are generated (this may take a long time if there are many posts, but that's unavoidable).

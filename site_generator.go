@@ -184,44 +184,33 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		return err
 	}
 
-	// Read the outputDir of the page to get a list of its subdirectories,
-	// markdown files and image files.
-	var dirNames, markdownNames []string
+	g, ctx := errgroup.WithContext(ctx)
 	parent := path.Join(pageData.Parent, pageData.Name)
+
+	// Read the outputDir of the page to get a list of its markdown files and
+	// image files.
+	var markdownMu sync.Mutex
 	outputDir := path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext))
-	// TODO: this should be ReadDirFiles instead, and instead of appending to
-	// markdownNames we append to markdownEntries []FileDirEntry.
-	dirEntries, err := siteGen.fsys.WithContext(ctx).ReadDir(outputDir)
+	dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx), outputDir)
 	if err != nil {
 		return err
 	}
-	for _, dirEntry := range dirEntries {
-		name := dirEntry.Name()
-		if dirEntry.IsDir() {
-			dirNames = append(dirNames, name)
+	for _, dirFile := range dirFiles {
+		dirFile := dirFile
+		if dirFile.IsDir() {
 			continue
 		}
+		name := dirFile.Name()
 		fileType := fileTypes[path.Ext(name)]
-		if strings.HasPrefix(fileType.ContentType, "text/markdown") {
-			markdownNames = append(markdownNames, name)
-			continue
-		}
 		if strings.HasPrefix(fileType.ContentType, "image") {
 			pageData.Images = append(pageData.Images, Image{Parent: parent, Name: name})
 			continue
 		}
-	}
-
-	// For each markdown file, read its contents, convert to HTML and populate
-	// the pageData.Markdown map.
-	g, ctx := errgroup.WithContext(ctx)
-	var markdownMu sync.Mutex
-	g.Go(func() error {
-		g, ctx := errgroup.WithContext(ctx)
-		for _, markdownName := range markdownNames {
-			markdownName := markdownName
+		if strings.HasPrefix(fileType.ContentType, "text/markdown") {
+			// For each markdown file, read its contents, convert to HTML and populate
+			// the pageData.Markdown map.
 			g.Go(func() error {
-				file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(outputDir, markdownName))
+				file, err := dirFile.Open()
 				if err != nil {
 					return err
 				}
@@ -239,131 +228,116 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 					return err
 				}
 				markdownMu.Lock()
-				pageData.Markdown[markdownName] = template.HTML(b.String())
+				pageData.Markdown[name] = template.HTML(b.String())
 				markdownMu.Unlock()
 				return nil
 			})
+			continue
 		}
-		return g.Wait()
-	})
+	}
 
 	// For each subdirectory in the outputDir, check if it has a child page
 	// (contains index.html) and get its title.
+	var dirNames []string
 	pageData.ChildPages = make([]Page, len(dirNames))
-	g.Go(func() error {
-		g, ctx := errgroup.WithContext(ctx)
-		for i, dirName := range dirNames {
-			i, dirName := i, dirName
-			g.Go(func() error {
-				file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(outputDir, dirName, "index.html"))
-				if err != nil {
-					if errors.Is(err, fs.ErrNotExist) {
-						return nil
-					}
-					return err
+	for i, dirName := range dirNames {
+		i, dirName := i, dirName
+		g.Go(func() error {
+			file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(outputDir, dirName, "index.html"))
+			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return nil
 				}
-				defer file.Close()
-				// Wrap the file in a bufio.Reader so we can read the file line
-				// by line.
-				reader := readerPool.Get().(*bufio.Reader)
-				reader.Reset(file)
-				defer readerPool.Put(reader)
-				// Peek the first 512 bytes of index.html to detect if it is
-				// gzipped. If so, wrap the reader in a gzip.Reader followed by
-				// another bufio.Reader (so that we retain the ability to read
-				// the file line by line).
-				b, err := reader.Peek(512)
-				if err != nil && err != io.EOF {
-					return err
-				}
-				contentType := http.DetectContentType(b)
-				if contentType == "application/x-gzip" || contentType == "application/gzip" {
-					gzipReader := gzipReaderPool.Get().(*gzip.Reader)
-					if gzipReader != nil {
-						err = gzipReader.Reset(reader)
-						if err != nil {
-							return err
-						}
-					} else {
-						gzipReader, err = gzip.NewReader(reader)
-						if err != nil {
-							return err
-						}
-					}
-					defer gzipReaderPool.Put(gzipReader)
-					newReader := readerPool.Get().(*bufio.Reader)
-					newReader.Reset(gzipReader)
-					defer readerPool.Put(newReader)
-					reader = newReader
-				}
-				// Reading the file line by line, start writing into the buffer
-				// once we find <title> and stop writing once we find </title>.
-				buf := bufPool.Get().(*bytes.Buffer)
-				buf.Reset()
-				defer bufPool.Put(buf)
-				var done, found bool
-				for !done {
-					line, err := reader.ReadSlice('\n')
+				return err
+			}
+			defer file.Close()
+			// Wrap the file in a bufio.Reader so we can read the file line
+			// by line.
+			reader := readerPool.Get().(*bufio.Reader)
+			reader.Reset(file)
+			defer readerPool.Put(reader)
+			// Peek the first 512 bytes of index.html to detect if it is
+			// gzipped. If so, wrap the reader in a gzip.Reader followed by
+			// another bufio.Reader (so that we retain the ability to read
+			// the file line by line).
+			b, err := reader.Peek(512)
+			if err != nil && err != io.EOF {
+				return err
+			}
+			contentType := http.DetectContentType(b)
+			if contentType == "application/x-gzip" || contentType == "application/gzip" {
+				gzipReader := gzipReaderPool.Get().(*gzip.Reader)
+				if gzipReader != nil {
+					err = gzipReader.Reset(reader)
 					if err != nil {
-						if err != io.EOF {
-							return err
-						}
-						done = true
+						return err
 					}
-					line = bytes.TrimSpace(line)
-					if !found {
-						i := bytes.Index(line, []byte("<title>"))
-						if i > 0 {
-							found = true
-							// If we find </title> on the same line, we can
-							// break immediately.
-							j := bytes.Index(line, []byte("</title>"))
-							if j > 0 {
-								buf.Write(line[i+len("<title>") : j])
-								break
-							}
-							buf.Write(line[i+len("<title>"):])
-						}
-					} else {
-						// Otherwise we keep writing subsequent lines whole
-						// until we find </title>.
-						i := bytes.Index(line, []byte("</title>"))
-						if i > 0 {
-							buf.WriteByte(' ')
-							buf.Write(line[:i])
+				} else {
+					gzipReader, err = gzip.NewReader(reader)
+					if err != nil {
+						return err
+					}
+				}
+				defer gzipReaderPool.Put(gzipReader)
+				newReader := readerPool.Get().(*bufio.Reader)
+				newReader.Reset(gzipReader)
+				defer readerPool.Put(newReader)
+				reader = newReader
+			}
+			// Reading the file line by line, start writing into the buffer
+			// once we find <title> and stop writing once we find </title>.
+			buf := bufPool.Get().(*bytes.Buffer)
+			buf.Reset()
+			defer bufPool.Put(buf)
+			var done, found bool
+			for !done {
+				line, err := reader.ReadSlice('\n')
+				if err != nil {
+					if err != io.EOF {
+						return err
+					}
+					done = true
+				}
+				line = bytes.TrimSpace(line)
+				if !found {
+					i := bytes.Index(line, []byte("<title>"))
+					if i > 0 {
+						found = true
+						// If we find </title> on the same line, we can
+						// break immediately.
+						j := bytes.Index(line, []byte("</title>"))
+						if j > 0 {
+							buf.Write(line[i+len("<title>") : j])
 							break
 						}
-						buf.WriteByte(' ')
-						buf.Write(line)
+						buf.Write(line[i+len("<title>"):])
 					}
+				} else {
+					// Otherwise we keep writing subsequent lines whole
+					// until we find </title>.
+					i := bytes.Index(line, []byte("</title>"))
+					if i > 0 {
+						buf.WriteByte(' ')
+						buf.Write(line[:i])
+						break
+					}
+					buf.WriteByte(' ')
+					buf.Write(line)
 				}
-				pageData.ChildPages[i] = Page{
-					Parent: parent,
-					Name:   dirName,
-					Title:  buf.String(),
-				}
-				return nil
-			})
-		}
-		return g.Wait()
-	})
+			}
+			pageData.ChildPages[i] = Page{
+				Parent: parent,
+				Name:   dirName,
+				Title:  buf.String(),
+			}
+			return nil
+		})
+	}
 
 	err = g.Wait()
 	if err != nil {
 		return err
 	}
-
-	// It is possible that some of the subdirectories of the outputDir don't
-	// have an index.html, resulting in an empty child page. Filter these out.
-	n := 0
-	for _, page := range pageData.ChildPages {
-		if page == (Page{}) {
-			continue
-		}
-		pageData.ChildPages[n] = page
-		n++
-	}
-	pageData.ChildPages = pageData.ChildPages[:n]
 
 	// Render the template contents into the output index.html.
 	writer, err := siteGen.fsys.WithContext(ctx).OpenWriter(path.Join(outputDir, "index.html"), 0644)
