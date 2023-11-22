@@ -1289,7 +1289,7 @@ func (fsys *RemoteFS) ReadDirBySize(name string, before, after int64, limit int)
 func (fsys *RemoteFS) Match(name string) /* what return? */ {
 }
 
-func (fsys *RemoteFS) GetSize(name string) (int64, error) {
+func (fsys *RemoteFS) GetTreeSize(name string) (int64, error) {
 	err := fsys.ctx.Err()
 	if err != nil {
 		return 0, err
@@ -1486,15 +1486,15 @@ func ReadDirFiles(fsys FS, name string) ([]FileDirEntry, error) {
 // using filepath.WalkDir + goroutines + atomic.Int64, while remoteFS can be
 // summed using a single SQL query. All this will be locally within the file.go
 // function itself.
-func GetSize(fsys fs.FS, root string) (int64, error) {
+func GetTreeSize(fsys fs.FS, root string) (int64, error) {
 	type Item struct {
 		Path     string // relative to root
 		DirEntry fs.DirEntry
 	}
 	if fsys, ok := fsys.(interface {
-		GetSize(root string) (int64, error)
+		GetTreeSize(root string) (int64, error)
 	}); ok {
-		return fsys.GetSize(root)
+		return fsys.GetTreeSize(root)
 	}
 	fileInfo, err := fs.Stat(fsys, root)
 	if err != nil {

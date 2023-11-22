@@ -27,6 +27,12 @@ Post list updated (5 files regenerated in XXms).
 
 NOTE: ReadDirByName/ReadDirByCreated/ReadDirByUpdated is there to improve pagination on the admin page, it allows users (you) to pump out multiple notes each day (resulting in 1000+ in a year) into a single folder and still be able to render it in reasonable time by keyset paginating.
 NOTE: ReadDirFiles is there to solve the N+1 problem when the filesystem is backed by the database, allowing us to get the file metadata and contents at the same time instead of fetching the metadata first then fetching each file's contents one by one (ew). We can't just skip one, both of them are valuable for different pruposes.
+fsys.GetRecursiveSize
+fsys.GetAllCount
+fsys.GetCountRecursive
+fsys.GetTreeSize
+fsys.GetTreeCount
+fsys.GetListCount
 
 TODO: we need to provide the scheme for all pages bc we need to specify the full host name, not just '/'
 TODO: principle: on save, do the bare minimum that will most likely satisfy the user's requirements. leave everything else as a manual knob to trigger.
