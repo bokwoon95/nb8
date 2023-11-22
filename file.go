@@ -391,15 +391,24 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			return
 		}
 
-		segments := strings.Split(filePath, "/")
-		if segments[0] == "posts" || segments[0] == "pages" || (len(segments) > 2 && segments[0] == "output" && segments[1] == "themes") {
-			err = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(3 * time.Minute))
+		head, tail, _ := strings.Cut(filePath, "/")
+		switch head {
+		case "pages":
+			siteGen, err := NewSiteGenerator(SiteGeneratorConfig{
+				FS:         nbrew.FS,
+				SitePrefix: sitePrefix,
+			})
 			if err != nil {
 				getLogger(r.Context()).Error(err.Error())
 				internalServerError(w, r, err)
 				return
 			}
-			// TODO: regenerate site or update the output accordingly
+			err = siteGen.GeneratePage(r.Context(), tail)
+			if err != nil {
+				getLogger(r.Context()).Error(err.Error())
+				internalServerError(w, r, err)
+				return
+			}
 		}
 		response.Status = UpdateSuccess
 		writeResponse(w, r, response)

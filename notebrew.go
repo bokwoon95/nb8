@@ -499,8 +499,6 @@ var gzipWriterPool = sync.Pool{
 	},
 }
 
-var gzipReaderPool = sync.Pool{}
-
 var hashPool = sync.Pool{
 	New: func() any {
 		hash, err := blake2b.New256(nil)

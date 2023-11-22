@@ -12,7 +12,6 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
-	"net/http"
 	"path"
 	"slices"
 	"strings"
@@ -29,6 +28,11 @@ import (
 	goldmarkhtml "github.com/yuin/goldmark/renderer/html"
 	"golang.org/x/sync/errgroup"
 )
+
+type PostListSettings struct {
+	PostsPerPage int
+	VisiblePages int
+}
 
 type SiteGenerator struct {
 	fsys                  FS
@@ -184,160 +188,137 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		return err
 	}
 
-	g, ctx := errgroup.WithContext(ctx)
+	g1, ctx1 := errgroup.WithContext(ctx)
 	outputDir := path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext))
-
-	// Read the outputDir of the page to get a list of its markdown files and
-	// image files.
-	var markdownMu sync.Mutex
-	dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx), outputDir)
-	if err != nil {
-		return err
-	}
-	for _, dirFile := range dirFiles {
-		dirFile := dirFile
-		if dirFile.IsDir() {
-			continue
+	g1.Go(func() error {
+		g2, ctx2 := errgroup.WithContext(ctx1)
+		markdownMu := sync.Mutex{}
+		dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx2), outputDir)
+		if err != nil {
+			return err
 		}
-		name := dirFile.Name()
-		fileType := fileTypes[path.Ext(name)]
-		if strings.HasPrefix(fileType.ContentType, "image") {
-			pageData.Images = append(pageData.Images, Image{
-				Parent: strings.TrimSuffix(name, ext),
-				Name:   name,
-			})
-			continue
+		for _, dirFile := range dirFiles {
+			dirFile := dirFile
+			if dirFile.IsDir() {
+				continue
+			}
+			name := dirFile.Name()
+			fileType := fileTypes[path.Ext(name)]
+			if strings.HasPrefix(fileType.ContentType, "image") {
+				pageData.Images = append(pageData.Images, Image{
+					Parent: strings.TrimSuffix(name, ext),
+					Name:   name,
+				})
+				continue
+			}
+			if strings.HasPrefix(fileType.ContentType, "text/markdown") {
+				g2.Go(func() error {
+					file, err := dirFile.Open()
+					if err != nil {
+						return err
+					}
+					defer file.Close()
+					buf := bufPool.Get().(*bytes.Buffer)
+					buf.Reset()
+					defer bufPool.Put(buf)
+					_, err = buf.ReadFrom(file)
+					if err != nil {
+						return err
+					}
+					var b strings.Builder
+					err = siteGen.markdown.Convert(buf.Bytes(), &b)
+					if err != nil {
+						return err
+					}
+					markdownMu.Lock()
+					pageData.Markdown[name] = template.HTML(b.String())
+					markdownMu.Unlock()
+					return nil
+				})
+				continue
+			}
 		}
-		if strings.HasPrefix(fileType.ContentType, "text/markdown") {
-			// For each markdown file, read its contents, convert to HTML and populate
-			// the pageData.Markdown map.
-			g.Go(func() error {
+		return g2.Wait()
+	})
+	g1.Go(func() error {
+		g2, ctx2 := errgroup.WithContext(ctx1)
+		dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx2), path.Join(siteGen.sitePrefix, "pages", strings.TrimSuffix(name, ext)))
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+		n := 0
+		for _, dirFile := range dirFiles {
+			if strings.HasSuffix(dirFile.Name(), ".html") {
+				dirFiles[n] = dirFile
+				n++
+			}
+		}
+		dirFiles = dirFiles[:n]
+		pageData.ChildPages = make([]Page, len(dirFiles))
+		for i, dirFile := range dirFiles {
+			i, dirFile := i, dirFile
+			g2.Go(func() error {
 				file, err := dirFile.Open()
 				if err != nil {
 					return err
 				}
 				defer file.Close()
+				reader := readerPool.Get().(*bufio.Reader)
+				reader.Reset(file)
+				defer readerPool.Put(reader)
 				buf := bufPool.Get().(*bytes.Buffer)
 				buf.Reset()
 				defer bufPool.Put(buf)
-				_, err = buf.ReadFrom(file)
-				if err != nil {
-					return err
-				}
-				var b strings.Builder
-				err = siteGen.markdown.Convert(buf.Bytes(), &b)
-				if err != nil {
-					return err
-				}
-				markdownMu.Lock()
-				pageData.Markdown[name] = template.HTML(b.String())
-				markdownMu.Unlock()
-				return nil
-			})
-			continue
-		}
-	}
-
-	// TODO: loop over path.Join(siteGen.sitePrefix, "pages",
-	// strings.TrimSuffix(name, ext)) and for each HTML file we pull the Page
-	// data (Parent, Name, Title) from it.
-	var dirNames []string
-	pageData.ChildPages = make([]Page, len(dirNames))
-	for i, dirName := range dirNames {
-		i, dirName := i, dirName
-		g.Go(func() error {
-			file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(outputDir, dirName, "index.html"))
-			if err != nil {
-				if errors.Is(err, fs.ErrNotExist) {
-					return nil
-				}
-				return err
-			}
-			defer file.Close()
-			// Wrap the file in a bufio.Reader so we can read the file line
-			// by line.
-			reader := readerPool.Get().(*bufio.Reader)
-			reader.Reset(file)
-			defer readerPool.Put(reader)
-			// Peek the first 512 bytes of index.html to detect if it is
-			// gzipped. If so, wrap the reader in a gzip.Reader followed by
-			// another bufio.Reader (so that we retain the ability to read
-			// the file line by line).
-			b, err := reader.Peek(512)
-			if err != nil && err != io.EOF {
-				return err
-			}
-			contentType := http.DetectContentType(b)
-			if contentType == "application/x-gzip" || contentType == "application/gzip" {
-				gzipReader := gzipReaderPool.Get().(*gzip.Reader)
-				if gzipReader != nil {
-					err = gzipReader.Reset(reader)
+				var done, found bool
+				for !done {
+					line, err := reader.ReadSlice('\n')
 					if err != nil {
-						return err
+						if err != io.EOF {
+							return err
+						}
+						done = true
 					}
-				} else {
-					gzipReader, err = gzip.NewReader(reader)
-					if err != nil {
-						return err
-					}
-				}
-				defer gzipReaderPool.Put(gzipReader)
-				newReader := readerPool.Get().(*bufio.Reader)
-				newReader.Reset(gzipReader)
-				defer readerPool.Put(newReader)
-				reader = newReader
-			}
-			// Reading the file line by line, start writing into the buffer
-			// once we find <title> and stop writing once we find </title>.
-			buf := bufPool.Get().(*bytes.Buffer)
-			buf.Reset()
-			defer bufPool.Put(buf)
-			var done, found bool
-			for !done {
-				line, err := reader.ReadSlice('\n')
-				if err != nil {
-					if err != io.EOF {
-						return err
-					}
-					done = true
-				}
-				line = bytes.TrimSpace(line)
-				if !found {
-					i := bytes.Index(line, []byte("<title>"))
-					if i > 0 {
-						found = true
-						// If we find </title> on the same line, we can
-						// break immediately.
-						j := bytes.Index(line, []byte("</title>"))
-						if j > 0 {
-							buf.Write(line[i+len("<title>") : j])
+					line = bytes.TrimSpace(line)
+					if !found {
+						i := bytes.Index(line, []byte("<title>"))
+						if i > 0 {
+							found = true
+							// If we find </title> on the same line, we can
+							// break immediately.
+							j := bytes.Index(line, []byte("</title>"))
+							if j > 0 {
+								buf.Write(line[i+len("<title>") : j])
+								break
+							}
+							buf.Write(line[i+len("<title>"):])
+						}
+					} else {
+						// Otherwise we keep writing subsequent lines whole
+						// until we find </title>.
+						i := bytes.Index(line, []byte("</title>"))
+						if i > 0 {
+							buf.WriteByte(' ')
+							buf.Write(line[:i])
 							break
 						}
-						buf.Write(line[i+len("<title>"):])
-					}
-				} else {
-					// Otherwise we keep writing subsequent lines whole
-					// until we find </title>.
-					i := bytes.Index(line, []byte("</title>"))
-					if i > 0 {
 						buf.WriteByte(' ')
-						buf.Write(line[:i])
-						break
+						buf.Write(line)
 					}
-					buf.WriteByte(' ')
-					buf.Write(line)
 				}
-			}
-			pageData.ChildPages[i] = Page{
-				Parent: strings.TrimSuffix(name, ext),
-				Name:   dirName,
-				Title:  buf.String(),
-			}
-			return nil
-		})
-	}
-
-	err = g.Wait()
+				pageData.ChildPages[i] = Page{
+					Parent: strings.TrimSuffix(name, ext),
+					Name:   dirFile.Name(),
+					Title:  buf.String(),
+				}
+				return nil
+			})
+		}
+		return g2.Wait()
+	})
+	err = g1.Wait()
 	if err != nil {
 		return err
 	}
@@ -558,11 +539,14 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 }
 
 type Pagination struct {
-	First   string
-	Numbers []string
-	Current string
-	Last    string
+	First      string
+	Current    string
+	Last       string
+	Numbers    []string
+	AllNumbers []string
 }
+
+// {{ range $
 
 type Post struct {
 	Category  string
