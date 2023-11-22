@@ -189,7 +189,12 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	}
 
 	g1, ctx1 := errgroup.WithContext(ctx)
-	outputDir := path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext))
+	var outputDir string
+	if name == "index.html" {
+		outputDir = path.Join(siteGen.sitePrefix, "output")
+	} else {
+		outputDir = path.Join(siteGen.sitePrefix, "output", strings.TrimSuffix(name, ext))
+	}
 	g1.Go(func() error {
 		g2, ctx2 := errgroup.WithContext(ctx1)
 		markdownMu := sync.Mutex{}
