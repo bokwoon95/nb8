@@ -29,22 +29,18 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type PostListSettings struct {
-	PostsPerPage int
-	VisiblePages int
-}
-
 type SiteGenerator struct {
-	fsys                  FS
-	sitePrefix            string
-	site                  Site
-	markdown              goldmark.Markdown
-	mu                    sync.Mutex
-	templateCache         map[string]*template.Template
-	templateInProgress    map[string]chan struct{}
-	compressGeneratedHTML bool
-	// Each post list has its own post
-	// category settings: postsPerPage (Number of posts per page), visiblePages (Number of pages displayed)
+	fsys                     FS
+	sitePrefix               string
+	site                     Site
+	markdown                 goldmark.Markdown
+	mu                       sync.Mutex
+	templateCache            map[string]*template.Template
+	templateInProgress       map[string]chan struct{}
+	compressGeneratedContent bool
+	// TODO: eventually make these configurable
+	postsPerPage map[string]int // default 1000
+	visiblePages map[string]int // default 5
 }
 
 type Site struct {
@@ -55,13 +51,13 @@ type Site struct {
 }
 
 type SiteGeneratorConfig struct {
-	FS                    FS
-	SitePrefix            string
-	Title                 string
-	Favicon               string
-	Lang                  string
-	CodeStyle             string
-	CompressGeneratedHTML bool
+	FS                       FS
+	SitePrefix               string
+	Title                    string
+	Favicon                  string
+	Lang                     string
+	CodeStyle                string
+	CompressGeneratedContent bool
 }
 
 func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
@@ -97,10 +93,10 @@ func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
 			),
 			goldmark.WithRendererOptions(goldmarkhtml.WithUnsafe()),
 		),
-		mu:                    sync.Mutex{},
-		templateCache:         make(map[string]*template.Template),
-		templateInProgress:    make(map[string]chan struct{}),
-		compressGeneratedHTML: config.CompressGeneratedHTML,
+		mu:                       sync.Mutex{},
+		templateCache:            make(map[string]*template.Template),
+		templateInProgress:       make(map[string]chan struct{}),
+		compressGeneratedContent: config.CompressGeneratedContent,
 	}
 	dirEntries, err := siteGen.fsys.ReadDir(path.Join(siteGen.sitePrefix, "posts"))
 	if err != nil {
@@ -347,7 +343,7 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		}
 	}
 	defer writer.Close()
-	if !siteGen.compressGeneratedHTML {
+	if !siteGen.compressGeneratedContent {
 		err = tmpl.Execute(writer, &pageData)
 		if err != nil {
 			return err
@@ -549,7 +545,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 		}
 	}
 	defer writer.Close()
-	if !siteGen.compressGeneratedHTML {
+	if !siteGen.compressGeneratedContent {
 		err = tmpl.Execute(writer, &postData)
 		if err != nil {
 			return err
@@ -575,11 +571,15 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 }
 
 type Pagination struct {
-	First      string
-	Current    string
 	Last       string
+	Current    string
+	First      string
 	Numbers    []string
 	AllNumbers []string
+	// TODO: can we make Numbers and AllNumbers methods instead? So dumping it
+	// doesn't pollute the page with tons of consecutive numbers. We cal
+	// calculate them on the fly, as long as we know the postsPerPage and
+	// visiblePages.
 }
 
 // {{ range $
