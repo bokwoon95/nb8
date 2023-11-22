@@ -200,6 +200,9 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		markdownMu := sync.Mutex{}
 		dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx2), outputDir)
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
 			return err
 		}
 		for _, dirFile := range dirFiles {
@@ -331,7 +334,17 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	// Render the template contents into the output index.html.
 	writer, err := siteGen.fsys.WithContext(ctx).OpenWriter(path.Join(outputDir, "index.html"), 0644)
 	if err != nil {
-		return err
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		err := MkdirAll(siteGen.fsys.WithContext(ctx), outputDir, 0755)
+		if err != nil {
+			return err
+		}
+		writer, err = siteGen.fsys.WithContext(ctx).OpenWriter(path.Join(outputDir, "index.html"), 0644)
+		if err != nil {
+			return err
+		}
 	}
 	defer writer.Close()
 	if !siteGen.compressGeneratedHTML {
