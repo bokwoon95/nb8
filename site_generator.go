@@ -607,12 +607,12 @@ func (siteGen *SiteGenerator) GeneratePostList(ctx context.Context, category str
 		Category: category,
 	}
 	// NOTE: we eventually want some way to paginate
-	dirEntries, err := siteGen.fsys.WithContext(ctx).ReadDir(path.Join(siteGen.sitePrefix, "posts", category))
+	dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx), path.Join(siteGen.sitePrefix, "posts", category))
 	if err != nil {
 		return err
 	}
-	for _, dirEntry := range dirEntries {
-		_ = dirEntry
+	for _, dirFile := range dirFiles {
+		_ = dirFile
 	}
 	_ = postListData
 	return nil
