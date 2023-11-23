@@ -580,12 +580,12 @@ type Pagination struct {
 }
 
 func (p Pagination) All() []string {
-	last, err := strconv.Atoi(p.End)
+	end, err := strconv.Atoi(p.End)
 	if err != nil {
 		return nil
 	}
-	numbers := make([]string, last)
-	for i := 1; i <= last; i++ {
+	numbers := make([]string, end)
+	for i := 1; i <= end; i++ {
 		numbers[i-1] = strconv.Itoa(i)
 	}
 	return numbers
@@ -608,7 +608,7 @@ type PostListData struct {
 	PostList   []Post
 }
 
-func (siteGen *SiteGenerator) GeneratePostList(ctx context.Context, category string) error {
+func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category string) error {
 	// Chris Coyier OPML: https://chriscoyier.net/files/personal-developer-blogs.xml
 	// Everytime we generate the post list, we also generate feed.xml
 	// (Content-Type application/xml). feed.xml itself follows the same
@@ -617,7 +617,16 @@ func (siteGen *SiteGenerator) GeneratePostList(ctx context.Context, category str
 		Site:     siteGen.site,
 		Category: category,
 	}
+	// TODO: we want to stop using Domain and ContentDomain for the operation
+	// of the site, use absolute URL paths instead. So that a user can generate
+	// a site for his domain, but run it entirely on localhost without any
+	// hiccups. When redirecting a user to view his site, notebrew needs to
+	// know if it is running on localhost mode; if it is, don't ever direct
+	// them to the domain/content domain, always direct them to localhost. But
+	// when generating things like pages and links, use the ContentDomain. This
+	// will be tricky to dual-operate
 	// NOTE: we eventually want some way to paginate
+	// ID: tag:bokwoon.nbrew.io,yyyy-mm-dd:1jjdz28
 	dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx), path.Join(siteGen.sitePrefix, "posts", category))
 	if err != nil {
 		return err
@@ -627,6 +636,9 @@ func (siteGen *SiteGenerator) GeneratePostList(ctx context.Context, category str
 	}
 	_ = postListData
 	return nil
+}
+
+func (siteGen *SiteGenerator) generatePostList(ctx context.Context) {
 }
 
 func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text string, callers []string) (*template.Template, error) {
