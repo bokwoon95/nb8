@@ -15,7 +15,7 @@ func (nbrew *Notebrew) logout(w http.ResponseWriter, r *http.Request, ip string)
 	}
 	authenticationTokenHash := getAuthenticationTokenHash(r)
 	if authenticationTokenHash == nil {
-		http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/users/login/", http.StatusFound)
+		http.Redirect(w, r, "/users/login/", http.StatusFound)
 		return
 	}
 	switch r.Method {
@@ -54,7 +54,7 @@ func (nbrew *Notebrew) logout(w http.ResponseWriter, r *http.Request, ip string)
 				return
 			}
 		}
-		http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/users/login/", http.StatusFound)
+		http.Redirect(w, r, "/users/login/", http.StatusFound)
 	default:
 		methodNotAllowed(w, r)
 	}

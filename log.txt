@@ -13,15 +13,9 @@ file.go
 server.go
 notebrew/main.go
 
-POST /regenerate/?parent=pages&name=abcd.html
-if name matches pages/**/*.html => regenerate pages
-if name posts/**/*.md => regenerate posts
-else just update the file
+TODO: rework/add contentDomain template function to all admin pages which either displays the real content domain (if the domain is a non-localhost domain) or just the empty string (if the domain is localhost or has the prefix localhost:)
 
-gear: settings
-sync
-sort
-plus
+TODO:
 Post updated (1 file regenerated in XXms). Regenerate post list? [ Regenerate List ]
 Post list updated (5 files regenerated in XXms).
 
@@ -61,7 +55,7 @@ page.json contains all the pagination, rss feed limit settings
 paginationFormat: 1 2 ... 3 4 5 6 7 ... 8 9
 paginationFormat: 1 2 3 4 5
 
-{{ range $.Pagination.Form }}
+{{ range $.Pagination.Numbers }}
 
 /{{ join `posts` $post.Category $post.Name }}/
 /{{ join `posts` $post.Category $post.Name $paginator.First }}/

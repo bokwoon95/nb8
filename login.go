@@ -112,9 +112,6 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 	}
 
 	sanitizeRedirect := func(redirect string) string {
-		if r.Host != nbrew.Domain {
-			return ""
-		}
 		uri, err := url.Parse(path.Clean(redirect))
 		if err != nil {
 			return ""
@@ -303,7 +300,7 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 				if response.Redirect != "" {
 					query = "?redirect=" + url.QueryEscape(response.Redirect)
 				}
-				http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/users/login/"+query, http.StatusFound)
+				http.Redirect(w, r, "/users/login/"+query, http.StatusFound)
 				return
 			}
 			http.SetCookie(w, &http.Cookie{
@@ -316,10 +313,10 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 				MaxAge:   int((time.Hour * 24 * 365).Seconds()),
 			})
 			if response.Redirect != "" {
-				http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+response.Redirect, http.StatusFound)
+				http.Redirect(w, r, response.Redirect, http.StatusFound)
 				return
 			}
-			http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/"+path.Join("files", response.SitePrefix)+"/", http.StatusFound)
+			http.Redirect(w, r, "/"+path.Join("files", response.SitePrefix)+"/", http.StatusFound)
 		}
 
 		var request Request

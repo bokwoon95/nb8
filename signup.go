@@ -225,7 +225,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 				if response.SignupToken != "" {
 					query = "?token=" + url.QueryEscape(response.SignupToken)
 				}
-				http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/users/signup/"+query, http.StatusFound)
+				http.Redirect(w, r, "/users/signup/"+query, http.StatusFound)
 				return
 			}
 			err := nbrew.setSession(w, r, "flash", map[string]any{
@@ -237,7 +237,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 				internalServerError(w, r, err)
 				return
 			}
-			http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/users/login/", http.StatusFound)
+			http.Redirect(w, r, "/users/login/", http.StatusFound)
 		}
 
 		var request Request

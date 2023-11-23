@@ -64,7 +64,7 @@ func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
 			nbrew.Domain,
 			"www." + nbrew.Domain,
 			"cdn." + nbrew.Domain,
-			"assets." + nbrew.Domain,
+			"assets." + nbrew.Domain, // TODO: still need assets subdomain?
 		}
 	} else {
 		domains = []string{
@@ -73,7 +73,7 @@ func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
 			"www." + nbrew.Domain,
 			"www." + nbrew.ContentDomain,
 			"cdn." + nbrew.ContentDomain,
-			"assets." + nbrew.ContentDomain,
+			"assets." + nbrew.ContentDomain, // TODO: still need assets subdomain?
 		}
 	}
 	if config.DNS01Solver != nil {
@@ -290,7 +290,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			authenticationTokenHash := getAuthenticationTokenHash(r)
 			if authenticationTokenHash == nil {
 				if head == "" {
-					http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/users/login/?401", http.StatusFound)
+					http.Redirect(w, r, "/users/login/?401", http.StatusFound)
 					return
 				}
 				notAuthenticated(w, r)
@@ -329,7 +329,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						MaxAge: -1,
 					})
 					if head == "" {
-						http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+"/users/login/?401", http.StatusFound)
+						http.Redirect(w, r, "/users/login/?401", http.StatusFound)
 						return
 					}
 					notAuthenticated(w, r)
