@@ -571,21 +571,41 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 }
 
 type Pagination struct {
-	Start    string
+	First    string
 	Previous string
 	Current  string
 	Next     string
-	End      string
-	Numbers  []string // 1 2 ... 3 4 5 6 7 8 9 ... 10 11
+	Last     string
+	Numbers  []string
 }
 
+func NewPagination(start, current int) Pagination {
+	pagination := Pagination{
+		First:   strconv.Itoa(start),
+		Current: strconv.Itoa(current),
+		Last:    "1",
+	}
+	previous := current - 1
+	if previous <= start {
+		pagination.Previous = strconv.Itoa(previous)
+	}
+	next := current + 1
+	if next >= 1 {
+		pagination.Next = strconv.Itoa(next)
+	}
+	// TODO: figure out how to populate Numbers.
+	return pagination
+}
+
+// for each page, we have to update the current, previous, next
+
 func (p Pagination) All() []string {
-	n, err := strconv.Atoi(p.Start)
+	last, err := strconv.Atoi(p.Last)
 	if err != nil {
 		return nil
 	}
-	numbers := make([]string, n)
-	for i := 1; i <= n; i++ {
+	numbers := make([]string, last)
+	for i := 1; i <= last; i++ {
 		numbers[i-1] = strconv.Itoa(i)
 	}
 	return numbers
@@ -624,7 +644,10 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 	// know if it is running on localhost mode; if it is, don't ever direct
 	// them to the domain/content domain, always direct them to localhost. But
 	// when generating things like pages and links, use the ContentDomain. This
-	// will be tricky to dual-operate
+	// will be tricky to dual-operate under the conditions where a user is
+	// running notebrew locally on localhost but is targeting a website running
+	// on his github pages domain or something.
+	// NOTE: pagination will basically be broken on localhost
 	// NOTE: we eventually want some way to paginate
 	// ID: tag:bokwoon.nbrew.io,yyyy-mm-dd:1jjdz28
 	dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx), path.Join(siteGen.sitePrefix, "posts", category))
