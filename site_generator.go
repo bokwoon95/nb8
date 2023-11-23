@@ -577,10 +577,6 @@ type Pagination struct {
 	Next     string
 	Last     string
 	Numbers  []string // 1 2 ... 3 4 5 6 7 8 9 ... 10 11
-	// TODO: can we make Numbers and AllNumbers methods instead? So dumping it
-	// doesn't pollute the page with tons of consecutive numbers. We cal
-	// calculate them on the fly, as long as we know the postsPerPage and
-	// visiblePages.
 }
 
 func (p Pagination) All() []string {
