@@ -499,7 +499,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		},
 	}, func(row *sq.Row) (result struct {
 		RemoteFileInfo
-		text string
+		text []byte
 		data []byte
 	}) {
 		row.UUID(&result.fileID, "file_id")
@@ -511,7 +511,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 		row.Scan(&modTime, "mod_time")
 		result.modTime = modTime.Time
 		result.perm = fs.FileMode(row.Int("perm"))
-		result.text = row.String("text")
+		result.text = row.Bytes("text")
 		result.data = row.Bytes("data")
 		return result
 	})
@@ -528,7 +528,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 	if !result.isDir {
 		if textExtensions[path.Ext(result.filePath)] {
 			if isFulltextIndexed(result.filePath) {
-				file.readCloser = io.NopCloser(strings.NewReader(result.text))
+				file.readCloser = io.NopCloser(bytes.NewReader(result.text))
 				file.fileInfo.size = int64(len(result.text))
 			} else {
 				file.readCloser = io.NopCloser(bytes.NewReader(result.data))
