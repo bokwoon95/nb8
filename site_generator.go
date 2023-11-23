@@ -455,7 +455,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 			fileType := fileTypes[path.Ext(name)]
 			if strings.HasPrefix(fileType.ContentType, "image") {
 				postData.Images = append(postData.Images, Image{
-					Parent: strings.TrimSuffix(name, ext),
+					Parent: path.Join("posts", strings.TrimSuffix(name, ext)),
 					Name:   name,
 				})
 				continue
@@ -571,16 +571,16 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 }
 
 type Pagination struct {
-	First    string
+	Start    string
 	Previous string
 	Current  string
 	Next     string
-	Last     string
+	End     string
 	Numbers  []string // 1 2 ... 3 4 5 6 7 8 9 ... 10 11
 }
 
 func (p Pagination) All() []string {
-	last, err := strconv.Atoi(p.Last)
+	last, err := strconv.Atoi(p.End)
 	if err != nil {
 		return nil
 	}
@@ -590,8 +590,6 @@ func (p Pagination) All() []string {
 	}
 	return numbers
 }
-
-// {{ range $
 
 type Post struct {
 	Category  string
