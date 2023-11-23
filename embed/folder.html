@@ -141,7 +141,7 @@
     {{- if eq $.Path "" }}
       {{- if eq $fileEntry.Name "notes" }}
       <li class='flex flex-wrap items-center bb pv2'>
-        <span class='flex items-center mr1'>{{ template "heroicons-folder-open" }}</span>
+        <span class='flex items-center mr2'>{{ template "heroicons-folder-open" }}</span>
         <a href='/{{ join "files" $.SitePrefix "notes" }}/'>notes/</a>
         <div class='flex-grow-1'></div>
         <details class='relative' data-autoclose-details>
@@ -158,7 +158,7 @@
       </li>
       {{- else if eq $fileEntry.Name "pages" }}
       <li class='flex flex-wrap items-center bb pv2'>
-        <span class='flex items-center mr1'>{{ template "heroicons-folder-open" }}</span>
+        <span class='flex items-center mr2'>{{ template "heroicons-folder-open" }}</span>
         <a href='/{{ join "files" $.SitePrefix "pages" }}/'>pages/</a>
         <div class='flex-grow-1'></div>
         <details class='relative' data-autoclose-details>
@@ -179,7 +179,7 @@
       </li>
       {{- else if eq $fileEntry.Name "posts" }}
       <li class='flex flex-wrap items-center bb pv2'>
-        <span class='flex items-center mr1'>{{ template "heroicons-folder-open" }}</span>
+        <span class='flex items-center mr2'>{{ template "heroicons-folder-open" }}</span>
         <a href='/{{ join "files" $.SitePrefix "posts" }}/'>posts/</a>
         <div class='flex-grow-1'></div>
         <details class='relative' data-autoclose-details>
@@ -196,7 +196,7 @@
       </li>
       {{- else if eq $fileEntry.Name "output/themes" }}
       <li class='flex flex-wrap items-center bb pv2'>
-        <span class='flex items-center mr1'>{{ template "heroicons-folder-open" }}</span>
+        <span class='flex items-center mr2'>{{ template "heroicons-folder-open" }}</span>
         <a href='/{{ join "files" $.SitePrefix "output/themes" }}/'>themes/</a>
         <div class='flex-grow-1'></div>
         <details class='relative' data-autoclose-details>
@@ -215,7 +215,7 @@
       </li>
       {{- else if eq $fileEntry.Name "output" }}
       <li class='flex flex-wrap items-center bb pv2'>
-        <span class='flex items-center mr1'>{{ template "heroicons-folder-open" }}</span>
+        <span class='flex items-center mr2'>{{ template "heroicons-folder-open" }}</span>
         <a href='/{{ join "files" $.SitePrefix "output" }}/'>output/</a>
         <div class='flex-grow-1'></div>
         <details class='relative' data-autoclose-details>
@@ -253,16 +253,16 @@
       <label for='{{ $fileEntry.Name }}' class='flex items-center pointer' data-disable-click-selection>
         {{ $readOnly := and (eq (head $.Path) "output") (ne (head (tail $.Path)) "themes") }}
         {{- if not $readOnly }}
-        <div class='mr1'>
+        <div class='mr2'>
           <input type='checkbox' id='{{ $fileEntry.Name }}' name='name' value='{{ $fileEntry.Name }}' class='pointer'>
         </div>
         {{- end }}
         <div class='br2 truncate'>
           <div class='flex items-center'>
             {{- if $fileEntry.IsDir }}
-            {{ template "heroicons-folder-open" }}
+            <span class="mr2 flex items-center">{{ template "heroicons-folder-open" }}</span>
             {{- end }}
-            <a href='/{{ join "files" $.SitePrefix $.Path $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}' class='ma1 truncate'>{{ $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}</a>
+            <a href='/{{ join "files" $.SitePrefix $.Path $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}' class='mv1 truncate'>{{ $fileEntry.Name }}{{ if $fileEntry.IsDir }}/{{ end }}</a>
             {{- if not $fileEntry.IsDir }}
             <span class='ma1 f6 mid-gray'>{{ fileSizeToString $fileEntry.Size }}</span>
             {{- end }}

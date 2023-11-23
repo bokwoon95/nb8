@@ -14,6 +14,7 @@ server.go
 notebrew/main.go
 
 TODO: rework/add contentDomain template function to all admin pages which either displays the real content domain (if the domain is a non-localhost domain) or just the empty string (if the domain is localhost or has the prefix localhost:)
+    Note that we're only touching the link, the link text itself still stays the same. So the link text in the navbar might say bokwoon.github.io (to indicate that the generated data all points to bokwoon.github.io) but clicking the link actually brings us to bokwoon.localhost:6444.
 TODO: folder.go: rework all posts without a timestamp prefix to be ignored. This means posts will always be guaranteed to have a CreatedAt field.
 TODO: folder.go: remove the title + preview from *all* notes and posts (I noticed I barely look at the summaries when I select in entry in Apple Notes). Keep things simple at first, we can introduce it again later.
 
