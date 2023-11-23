@@ -22,12 +22,13 @@ p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
   {{- range $post := $.PostList }}
   <li style='margin: 1rem 0;'>
     <div>
-      <a href='{{ $post.Name }}/' style='font-weight: bold;'>{{ $post.Title }}</a>
+      <span style='font-weight: bold;'>{{ $post.Title }}</span>
       <span style='margin-left: 0.5rem; font-size: 0.875rem; color: #555555;'>{{ $post.CreatedAt.Format "2006-01-02" }}</span>
     </div>
     <div title='{{ $post.Preview }}' style='margin: 0.25rem 0; font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
       {{ $post.Preview }}
     </div>
+    <div><a href='{{ $post.Name }}/'>read more</a></div>
   </li>
   {{- end }}
 </ul>
