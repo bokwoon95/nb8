@@ -580,12 +580,12 @@ type Pagination struct {
 }
 
 func (p Pagination) All() []string {
-	end, err := strconv.Atoi(p.End)
+	n, err := strconv.Atoi(p.Start)
 	if err != nil {
 		return nil
 	}
-	numbers := make([]string, end)
-	for i := 1; i <= end; i++ {
+	numbers := make([]string, n)
+	for i := 1; i <= n; i++ {
 		numbers[i-1] = strconv.Itoa(i)
 	}
 	return numbers
