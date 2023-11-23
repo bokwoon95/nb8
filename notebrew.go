@@ -76,7 +76,7 @@ type Notebrew struct {
 
 	ContentDomain string // localhost:6444, example.com
 
-	CompressGeneratedHTML atomic.Bool
+	GzipGeneratedContent atomic.Bool
 
 	Proxies map[netip.Addr]struct{}
 

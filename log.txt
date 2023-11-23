@@ -58,6 +58,11 @@ TODO: in delete.go, when we delete a post or page we must also include its outpu
 
 page.json contains all the pagination, rss feed limit settings
 
+paginationFormat: 1 2 ... 3 4 5 6 7 ... 8 9
+paginationFormat: 1 2 3 4 5
+
+{{ range $.Pagination.Form }}
+
 /{{ join `posts` $post.Category $post.Name }}/
 /{{ join `posts` $post.Category $post.Name $paginator.First }}/
 /{{ join `posts` $post.Category $post.Name $paginator.Prev }}/

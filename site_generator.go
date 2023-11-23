@@ -14,6 +14,7 @@ import (
 	"io/fs"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -30,17 +31,16 @@ import (
 )
 
 type SiteGenerator struct {
-	fsys                     FS
-	sitePrefix               string
-	site                     Site
-	markdown                 goldmark.Markdown
-	mu                       sync.Mutex
-	templateCache            map[string]*template.Template
-	templateInProgress       map[string]chan struct{}
-	compressGeneratedContent bool
+	fsys                 FS
+	sitePrefix           string
+	site                 Site
+	markdown             goldmark.Markdown
+	mu                   sync.Mutex
+	templateCache        map[string]*template.Template
+	templateInProgress   map[string]chan struct{}
+	gzipGeneratedContent bool
 	// TODO: eventually make these configurable
 	postsPerPage map[string]int // default 1000
-	visiblePages map[string]int // default 5
 }
 
 type Site struct {
@@ -51,13 +51,13 @@ type Site struct {
 }
 
 type SiteGeneratorConfig struct {
-	FS                       FS
-	SitePrefix               string
-	Title                    string
-	Favicon                  string
-	Lang                     string
-	CodeStyle                string
-	CompressGeneratedContent bool
+	FS                   FS
+	SitePrefix           string
+	Title                string
+	Favicon              string
+	Lang                 string
+	CodeStyle            string
+	GzipGeneratedContent bool
 }
 
 func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
@@ -93,10 +93,10 @@ func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
 			),
 			goldmark.WithRendererOptions(goldmarkhtml.WithUnsafe()),
 		),
-		mu:                       sync.Mutex{},
-		templateCache:            make(map[string]*template.Template),
-		templateInProgress:       make(map[string]chan struct{}),
-		compressGeneratedContent: config.CompressGeneratedContent,
+		mu:                   sync.Mutex{},
+		templateCache:        make(map[string]*template.Template),
+		templateInProgress:   make(map[string]chan struct{}),
+		gzipGeneratedContent: config.GzipGeneratedContent,
 	}
 	dirEntries, err := siteGen.fsys.ReadDir(path.Join(siteGen.sitePrefix, "posts"))
 	if err != nil {
@@ -343,12 +343,7 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 		}
 	}
 	defer writer.Close()
-	if !siteGen.compressGeneratedContent {
-		err = tmpl.Execute(writer, &pageData)
-		if err != nil {
-			return err
-		}
-	} else {
+	if siteGen.gzipGeneratedContent {
 		gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
 		gzipWriter.Reset(writer)
 		defer gzipWriterPool.Put(gzipWriter)
@@ -357,6 +352,11 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 			return err
 		}
 		err = gzipWriter.Close()
+		if err != nil {
+			return err
+		}
+	} else {
+		err = tmpl.Execute(writer, &pageData)
 		if err != nil {
 			return err
 		}
@@ -545,12 +545,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 		}
 	}
 	defer writer.Close()
-	if !siteGen.compressGeneratedContent {
-		err = tmpl.Execute(writer, &postData)
-		if err != nil {
-			return err
-		}
-	} else {
+	if siteGen.gzipGeneratedContent {
 		gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
 		gzipWriter.Reset(writer)
 		defer gzipWriterPool.Put(gzipWriter)
@@ -559,6 +554,11 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 			return err
 		}
 		err = gzipWriter.Close()
+		if err != nil {
+			return err
+		}
+	} else {
+		err = tmpl.Execute(writer, &postData)
 		if err != nil {
 			return err
 		}
@@ -571,15 +571,28 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 }
 
 type Pagination struct {
-	Last       string
-	Current    string
-	First      string
-	Numbers    []string
-	AllNumbers []string
+	First    string
+	Previous string
+	Current  string
+	Next     string
+	Last     string
+	Numbers  []string // 1 2 ... 3 4 5 6 7 8 9 ... 10 11
 	// TODO: can we make Numbers and AllNumbers methods instead? So dumping it
 	// doesn't pollute the page with tons of consecutive numbers. We cal
 	// calculate them on the fly, as long as we know the postsPerPage and
 	// visiblePages.
+}
+
+func (p Pagination) All() []string {
+	last, err := strconv.Atoi(p.Last)
+	if err != nil {
+		return nil
+	}
+	numbers := make([]string, last)
+	for i := 1; i <= last; i++ {
+		numbers[i-1] = strconv.Itoa(i)
+	}
+	return numbers
 }
 
 // {{ range $
