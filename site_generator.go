@@ -579,14 +579,14 @@ type Pagination struct {
 	Numbers  []string
 }
 
-func NewPagination(start, current int) Pagination {
+func NewPagination(last, current int) Pagination {
 	pagination := Pagination{
-		First:   strconv.Itoa(start),
+		First:   "1",
 		Current: strconv.Itoa(current),
-		Last:    "1",
+		Last:    strconv.Itoa(last),
 	}
 	previous := current - 1
-	if previous <= start {
+	if previous <= last {
 		pagination.Previous = strconv.Itoa(previous)
 	}
 	next := current + 1
