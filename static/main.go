@@ -31,6 +31,10 @@ func main() {
 					10: current + max(unit, 5),
 				}
 			}
+			// TODO: If the number goes out of bounds (less than 1 or greater
+			// than last), exclude it. We need to exclude all these numbers and
+			// yet ensure there are at least 15 pages (if there are sufficient
+			// pages).
 			result := make([]string, len(numbers))
 			for i := 0; i < len(numbers); i++ {
 				if numbers[i] == current {
