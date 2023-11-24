@@ -586,11 +586,11 @@ func NewPagination(last, current int) Pagination {
 		Last:    strconv.Itoa(last),
 	}
 	previous := current - 1
-	if previous <= last {
+	if previous >= 1 {
 		pagination.Previous = strconv.Itoa(previous)
 	}
 	next := current + 1
-	if next >= 1 {
+	if next <= last {
 		pagination.Next = strconv.Itoa(next)
 	}
 	// TODO: figure out how to populate Numbers.
