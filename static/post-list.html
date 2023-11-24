@@ -32,18 +32,16 @@ p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
   </li>
   {{- end }}
 </ul>
-  {{- if $.Pagination.Numbers }}
+  {{- if ne $.Pagination.First $.Pagination.Last }}
   <div>
-    {{- if $.Pagination.Last }}
-    <a href='{{ $.Pagination.Last }}/' class='mr1'>last</a>
-    <span class="mh1">&hellip;</span>
+    {{- if $.Pagination.Previous }}
+    <a href='{{ $.Pagination.Previous }}/' class='mr1'>prev</a>
     {{- end }}
     {{- range $number := $.Pagination.Numbers }}
     <a href='{{ $number }}/' class='mr1{{ if eq $number $.Pagination.Current }} b{{ end }}'>{{ $number }}</a>
     {{- end }}
-    {{- if $.Pagination.First }}
-    <span class="mh1">&hellip;</span>
-    <a href='{{ $.Pagination.First }}/' class='mr1'>first</a>
+    {{- if $.Pagination.Next }}
+    <a href='{{ $.Pagination.Next }}/' class='mr1'>next</a>
     {{- end }}
   </div>
   {{- end }}
