@@ -742,9 +742,9 @@ func (p Pagination) All() []string {
 	if err != nil {
 		return nil
 	}
-	numbers := make([]string, lastPage)
+	numbers := make([]string, 0, lastPage)
 	for page := 1; page <= lastPage; page++ {
-		numbers[page-1] = strconv.Itoa(page)
+		numbers = append(numbers, strconv.Itoa(page))
 	}
 	return numbers
 }
