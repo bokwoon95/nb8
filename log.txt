@@ -14,9 +14,28 @@ server.go
 notebrew/main.go
 
 TODO: rework/add contentDomain template function to all admin pages which either displays the real content domain (if the domain is a non-localhost domain) or just the empty string (if the domain is localhost or has the prefix localhost:)
-    contentURL := "https://" + nbrew.ContentDomain
-    if nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:") {
-        contentURL = "http://" + nbrew.Domain
+    // liveContentURL is the live URL that the user can visit to view their site
+    // content. It is *not* the same as ContentDomain, which is the actual site
+    // that the user intends to host the static site content on. For example, a
+    // user may preview their site content locally on bokwoon.localhost:6444 but
+    // everything that is generated in the HTML references bokwoon.github.io
+    // instead, which is where the actual site content will be pushed to (and
+    // which the Atom IDs will also use as part of the tag URLs).
+    var liveContentURL string
+    if strings.Contains(sitePrefix, ".") {
+        liveContentURL = sitePrefix
+    } else if sitePrefix != "" {
+        if nbrew.Port != "80" && nbrew.Port != "443" {
+            liveContentURL = "http://" + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.Domain
+        } else {
+            liveContentURL = "https://" + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.ContentDomain
+        }
+    } else {
+        if nbrew.Port != "80" && nbrew.Port != "443" {
+            liveContentURL = "http://" + nbrew.Domain
+        } else {
+            liveContentURL = "https://" + nbrew.ContentDomain
+        }
     }
     Note that we're only touching the link, the link text itself still stays the same. So the link text in the navbar might say bokwoon.github.io (to indicate that the generated data all points to bokwoon.github.io) but clicking the link actually brings us to bokwoon.localhost:6444.
 TODO: folder.go: rework all posts without a timestamp prefix to be ignored. This means posts will always be guaranteed to have a CreatedAt field.
