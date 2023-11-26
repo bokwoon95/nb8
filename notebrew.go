@@ -76,7 +76,7 @@ type Notebrew struct {
 
 	ContentDomain string // localhost:6444, example.com
 
-	Port string // :6444, :443
+	Port string // 6444, 443
 
 	GzipGeneratedContent atomic.Bool
 

@@ -18,12 +18,6 @@ TODO: rework/add contentDomain template function to all admin pages which either
 TODO: folder.go: rework all posts without a timestamp prefix to be ignored. This means posts will always be guaranteed to have a CreatedAt field.
 TODO: folder.go: remove the title + preview from *all* notes and posts (I noticed I barely look at the summaries when I select in entry in Apple Notes). Keep things simple at first, we can introduce it again later.
 
-TODO: pagination algorithm https://www.zacfukuda.com/blog/pagination-algorithm (JavaScript and PHP)
-- First find the unit. Take the max, divide it by 10. That's the unit.
-n-1000 n-500 n-100 X X n-2 n-1 n n+1 n+2 X X n+100 n+500 n+1000
-go do ./static/main.go!!
-n-unit n-(unit/2) n-(unit/4) n-2 n-1 n n+1 n+2 n+(unit/4) n+(unit/2) n+unit
-
 TODO:
 Post updated (1 file regenerated in XXms). Regenerate post list? [ Regenerate List ]
 Post list updated (5 files regenerated in XXms).

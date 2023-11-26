@@ -113,7 +113,7 @@ func main() {
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configfolder, "port.txt"), err)
 		}
-		port := string(bytes.TrimSpace(b))
+		nbrew.Port = string(bytes.TrimSpace(b))
 
 		b, err = os.ReadFile(filepath.Join(configfolder, "domain.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -121,41 +121,36 @@ func main() {
 		}
 		nbrew.Domain = string(bytes.TrimSpace(b))
 
-		b, err = os.ReadFile(filepath.Join(configfolder, "contentdomain.txt"))
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configfolder, "contentdomain.txt"), err)
-		}
-		nbrew.ContentDomain = string(bytes.TrimSpace(b))
-
-		if port != "" {
-			if port == "443" || port == "80" {
-				addr = ":" + port
+		if nbrew.Port != "" {
+			if nbrew.Port == "443" || nbrew.Port == "80" {
+				addr = ":" + nbrew.Port
 			} else {
-				addr = "localhost:" + port
+				addr = "localhost:" + nbrew.Port
 			}
 			if nbrew.Domain != "" {
 				nbrew.Scheme = "https://"
-				if nbrew.ContentDomain != "" {
-					nbrew.ContentDomain = nbrew.Domain
-				}
 			} else {
 				nbrew.Scheme = "http://"
-				nbrew.Domain = "localhost:" + port
-				nbrew.ContentDomain = "localhost:" + port
+				nbrew.Domain = "localhost:" + nbrew.Port
 			}
 		} else {
 			if nbrew.Domain != "" {
 				addr = ":443"
 				nbrew.Scheme = "https://"
-				if nbrew.ContentDomain != "" {
-					nbrew.ContentDomain = nbrew.Domain
-				}
 			} else {
 				addr = "localhost:6444"
 				nbrew.Scheme = "http://"
 				nbrew.Domain = "localhost:6444"
-				nbrew.ContentDomain = "localhost:6444"
 			}
+		}
+
+		b, err = os.ReadFile(filepath.Join(configfolder, "contentdomain.txt"))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("%s: %w", filepath.Join(configfolder, "contentdomain.txt"), err)
+		}
+		nbrew.ContentDomain = string(bytes.TrimSpace(b))
+		if nbrew.ContentDomain == "" {
+			nbrew.ContentDomain = nbrew.Domain
 		}
 
 		b, err = os.ReadFile(filepath.Join(configfolder, "database.json"))
