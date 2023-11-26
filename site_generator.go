@@ -610,7 +610,7 @@ func NewPagination(currentPage, lastPage, visiblePages int) Pagination {
 		}
 		return pagination
 	}
-	// Slots corresponds to the number of slots in pagination.Numbers, storing
+	// Slots corresponds to the available slots in pagination.Numbers, storing
 	// the page numbers as integers. They will be converted to strings later.
 	slots := make([]int, visiblePages)
 	// A unit is a tenth of the maximum number of pages. The rationale is that
