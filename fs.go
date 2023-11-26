@@ -694,7 +694,7 @@ func (file *RemoteFileWriter) Close() error {
 		return nil
 	}
 
-	// if file exists, just have to update the file entry in the database.
+	// If file exists, just have to update the file entry in the database.
 	if file.fileID != [16]byte{} {
 		if textExtensions[path.Ext(file.filePath)] {
 			if isFulltextIndexed(file.filePath) {
@@ -741,7 +741,8 @@ func (file *RemoteFileWriter) Close() error {
 		return nil
 	}
 
-	// file doesn't exist, insert a new file entry into the database.
+	// If we reach here it means file doesn't exist. Insert a new file entry
+	// into the database.
 	if textExtensions[path.Ext(file.filePath)] {
 		if isFulltextIndexed(file.filePath) {
 			_, err := sq.ExecContext(file.ctx, file.db, sq.CustomQuery{
