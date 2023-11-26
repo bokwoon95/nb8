@@ -14,13 +14,14 @@ server.go
 notebrew/main.go
 
 TODO: rework/add contentDomain template function to all admin pages which either displays the real content domain (if the domain is a non-localhost domain) or just the empty string (if the domain is localhost or has the prefix localhost:)
-    // liveContentURL is the live URL that the user can visit to view their site
-    // content. It is *not* the same as ContentDomain, which is the actual site
-    // that the user intends to host the static site content on. For example, a
-    // user may preview their site content locally on bokwoon.localhost:6444 but
-    // everything that is generated in the HTML references bokwoon.github.io
-    // instead, which is where the actual site content will be pushed to (and
-    // which the Atom IDs will also use as part of the tag URLs).
+    // previewContentURL is the URL that the user can visit to preview their site
+    // content. It is *not* the same as contentURL, which is the actual site that
+    // the user intends to host the static site content on. For example, a user
+    // may preview their site content locally on http://bokwoon.localhost:6444 but
+    // everything that is generated in the HTML references
+    // https://bokwoon.github.io instead, which is where the actual site content
+    // will be pushed to (and which the Atom IDs will also use as part of the tag
+    // URLs).
     var liveContentURL string
     if strings.Contains(sitePrefix, ".") {
         liveContentURL = sitePrefix
