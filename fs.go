@@ -448,6 +448,7 @@ var textExtensions = map[string]bool{
 	".md":   true,
 	".txt":  true,
 	".json": true,
+	".xml":  true,
 }
 
 func isFulltextIndexed(filePath string) bool {
