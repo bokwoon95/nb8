@@ -127,8 +127,97 @@ func printResult(slots []int, current int) {
 }
 
 func paginate(currentPage, lastPage, visiblePages int) []int {
-	// TODO: simpler implementation where you fill in a slice with incrementing
-	// numbers and another slice with current+unit/n numbers in reverse order
-	// then simply compare and swap if necessary.
-	return nil
+	if lastPage <= visiblePages {
+		slots := make([]int, 0, lastPage)
+		for page := 1; page <= lastPage; page++ {
+			slots = append(slots, page)
+		}
+		return slots
+	}
+	if visiblePages%2 == 0 {
+		panic("even number of visiblePages")
+	}
+	if visiblePages < 5 {
+		panic("visiblePages cannot be lower than 5")
+	}
+	slots := make([]int, visiblePages)
+	// A unit is a tenth of the maximum number of pages. This is so that users
+	// have to paginate at most 10 such units to get from start to end, no
+	// matter how many pages there are.
+	unit := lastPage / 10
+	if currentPage-1 < visiblePages>>1 {
+		currentSlot := -1
+		page := 1
+		for i := 0; i < len(slots); i++ {
+			slots[i] = page
+			page += 1
+			if page == currentPage {
+				currentSlot = i
+			}
+		}
+		altSlots := make([]int, len(slots[currentSlot+2:len(slots)-1]))
+		shift := 0
+		for i := len(altSlots) - 1; i >= 0; i-- {
+			altSlots[i] = currentPage + unit>>shift
+			shift += 1
+		}
+		for i, j := currentSlot+2, 0; i < len(slots) && j < len(altSlots); i, j = i+1, j+1 {
+			slots[i] = max(slots[i], altSlots[j])
+		}
+		slots[len(slots)-1] = lastPage
+	} else if lastPage-currentPage < visiblePages>>1 {
+		currentSlot := -1
+		page := lastPage
+		for i := len(slots) - 1; i >= 0; i-- {
+			slots[i] = page
+			page -= 1
+			if page == currentPage {
+				currentSlot = i
+			}
+		}
+		altSlots := make([]int, len(slots[1:currentSlot-2]))
+		shift := 0
+		for i := len(altSlots) - 1; i >= 0; i++ {
+			altSlots[i] = currentPage - unit>>shift
+			shift += 1
+		}
+		for i, j := 1, 0; i < len(slots) && j < len(altSlots); i, j = i+1, j+1 {
+			slots[i] = max(slots[i], altSlots[i])
+		}
+		slots[0] = 1
+	} else {
+		currentSlot := (visiblePages >> 1) + 1
+
+		page := currentPage
+		for i := currentSlot; i >= 0; i-- {
+			slots[i] = page
+			page -= 1
+		}
+		leftAltSlots := make([]int, len(slots[1:currentSlot-2]))
+		shift := 0
+		for i := 0; i < len(leftAltSlots); i++ {
+			leftAltSlots[i] = currentPage - unit>>shift
+			shift += 1
+		}
+		for i, j := 1, 0; i < len(slots) && j < len(leftAltSlots); i, j = i+1, j+1 {
+			slots[i] = max(slots[i], leftAltSlots[i])
+		}
+		slots[0] = 1
+
+		page = currentPage
+		for i := currentSlot; i < len(slots); i++ {
+			slots[i] = page
+			page += 1
+		}
+		rightAltSlots := make([]int, len(slots[currentSlot+3:len(slots)-1]))
+		shift = 0
+		for i := len(rightAltSlots) - 1; i >= 0; i-- {
+			rightAltSlots[i] = currentPage + unit>>shift
+		}
+		for i, j := currentSlot+3, 0; i < len(slots) && j < len(rightAltSlots); i, j = i+1, j+1 {
+			slots[i] = max(slots[i], rightAltSlots[j])
+		}
+		slots[len(slots)-1] = lastPage
+	}
+	return slots
 }
