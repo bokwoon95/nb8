@@ -738,13 +738,13 @@ func NewPagination(currentPage, lastPage, visiblePages int) Pagination {
 }
 
 func (p Pagination) All() []string {
-	last, err := strconv.Atoi(p.Last)
+	lastPage, err := strconv.Atoi(p.Last)
 	if err != nil {
 		return nil
 	}
-	numbers := make([]string, last)
-	for i := 1; i <= last; i++ {
-		numbers[i-1] = strconv.Itoa(i)
+	numbers := make([]string, lastPage)
+	for page := 1; page <= lastPage; page++ {
+		numbers[page-1] = strconv.Itoa(page)
 	}
 	return numbers
 }
