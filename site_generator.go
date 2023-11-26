@@ -617,11 +617,10 @@ func NewPagination(currentPage, lastPage, visiblePages int) Pagination {
 	// users have to paginate at most 10 such units to get from start to end,
 	// no matter how many pages there are.
 	unit := lastPage / 10
-	if currentPage-1 < visiblePages>>1 {
-		// If there are fewer pages on the left than visiblePages/2, the
+	if currentPage-1 < len(slots)>>1 {
+		// If there are fewer pages on the left than half of the slots, the
 		// current page will skew more towards the left. We fill in consecutive
-		// page numbers from 1 to current page + 2, then fill in the remaining
-		// slots.
+		// page numbers from left to right, then fill in the remaining slots.
 		numConsecutive := (currentPage - 1) + 1 + numConsecutiveNeighbours
 		consecutiveStart := 0
 		consecutiveEnd := numConsecutive - 1
@@ -648,11 +647,11 @@ func NewPagination(currentPage, lastPage, visiblePages int) Pagination {
 			shift += 1
 			delta -= 1
 		}
-	} else if lastPage-currentPage < visiblePages>>1 {
-		// If there are fewer pages on the right than visiblePages/2, the
+	} else if lastPage-currentPage < len(slots)>>1 {
+		// If there are fewer pages on the right than half of the slots, the
 		// current page will skew more towards the right. We fill in
-		// consecutive page numbers from the last page to the current page - 2,
-		// then fill in the remaining slots.
+		// consecutive page numbers from the right to left, then fill in the
+		// remaining slots.
 		numConsecutive := (lastPage - currentPage) + 1 + numConsecutiveNeighbours
 		consecutiveStart := len(slots) - 1
 		consecutiveEnd := len(slots) - numConsecutive
@@ -684,8 +683,8 @@ func NewPagination(currentPage, lastPage, visiblePages int) Pagination {
 		// center the slots. Fill in the consecutive band of numbers around the
 		// center, then fill in the remaining slots to the left and to the
 		// right.
-		consecutiveStart := visiblePages>>1 - numConsecutiveNeighbours
-		consecutiveEnd := visiblePages>>1 + numConsecutiveNeighbours
+		consecutiveStart := len(slots)>>1 - numConsecutiveNeighbours
+		consecutiveEnd := len(slots)>>1 + numConsecutiveNeighbours
 		page := currentPage - numConsecutiveNeighbours
 		for i := consecutiveStart; i <= consecutiveEnd; i++ {
 			slots[i] = page
@@ -737,8 +736,6 @@ func NewPagination(currentPage, lastPage, visiblePages int) Pagination {
 	}
 	return pagination
 }
-
-// for each page, we have to update the current, previous, next
 
 func (p Pagination) All() []string {
 	last, err := strconv.Atoi(p.Last)
