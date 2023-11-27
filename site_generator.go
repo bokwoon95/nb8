@@ -46,6 +46,12 @@ type SiteGenerator struct {
 	cache                map[string]*cacheEntry
 	templateCache        map[string]*template.Template
 	templateInProgress   map[string]chan struct{}
+	post                 *template.Template
+	postErr              error
+	postOnce             sync.Once
+	postList             *template.Template
+	postListErr          error
+	postListOnce         sync.Once
 	gzipGeneratedContent bool
 	// TODO: eventually make these configurable
 	postsPerPage map[string]int // default 1000
@@ -411,42 +417,55 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 		return fmt.Errorf("%s is not a valid post (too deep inside a directory, maximum 1 level)", name)
 	}
 
-	// Open the post template file and read its contents.
-	file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "output/themes/post.html"))
-	if err != nil {
-		// If the user's post.html doesn't exist, fall back to our built-in
-		// post.html.
-		if !errors.Is(err, fs.ErrNotExist) {
-			return err
-		}
-		file, err = rootFS.Open("static/post.html")
+	siteGen.postOnce.Do(func() {
+		// Open the post template file and read its contents.
+		file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "output/themes/post.html"))
 		if err != nil {
-			return err
+			// If the user's post.html doesn't exist, fall back to our built-in
+			// post.html.
+			if !errors.Is(err, fs.ErrNotExist) {
+				siteGen.postErr = err
+				return
+			}
+			file, err = rootFS.Open("static/post.html")
+			if err != nil {
+				siteGen.postErr = err
+				return
+			}
 		}
-	}
-	defer file.Close()
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return err
-	}
-	if fileInfo.IsDir() {
-		return fmt.Errorf("%s is not a template", name)
-	}
-	var b strings.Builder
-	b.Grow(int(fileInfo.Size()))
-	_, err = io.Copy(&b, file)
-	if err != nil {
-		return err
-	}
-	err = file.Close()
-	if err != nil {
-		return err
-	}
+		defer file.Close()
+		fileInfo, err := file.Stat()
+		if err != nil {
+			siteGen.postErr = err
+			return
+		}
+		if fileInfo.IsDir() {
+			siteGen.postErr = fmt.Errorf("%s is not a template", name)
+			return
+		}
+		var b strings.Builder
+		b.Grow(int(fileInfo.Size()))
+		_, err = io.Copy(&b, file)
+		if err != nil {
+			siteGen.postErr = err
+			return
+		}
+		err = file.Close()
+		if err != nil {
+			siteGen.postErr = err
+			return
+		}
 
-	// Prepare the post template.
-	tmpl, err := siteGen.parseTemplate(ctx, "/themes/post.html", b.String(), nil)
-	if err != nil {
-		return err
+		// Prepare the post template.
+		post, err := siteGen.parseTemplate(ctx, "/themes/post.html", b.String(), nil)
+		if err != nil {
+			siteGen.postErr = err
+			return
+		}
+		siteGen.post = post
+	})
+	if siteGen.postErr != nil {
+		return siteGen.postErr
 	}
 
 	// Get images belonging to the post.
@@ -479,7 +498,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 
 	// Read the post markdown content and convert it to HTML.
 	g1.Go(func() error {
-		file, err = siteGen.fsys.WithContext(ctx1).Open(path.Join(siteGen.sitePrefix, "posts", name))
+		file, err := siteGen.fsys.WithContext(ctx1).Open(path.Join(siteGen.sitePrefix, "posts", name))
 		if err != nil {
 			return err
 		}
@@ -537,7 +556,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 		return nil
 	})
 
-	err = g1.Wait()
+	err := g1.Wait()
 	if err != nil {
 		return err
 	}
@@ -562,7 +581,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 		gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
 		gzipWriter.Reset(writer)
 		defer gzipWriterPool.Put(gzipWriter)
-		err = tmpl.Execute(gzipWriter, &postData)
+		err = siteGen.post.Execute(gzipWriter, &postData)
 		if err != nil {
 			return err
 		}
@@ -571,7 +590,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 			return err
 		}
 	} else {
-		err = tmpl.Execute(writer, &postData)
+		err = siteGen.post.Execute(writer, &postData)
 		if err != nil {
 			return err
 		}
@@ -782,6 +801,56 @@ type PostListData struct {
 }
 
 func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category string) error {
+	siteGen.postListOnce.Do(func() {
+		// Open the post list template file and read its contents.
+		file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "output/themes/post-list.html"))
+		if err != nil {
+			// If the user's post-list.html doesn't exist, fall back to our
+			// built-in post-list.html.
+			if !errors.Is(err, fs.ErrNotExist) {
+				siteGen.postListErr = err
+				return
+			}
+			file, err = rootFS.Open("static/post-list.html")
+			if err != nil {
+				siteGen.postListErr = err
+				return
+			}
+		}
+		defer file.Close()
+		fileInfo, err := file.Stat()
+		if err != nil {
+			siteGen.postErr = err
+			return
+		}
+		if fileInfo.IsDir() {
+			siteGen.postListErr = fmt.Errorf("/themes/post-list.html is not a template")
+			return
+		}
+		var b strings.Builder
+		b.Grow(int(fileInfo.Size()))
+		_, err = io.Copy(&b, file)
+		if err != nil {
+			siteGen.postListErr = err
+			return
+		}
+		err = file.Close()
+		if err != nil {
+			siteGen.postListErr = err
+			return
+		}
+
+		// Prepare the postList list template.
+		postList, err := siteGen.parseTemplate(ctx, "/themes/post-list.html", b.String(), nil)
+		if err != nil {
+			siteGen.postListErr = err
+			return
+		}
+		siteGen.postList = postList
+	})
+	if siteGen.postListErr != nil {
+		return siteGen.postListErr
+	}
 	// Chris Coyier OPML: https://chriscoyier.net/files/personal-developer-blogs.xml
 	// Everytime we generate the post list, we also generate feed.xml
 	// (Content-Type application/xml). feed.xml itself follows the same
