@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"text/template/parse"
 	"time"
@@ -31,12 +32,18 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type cacheEntry struct {
+	template *template.Template
+	once     sync.Once
+}
+
 type SiteGenerator struct {
 	fsys                 FS
 	sitePrefix           string
 	site                 Site
 	markdown             goldmark.Markdown
 	mu                   sync.Mutex
+	cache                map[string]*cacheEntry
 	templateCache        map[string]*template.Template
 	templateInProgress   map[string]chan struct{}
 	gzipGeneratedContent bool
@@ -785,39 +792,86 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 	if postsPerPage < 1 {
 		postsPerPage = 100
 	}
+
 	dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx), path.Join(siteGen.sitePrefix, "posts", category))
 	if err != nil {
 		return err
 	}
 	slices.Reverse(dirFiles)
-	g1, ctx1 := errgroup.WithContext(ctx)
-	page := 0
-	lastPage := int(math.Ceil(float64(len(dirFiles)) / float64(postsPerPage)))
-	remainder := dirFiles
-	for len(remainder) > 0 {
-		var batch []DirFile
-		if len(remainder) >= postsPerPage {
-			batch, remainder = remainder[:postsPerPage], remainder
-		} else {
-			batch, remainder = remainder, remainder[:0]
+	n := 0
+	creationTimes := make([]time.Time, 0, len(dirFiles))
+	for _, dirFile := range dirFiles {
+		name := dirFile.Name()
+		if !strings.HasSuffix(name, ".md") {
+			continue
 		}
-		page += 1
-		currentPage := page
-		g1.Go(func() error {
-			postListData := PostListData{
-				Site: siteGen.site,
-				Category: category,
-				Pagination: NewPagination(currentPage, lastPage, 9),
-			}
-			return nil
-		})
-		
-		_ = lastPage
+		prefix, _, ok := strings.Cut(name, "-")
+		if !ok || prefix == "" || len(prefix) > 8 {
+			continue
+		}
+		b, _ := base32Encoding.DecodeString(fmt.Sprintf("%08s", prefix))
+		if len(b) != 5 {
+			continue
+		}
+		var timestamp [8]byte
+		copy(timestamp[len(timestamp)-5:], b)
+		dirFiles[n] = dirFile
+		creationTimes = append(creationTimes, time.Unix(int64(binary.BigEndian.Uint64(timestamp[:])), 0))
 	}
+	dirFiles = dirFiles[:n]
+
+	var counter atomic.Int32
+	remainder := dirFiles
+	_ = remainder
+	lastPage := int(math.Ceil(float64(len(dirFiles)) / float64(postsPerPage)))
+	g1, ctx1 := errgroup.WithContext(ctx)
+
+	batch := make([]DirFile, 0, postsPerPage)
+	for _, dirFile := range dirFiles {
+		name := dirFile.Name()
+		prefix, _, ok := strings.Cut(name, "-")
+		if !ok || prefix == "" || len(prefix) > 8 {
+			continue
+		}
+		b, _ := base32Encoding.DecodeString(fmt.Sprintf("%08s", prefix))
+		if len(b) != 5 {
+			continue
+		}
+		var timestamp [8]byte
+		copy(timestamp[len(timestamp)-5:], b)
+		batch = append(batch, dirFile)
+		creationTimes = append(creationTimes, time.Unix(int64(binary.BigEndian.Uint64(timestamp[:])), 0))
+		if len(batch) >= postsPerPage {
+			currentPage := int(counter.Add(1))
+			g1.Go(func() error {
+				return siteGen.generatePostList(ctx1, currentPage, lastPage, batch, creationTimes)
+			})
+		}
+	}
+	// for len(remainder) > 0 {
+	// 	var batch []DirFile
+	// 	if len(remainder) >= postsPerPage {
+	// 		batch, remainder = remainder[:postsPerPage], remainder[postsPerPage:]
+	// 	} else {
+	// 		batch, remainder = remainder, remainder[:0]
+	// 	}
+	// 	currentPage := int(counter.Add(1))
+	// 	g1.Go(func() error {
+	// 		postListData := PostListData{
+	// 			Site:       siteGen.site,
+	// 			Category:   category,
+	// 			Pagination: NewPagination(currentPage, lastPage, 9),
+	// 		}
+	// 		for _, dirFile := range batch {
+	// 		}
+	// 		return nil
+	// 	})
+	// }
 	return nil
 }
 
-func (siteGen *SiteGenerator) generatePostList(ctx context.Context) {
+func (siteGen *SiteGenerator) generatePostList(ctx context.Context, currentPage, lastPage int, batch []DirFile, creationTimes []time.Time) error {
+	return nil
 }
 
 func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text string, callers []string) (*template.Template, error) {
