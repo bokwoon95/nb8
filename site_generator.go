@@ -12,6 +12,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"path"
 	"slices"
 	"strconv"
@@ -112,17 +113,20 @@ func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
 }
 
 type Page struct {
+	// /{{ join $.Parent $.Name }}/
 	Parent string
 	Name   string
 	Title  string
 }
 
 type Image struct {
+	// /{{ join $.Parent $.Name }}/
 	Parent string
 	Name   string
 }
 
 type PageData struct {
+	// /{{ join $.Parent $.Name }}/
 	Site       Site
 	Parent     string
 	Name       string
@@ -370,6 +374,7 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 }
 
 type PostData struct {
+	// /{{ join "posts" $.Category $.Name }}/
 	Site      Site
 	Category  string
 	Name      string
@@ -751,16 +756,18 @@ func (p Pagination) All() []string {
 }
 
 type Post struct {
+	// /{{ join "posts" $.Category $.Name }}/
 	Category  string
 	Name      string
 	Title     string
 	Preview   string
-	Content   template.HTML
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
 type PostListData struct {
+	// /{{ join "posts" $.Category }}/
+	// /{{ join "posts" $.Category $number }}/
 	Site       Site
 	Category   string
 	Pagination Pagination
@@ -772,27 +779,22 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 	// Everytime we generate the post list, we also generate feed.xml
 	// (Content-Type application/xml). feed.xml itself follows the same
 	// compression settings as index.html.
+	//
+	// ID: tag:bokwoon.nbrew.io,yyyy-mm-dd:1jjdz28
 	postListData := PostListData{
 		Site:     siteGen.site,
 		Category: category,
 	}
-	// TODO: we want to stop using Domain and ContentDomain for the operation
-	// of the site, use absolute URL paths instead. So that a user can generate
-	// a site for his domain, but run it entirely on localhost without any
-	// hiccups. When redirecting a user to view his site, notebrew needs to
-	// know if it is running on localhost mode; if it is, don't ever direct
-	// them to the domain/content domain, always direct them to localhost. But
-	// when generating things like pages and links, use the ContentDomain. This
-	// will be tricky to dual-operate under the conditions where a user is
-	// running notebrew locally on localhost but is targeting a website running
-	// on his github pages domain or something.
-	// NOTE: pagination will basically be broken on localhost
-	// NOTE: we eventually want some way to paginate
-	// ID: tag:bokwoon.nbrew.io,yyyy-mm-dd:1jjdz28
+	postsPerPage := siteGen.postsPerPage[category]
+	if postsPerPage < 1 {
+		postsPerPage = 100
+	}
 	dirFiles, err := ReadDirFiles(siteGen.fsys.WithContext(ctx), path.Join(siteGen.sitePrefix, "posts", category))
 	if err != nil {
 		return err
 	}
+	slices.Reverse(dirFiles)
+	lastPage := int(math.Ceil(float64(len(dirFiles)) / float64(postsPerPage)))
 	for _, dirFile := range dirFiles {
 		_ = dirFile
 	}

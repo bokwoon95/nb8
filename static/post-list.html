@@ -34,6 +34,9 @@ p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
 </ul>
   {{- if ne $.Pagination.First $.Pagination.Last }}
   <div>
+    {{- if ne $.Pagination.Current $.Pagination.First }}
+    <a href='{{ $.Pagination.First }}/' class='mr1'>first</a>
+    {{- end }}
     {{- if $.Pagination.Previous }}
     <a href='{{ $.Pagination.Previous }}/' class='mr1'>prev</a>
     {{- end }}
@@ -42,6 +45,9 @@ p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
     {{- end }}
     {{- if $.Pagination.Next }}
     <a href='{{ $.Pagination.Next }}/' class='mr1'>next</a>
+    {{- end }}
+    {{- if ne $.Pagination.Current $.Pagination.Last }}
+    <a href='{{ $.Pagination.Last }}/' class='mr1'>last</a>
     {{- end }}
   </div>
   {{- end }}
