@@ -71,7 +71,7 @@
   <div class='flex mv2'>
     <label for='content' class='b'>{{ base $.Path }}</label>
     <div class='flex-grow-1'></div>
-    <button id='bottom' type='submit' class='button ba br2'>Save</button>
+    <button id='bottom' type='submit' class='button ba ph3 br2'>Save</button>
   </div>
   <div data-codemirror='{{ if hasPrefix $.ContentType "text/html" }}html{{ else if hasPrefix $.ContentType "text/css" }}css{{ else if hasPrefix $.ContentType "text/javascript" }}javascript {{ else if hasPrefix $.ContentType "text/markdown" }}markdown{{ end }}'>
     <textarea id='content' name='content' dir='auto' class='w-100 pa2 min-h5 h6 resize-vertical code' autofocus>{{ $.Content }}</textarea>
