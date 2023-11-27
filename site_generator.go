@@ -191,7 +191,7 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	pageData.UpdatedAt = fileInfo.ModTime()
 
 	// Prepare the page template.
-	tmpl, err := siteGen.parseTemplate_Old(ctx, path.Base(name), b.String(), nil)
+	tmpl, err := siteGen.parseTemplate(ctx, path.Base(name), b.String(), nil)
 	if err != nil {
 		return err
 	}
@@ -444,7 +444,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 	}
 
 	// Prepare the post template.
-	tmpl, err := siteGen.parseTemplate_Old(ctx, "/themes/post.html", b.String(), nil)
+	tmpl, err := siteGen.parseTemplate(ctx, "/themes/post.html", b.String(), nil)
 	if err != nil {
 		return err
 	}
@@ -874,7 +874,7 @@ func (siteGen *SiteGenerator) generatePostList(ctx context.Context, currentPage,
 	return nil
 }
 
-func (siteGen *SiteGenerator) parseTemplate_Old(ctx context.Context, name, text string, callers []string) (*template.Template, error) {
+func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text string, callers []string) (*template.Template, error) {
 	currentTemplate, err := template.New(name).Funcs(funcMap).Parse(text)
 	if err != nil {
 		return nil, TemplateErrors{
@@ -1035,7 +1035,7 @@ func (siteGen *SiteGenerator) parseTemplate_Old(ctx context.Context, name, text 
 				externalTemplateErrs[i] = err
 				return nil
 			}
-			externalTemplate, err := siteGen.parseTemplate_Old(ctx, externalName, b.String(), append(slices.Clone(callers), externalName))
+			externalTemplate, err := siteGen.parseTemplate(ctx, externalName, b.String(), append(slices.Clone(callers), externalName))
 			if err != nil {
 				externalTemplateErrs[i] = err
 				return nil
