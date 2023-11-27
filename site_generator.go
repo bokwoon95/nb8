@@ -794,9 +794,12 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 		return err
 	}
 	slices.Reverse(dirFiles)
+	var currentPage int
 	lastPage := int(math.Ceil(float64(len(dirFiles)) / float64(postsPerPage)))
-	for _, dirFile := range dirFiles {
-		_ = dirFile
+	batch := dirFiles
+	for len(batch) > 0 {
+		currentPage += 1
+		_ = lastPage
 	}
 	_ = postListData
 	return nil
