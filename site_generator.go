@@ -61,15 +61,16 @@ type SiteGeneratorConfig struct {
 }
 
 func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
-	char, size := utf8.DecodeRuneInString(config.Favicon)
-	if size == len(config.Favicon) {
-		config.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>" + string(char) + "</text></svg>"
+	if config.Favicon == "" {
+		config.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>"
+	} else {
+		char, size := utf8.DecodeRuneInString(config.Favicon)
+		if size == len(config.Favicon) {
+			config.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>" + string(char) + "</text></svg>"
+		}
 	}
 	if config.Title == "" {
 		config.Title = "My blog"
-	}
-	if config.Favicon == "" {
-		config.Favicon = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><text y=%221em%22 font-size=%228%22>☕</text></svg>"
 	}
 	if config.Lang == "" {
 		config.Lang = "en"

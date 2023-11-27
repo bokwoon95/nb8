@@ -3,13 +3,13 @@ fs.go
 notebrew.go
 error.go
 template.go
+folder.go
+file.go
+...
 signup.go
 login.go TODO: /login/?401 should take into account whether the user is already logged in and not just tell the user to log in indiscriminately.
 logout.go
 resetpassword.go
-folder.go
-file.go
-...
 server.go
 notebrew/main.go
 
