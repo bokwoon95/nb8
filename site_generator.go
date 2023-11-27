@@ -781,10 +781,6 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 	// compression settings as index.html.
 	//
 	// ID: tag:bokwoon.nbrew.io,yyyy-mm-dd:1jjdz28
-	postListData := PostListData{
-		Site:     siteGen.site,
-		Category: category,
-	}
 	postsPerPage := siteGen.postsPerPage[category]
 	if postsPerPage < 1 {
 		postsPerPage = 100
@@ -794,14 +790,30 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 		return err
 	}
 	slices.Reverse(dirFiles)
-	var currentPage int
+	g1, ctx1 := errgroup.WithContext(ctx)
+	page := 0
 	lastPage := int(math.Ceil(float64(len(dirFiles)) / float64(postsPerPage)))
-	batch := dirFiles
-	for len(batch) > 0 {
-		currentPage += 1
+	remainder := dirFiles
+	for len(remainder) > 0 {
+		var batch []DirFile
+		if len(remainder) >= postsPerPage {
+			batch, remainder = remainder[:postsPerPage], remainder
+		} else {
+			batch, remainder = remainder, remainder[:0]
+		}
+		page += 1
+		currentPage := page
+		g1.Go(func() error {
+			postListData := PostListData{
+				Site: siteGen.site,
+				Category: category,
+				Pagination: NewPagination(currentPage, lastPage, 9),
+			}
+			return nil
+		})
+		
 		_ = lastPage
 	}
-	_ = postListData
 	return nil
 }
 
