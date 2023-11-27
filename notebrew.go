@@ -634,3 +634,19 @@ var fileTypes = map[string]FileType{
 	".json":  {Ext: ".json", ContentType: "application/json", IsGzippable: true},
 	".xml":   {Ext: ".xml", ContentType: "application/xml", IsGzippable: true},
 }
+
+func (nbrew *Notebrew) liveContentURL(sitePrefix string) string {
+	if strings.Contains(sitePrefix, ".") {
+		return "https://" + sitePrefix
+	}
+	if sitePrefix != "" {
+		if nbrew.Port != "80" && nbrew.Port != "443" {
+			return "http://" + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.Domain
+		}
+		return "https://" + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.ContentDomain
+	}
+	if nbrew.Port != "80" && nbrew.Port != "443" {
+		return "http://" + nbrew.Domain
+	}
+	return "https://" + nbrew.ContentDomain
+}

@@ -73,6 +73,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 /* padding all */
 .pa2 { padding: 0.5rem; }
+.pa3 { padding: 1rem; }
 @media screen and (min-width: 30em) and (max-width: 60em) {
     .pa3-m { padding: 1rem; }
 }
@@ -85,6 +86,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .ph1 { padding-left: 0.25rem; padding-right: 0.25rem; }
 .ph2 { padding-left: 0.5rem; padding-right: 0.5rem; }
 .ph3 { padding-left: 1rem; padding-right: 1rem; }
+.ph4 { padding-left: 2rem; padding-right: 2rem; }
 
 /* padding bottom */
 .pb2 { padding-bottom: 0.5rem; }
@@ -178,6 +180,8 @@ details[open] summary.button { background-color: white; }
 }
 
 /* display and positioning */
+.db { display: block; }
+.dib { display: inline-block; }
 .centered-body { max-width: 100ch; padding: 0 0.5rem 0 0.5rem; margin: 0.5rem auto; }
 .absolute { position: absolute; }
 .center { margin-right: auto; margin-left: auto; }
@@ -198,4 +202,4 @@ details > summary.hide-marker::marker, /* Latest Chrome, Edge, Firefox */ detail
 .o-70 { opacity: .7; }
 .pointer:hover { cursor: pointer; }
 .resize-vertical { resize: vertical; }
-.arrow-before:before { content: '> '; font-weight: bold; }
+.arrow-before:before { content: '\00bb\00a0'; font-weight: bold; }

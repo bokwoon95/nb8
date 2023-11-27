@@ -16,7 +16,7 @@
 <nav class='mv2 bg-dark-cyan white flex flex-wrap items-center'>
   <a href='/files/' class='ma2 white'>🖋️☕ notebrew</a>
   &bull;
-  <a href='/' class='ma2 white'>{{ if contains $.SitePrefix "." }}{{ $.SitePrefix }}{{ else if $.SitePrefix }}{{ trimPrefix $.SitePrefix "@" }}.{{ $.ContentDomain }}{{ else }}{{ $.ContentDomain }}{{ end }}</a>
+  <a href='{{ liveContentURL $.SitePrefix }}' class='ma2 white'>{{ if contains $.SitePrefix "." }}{{ $.SitePrefix }}{{ else if $.SitePrefix }}{{ trimPrefix $.SitePrefix "@" }}.{{ $.ContentDomain }}{{ else }}{{ $.ContentDomain }}{{ end }}</a>
   <span class='flex-grow-1'></span>
   {{- if hasDatabase }}
   <a href='' class='ma2'>{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>
@@ -40,8 +40,8 @@
 {{- end }}
 <div class='dashed-border mv2 pa2 br2 flex items-center'>
   <div class='flex-grow-1 truncate'><a href=''>5 items copied</a>: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div>
-  <div class='ml2'><button type='button' class='button ba br2 pa2 w-100'>Paste</button></div>
-  <div class='ml2'><button type='button' class='button-danger ba br2 b--dark-red pa2 w-100'>Clear</button></div>
+  <div class='ml2'><button type='button' class='button ba br2 pv2 ph4 w-100'>Paste</button></div>
+  <div class='ml2'><button type='button' class='button-danger ba br2 b--dark-red pv2 ph4 w-100'>Clear</button></div>
 </div>
 <div class='mv2 flex flex-wrap items-center'>
   <div class='flex-grow-1'></div>
@@ -52,10 +52,10 @@
         {{ template "octicons-triangle-down" }}
       </summary>
       <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
-        <div class='ma2'><a href='' class='nowrap'>Settings</a></div>
+        <div class='ma2 tr'><a href='' class='nowrap'>Settings</a></div>
         {{- if eq (head $.Path) "posts" }}
-        <div class='ma2'><a href='' class='nowrap'>View List</a></div>
-        <div class='ma2'><button type='button' class='button ba br2 pa2 nowrap'>Regenerate List</button></div>
+        <div class='ma2 tr'><a href='' class='nowrap'>View List</a></div>
+        <div class='ma2 tr'><button type='button' class='button ba br2 pv2 ph4 nowrap'>Regenerate List</button></div>
         {{- end }}
       </div>
     </details>
@@ -68,7 +68,12 @@
         {{ template "octicons-triangle-down" }}
       </summary>
       <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
-        <div class='ma2'><a href='' class='nowrap'>No roots</a></div>
+        <div class='ma2 tr'><a href='' class='nowrap arrow-before'>Name</a></div>
+        <div class='ma2 tr'><a href='' class='nowrap'>Date Created</a></div>
+        <div class='ma2 tr'><a href='' class='nowrap'>Date Updated</a></div>
+        <hr>
+        <div class='ma2 tr'><a href='' class='nowrap arrow-before'>Ascending</a></div>
+        <div class='ma2 tr'><a href='' class='nowrap'>Descending</a></div>
       </div>
     </details>
   </div>
@@ -81,7 +86,7 @@
       </summary>
       <form class='absolute bg-white br2 pa2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
         <input id='search' name='search' placeholder='Search this folder' class='pa2 br2 ba'>
-        <button type='submit' class='button ba br2 pa2 w-100 mt2'>Search</button>
+        <button type='submit' class='button ba br2 pv2 ph4 w-100 mt2'>Search</button>
       </form>
     </details>
   </div>
@@ -94,19 +99,19 @@
       </summary>
       <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
         {{- if and (eq $.SitePrefix "") (eq $.Path "") }}
-        <div class='ma2'><a href='/files/createsite/' class='nowrap'>Create Site</a></div>
+        <div class='ma2 tr'><a href='/files/createsite/' class='nowrap'>Create Site</a></div>
         {{- else if eq (head $.Path) "notes" }}
-        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfile" }}/?parent={{ $.Path }}&ext=md' class='nowrap'>Create File</a></div>
-        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Folder</a></div>
+        <div class='ma2 tr'><a href='/{{ join "files" $.SitePrefix "createfile" }}/?parent={{ $.Path }}&ext=md' class='nowrap'>Create File</a></div>
+        <div class='ma2 tr'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Folder</a></div>
         {{- else if eq (head $.Path) "pages" }}
-        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createpage" }}/?parent={{ $.Path }}' class='nowrap'>Create Page</a></div>
-        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Folder</a></div>
+        <div class='ma2 tr'><a href='/{{ join "files" $.SitePrefix "createpage" }}/?parent={{ $.Path }}' class='nowrap'>Create Page</a></div>
+        <div class='ma2 tr'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Folder</a></div>
         {{- else if eq (head $.Path) "posts" }}
-        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createpost" }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}' class='nowrap'>Create Post</a></div>
-        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Category</a></div>
+        <div class='ma2 tr'><a href='/{{ join "files" $.SitePrefix "createpost" }}/{{ if tail $.Path }}?category={{ head (tail $.Path) }}{{ end }}' class='nowrap'>Create Post</a></div>
+        <div class='ma2 tr'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Category</a></div>
         {{- else if eq (head $.Path) "output" }}
-        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfile" }}/?parent={{ $.Path }}&ext=html' class='nowrap'>Create File</a></div>
-        <div class='ma2'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Folder</a></div>
+        <div class='ma2 tr'><a href='/{{ join "files" $.SitePrefix "createfile" }}/?parent={{ $.Path }}&ext=html' class='nowrap'>Create File</a></div>
+        <div class='ma2 tr'><a href='/{{ join "files" $.SitePrefix "createfolder" }}?parent={{ $.Path }}' class='nowrap'>Create Folder</a></div>
         {{- end }}
       </div>
     </details>
@@ -279,10 +284,10 @@
             {{ template "octicons-triangle-down" }}
           </summary>
           <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
-            <div class='ma2'><a href=''>Rename</a></div>
-            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Cut</button></div>
-            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Copy</button></div>
-            <div class='ma2'><button type='submit' formaction='/{{ join "files" $.SitePrefix "delete" }}/' name='name' value='{{ $fileEntry.Name }}' class='button-danger ba br2 b--dark-red pa2 w-100'>Delete</button></div>
+            <div class='ma2 tc'><a href=''>Rename</a></div>
+            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pv2 ph4 w-100'>Cut</button></div>
+            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pv2 ph4 w-100'>Copy</button></div>
+            <div class='ma2'><button type='submit' formaction='/{{ join "files" $.SitePrefix "delete" }}/' name='name' value='{{ $fileEntry.Name }}' class='button-danger ba br2 b--dark-red pv2 ph4 w-100'>Delete</button></div>
           </div>
         </details>
         {{- end }}
