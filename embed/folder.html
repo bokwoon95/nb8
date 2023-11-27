@@ -54,8 +54,8 @@
       <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
         <div class='ma2 tr'><a href='' class='nowrap'>Settings</a></div>
         {{- if eq (head $.Path) "posts" }}
-        <div class='ma2 tr'><a href='' class='nowrap'>View List</a></div>
-        <div class='ma2 tr'><button type='button' class='button ba br2 pv2 ph4 nowrap'>Regenerate List</button></div>
+        <div class='ma2 tr'><a href='' class='nowrap'>View</a></div>
+        <div class='ma2 tr'><button type='button' class='button ba br2 pv2 ph4 nowrap'>Regenerate</button></div>
         {{- end }}
       </div>
     </details>
@@ -243,7 +243,8 @@
         {{- if not $fileEntry.IsUser }}
         <div class='flex-grow-1'></div>
         <details class='relative' data-autoclose-details>
-          <summary role='button' title='more actions' class='flex items-center button ba br2 b--black h2 hide-marker ph1 pointer' data-disable-click-selection>
+          <summary role='button' title='more actions' class='flex items-center button ba br2 b--black h2 hide-marker ph2 pointer' data-disable-click-selection>
+            {{ template "heroicons-ellipsis-horizontal" }}
             {{ template "octicons-triangle-down" }}
           </summary>
           <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
@@ -280,7 +281,8 @@
         <div class='flex-grow-1'></div>
         {{- if not $readOnly }}
         <details class='relative' data-autoclose-details>
-          <summary role='button' title='more actions' class='flex items-center button ba br2 b--black h2 hide-marker ph1' data-disable-click-selection>
+          <summary role='button' title='more actions' class='flex items-center button ba br2 b--black h2 hide-marker ph2' data-disable-click-selection>
+            {{ template "heroicons-ellipsis-horizontal" }}
             {{ template "octicons-triangle-down" }}
           </summary>
           <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
