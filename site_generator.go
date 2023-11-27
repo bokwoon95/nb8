@@ -967,9 +967,9 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 			cachedTemplate, ok := siteGen.templateCache[externalName]
 			siteGen.mu.Unlock()
 			if ok {
-				// We found the template; add it to the slice and exit. The
-				// cachedTemplate may be nil, if parsing that template had
-				// resulted in errors.
+				// We found the template; add it to the slice and exit. Note
+				// that the cachedTemplate may be nil, if parsing that template
+				// had resulted in errors.
 				externalTemplates[i] = cachedTemplate
 				return nil
 			}
