@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"html/template"
@@ -37,6 +38,7 @@ type cacheEntry struct {
 }
 
 type SiteGenerator struct {
+	domain               string
 	fsys                 FS
 	sitePrefix           string
 	site                 Site
@@ -70,6 +72,7 @@ type SiteGeneratorConfig struct {
 	Favicon              string
 	Lang                 string
 	CodeStyle            string
+	ContentDomain        string
 	GzipGeneratedContent bool
 }
 
@@ -91,7 +94,21 @@ func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
 	if config.CodeStyle == "" {
 		config.CodeStyle = "dracula"
 	}
+	if config.ContentDomain == "" {
+		return nil, fmt.Errorf("ContentDomain cannot be empty")
+	}
+	var domain string
+	if strings.Contains(config.SitePrefix, ".") {
+		domain = config.SitePrefix
+	} else if config.SitePrefix != "" {
+		domain = config.SitePrefix + "." + config.ContentDomain
+	} else {
+		domain = config.ContentDomain
+	}
+	if config.SitePrefix != "" {
+	}
 	siteGen := &SiteGenerator{
+		domain:     domain,
 		fsys:       config.FS,
 		sitePrefix: config.SitePrefix,
 		site: Site{
@@ -677,7 +694,6 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 	// (Content-Type application/xml). feed.xml itself follows the same
 	// compression settings as index.html.
 	//
-	// ID: tag:bokwoon.nbrew.io,yyyy-mm-dd:1jjdz28
 	postsPerPage := siteGen.postsPerPage[category]
 	if postsPerPage <= 0 {
 		postsPerPage = 100
@@ -826,6 +842,40 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 				outputDir := path.Join(siteGen.sitePrefix, "output/posts", postListData.Category)
 				g2B.Go(func() error {
 					// TODO: render the Atom feed.
+					feed := AtomFeed{
+						Xmlns:   "http://www.w3.org/2005/Atom",
+						ID:      "https://" + siteGen.domain,
+						Title:   siteGen.site.Title,
+						Updated: time.Now().UTC().Format("2006-01-02 15:04:05Z"),
+						Link: []AtomLink{{
+							Href: "https://" + siteGen.domain + "/" + path.Join("posts", postListData.Category) + "/atom.xml",
+							Rel:  "self",
+						}, {
+							Href: "https://" + siteGen.domain + "/" + path.Join("posts", postListData.Category) + "/",
+							Rel:  "alternate",
+						}},
+						Entry: make([]AtomEntry, len(postListData.Posts)),
+					}
+					for i, post := range postListData.Posts {
+						// ID: tag:bokwoon.nbrew.io,yyyy-mm-dd:1jjdz28
+						var timestamp [8]byte
+						binary.BigEndian.PutUint64(timestamp[:], uint64(post.CreationTime.Unix()))
+						prefix := strings.TrimLeft(base32Encoding.EncodeToString(timestamp[len(timestamp)-5:]), "0")
+						feed.Entry[i] = AtomEntry{
+							ID:        "tag:" + siteGen.domain + "," + post.CreationTime.UTC().Format("2006-01-02") + ":" + prefix,
+							Title:     post.Title,
+							Published: post.CreationTime.UTC().Format("2006-01-02 15:04:05Z"),
+							Updated:   post.ModificationTime.UTC().Format("2006-01-02 15:04:05Z"),
+							Link: []AtomLink{{
+								Href: "https://" + siteGen.domain + "/" + path.Join("posts", post.Category, post.Name) + "/",
+								Rel:  "alternate",
+							}},
+							Content: AtomContent{
+								Type:    "html",
+								Content: strings.ReplaceAll(string(post.Content), "]]>", "]]&gt;"),
+							},
+						}
+					}
 					writer, err := siteGen.fsys.WithContext(ctx2B).OpenWriter(path.Join(outputDir, "atom.xml"), 0644)
 					if err != nil {
 						if !errors.Is(err, fs.ErrNotExist) {
@@ -841,6 +891,36 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 						}
 					}
 					defer writer.Close()
+					if siteGen.gzipGeneratedContent {
+						gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
+						gzipWriter.Reset(writer)
+						defer gzipWriterPool.Put(gzipWriter)
+						_, err := gzipWriter.Write([]byte(xml.Header))
+						if err != nil {
+							return err
+						}
+						err = xml.NewEncoder(gzipWriter).Encode(&feed)
+						if err != nil {
+							return err
+						}
+						err = gzipWriter.Close()
+						if err != nil {
+							return err
+						}
+					} else {
+						_, err := writer.Write([]byte(xml.Header))
+						if err != nil {
+							return err
+						}
+						err = xml.NewEncoder(writer).Encode(&feed)
+						if err != nil {
+							return err
+						}
+					}
+					err = writer.Close()
+					if err != nil {
+						return err
+					}
 					return nil
 				})
 				g2B.Go(func() error {
@@ -1410,4 +1490,33 @@ func (p Pagination) All() []string {
 		numbers = append(numbers, strconv.Itoa(page))
 	}
 	return numbers
+}
+
+type AtomFeed struct {
+	XMLName xml.Name    `xml:"feed"`
+	Xmlns   string      `xml:"xmlns,attr"`
+	ID      string      `xml:"id"`
+	Title   string      `xml:"title"`
+	Updated string      `xml:"updated"`
+	Link    []AtomLink  `xml:"link"` // rel=self, rel=alternate
+	Entry   []AtomEntry `xml:"entry"`
+}
+
+type AtomEntry struct {
+	ID        string      `xml:"id"`
+	Title     string      `xml:"title"`
+	Published string      `xml:"published"`
+	Updated   string      `xml:"updated"`
+	Link      []AtomLink  `xml:"link"` // rel=alternate
+	Content   AtomContent `xml:"content"`
+}
+
+type AtomLink struct {
+	Href string `xml:"href,attr"`
+	Rel  string `xml:"rel,attr"`
+}
+
+type AtomContent struct {
+	Type    string `xml:"type,attr"`
+	Content string `xml:",cdata"`
 }
