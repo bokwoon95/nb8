@@ -165,8 +165,8 @@ func (nbrew *Notebrew) getSession(r *http.Request, name string, valuePtr any) (o
 		checksum := blake2b.Sum256(sessionToken[8:])
 		copy(sessionTokenHash[:8], sessionToken[:8])
 		copy(sessionTokenHash[8:], checksum[:])
-		createdAt := time.Unix(int64(binary.BigEndian.Uint64(sessionTokenHash[:8])), 0)
-		if time.Now().Sub(createdAt) > 5*time.Minute {
+		creationTime := time.Unix(int64(binary.BigEndian.Uint64(sessionTokenHash[:8])), 0)
+		if time.Now().Sub(creationTime) > 5*time.Minute {
 			return false, nil
 		}
 		dataBytes, err = sq.FetchOneContext(r.Context(), nbrew.DB, sq.CustomQuery{

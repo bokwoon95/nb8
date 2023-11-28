@@ -16,7 +16,7 @@ p, ul, ol { margin-bottom: 2em; color: #1d1d1d; font-family: sans-serif; }
   {{- end }}
 </div>
 <hr>
-<div style='font-size: .875rem; color: #555555;'>{{ $.CreatedAt.Format "2006-01-02" }}</div>
+<div style='font-size: .875rem; color: #555555;'>{{ $.CreationTime.Format "2006-01-02" }}</div>
 {{ $.Content }}
 <hr>
-<div style='font-size: .875rem; color: #555555;'>updated {{ $.UpdatedAt.Format "2006-01-02 15:04:05 UTC" }}</div>
+<div style='font-size: .875rem; color: #555555;'>last modified {{ $.ModificationTime.Format "2006-01-02 15:04:05 UTC" }}</div>

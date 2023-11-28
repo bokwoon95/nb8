@@ -140,13 +140,13 @@ type Image struct {
 
 type PageData struct {
 	// /{{ join $.Parent $.Name }}/
-	Site       Site
-	Parent     string
-	Name       string
-	ChildPages []Page
-	Markdown   map[string]template.HTML
-	Images     []Image
-	UpdatedAt  time.Time
+	Site             Site
+	Parent           string
+	Name             string
+	ChildPages       []Page
+	Markdown         map[string]template.HTML
+	Images           []Image
+	ModificationTime time.Time
 }
 
 func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) error {
@@ -194,7 +194,7 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	if err != nil {
 		return err
 	}
-	pageData.UpdatedAt = fileInfo.ModTime()
+	pageData.ModificationTime = fileInfo.ModTime()
 
 	// Prepare the page template.
 	tmpl, err := siteGen.parseTemplate(ctx, path.Base(name), b.String(), nil)
@@ -388,14 +388,14 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 
 type PostData struct {
 	// /{{ join "posts" $.Category $.Name }}/
-	Site      Site
-	Category  string
-	Name      string
-	Title     string
-	Content   template.HTML
-	Images    []Image
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Site             Site
+	Category         string
+	Name             string
+	Title            string
+	Content          template.HTML
+	Images           []Image
+	CreationTime     time.Time
+	ModificationTime time.Time
 }
 
 func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) error {
@@ -522,16 +522,16 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 		if err != nil {
 			return err
 		}
-		// UpdatedAt
-		postData.UpdatedAt = fileInfo.ModTime()
-		// CreatedAt
+		// ModificationTime
+		postData.ModificationTime = fileInfo.ModTime()
+		// CreationTime
 		prefix, _, ok := strings.Cut(name, "-")
 		if ok && len(prefix) > 0 && len(prefix) <= 8 {
 			b, _ := base32Encoding.DecodeString(fmt.Sprintf("%08s", prefix))
 			if len(b) == 5 {
 				var timestamp [8]byte
 				copy(timestamp[len(timestamp)-5:], b)
-				postData.CreatedAt = time.Unix(int64(binary.BigEndian.Uint64(timestamp[:])), 0)
+				postData.CreationTime = time.Unix(int64(binary.BigEndian.Uint64(timestamp[:])), 0)
 			}
 		}
 		// Title
@@ -783,12 +783,12 @@ func (p Pagination) All() []string {
 
 type Post struct {
 	// /{{ join "posts" $.Category $.Name }}/
-	Category  string
-	Name      string
-	Title     string
-	Preview   string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Category         string
+	Name             string
+	Title            string
+	Preview          string
+	CreationTime     time.Time
+	ModificationTime time.Time
 }
 
 type PostListData struct {
