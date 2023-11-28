@@ -651,6 +651,8 @@ func (nbrew *Notebrew) site404(w http.ResponseWriter, r *http.Request, sitePrefi
 		http.Error(w, "404 Not Found", http.StatusNotFound)
 		return
 	}
+	// NOTE: do we want to calculate ETags for 404 pages? Do we want to cache
+	// the 404 response? Are we expecting users to hit 404 pages often?
 	contentType := http.DetectContentType(b)
 	multiWriter := io.MultiWriter(buf, hasher)
 	if contentType == "application/x-gzip" || contentType == "application/gzip" {

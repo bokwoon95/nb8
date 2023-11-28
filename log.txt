@@ -17,6 +17,12 @@ TODO: we might be able to lift (*Notebrew).NewServer out of server.go entirely a
 TODO: regenerate site/regenerate folder/regenerate list
 TODO: folder.go: rework all posts without a timestamp prefix to be ignored. This means posts will always be guaranteed to have a CreatedAt field.
 TODO: folder.go: remove the title + preview from *all* notes and posts (I noticed I barely look at the summaries when I select in entry in Apple Notes). Keep things simple at first, we can introduce it again later.
+TODO: we can cache certain assets more aggressively than others.
+https://simonhearne.com/2022/caching-header-best-practices/#irregular-updates-to-unversioned-assets
+- everything in static can be cached for like, a month
+- all dynamic html in /files/* is no-cache, must-revalidate (but with ETag)
+- all html files served on ContentDomain is also no-cache, must-revalidate because we want a nice editing experience for users on mobile. If you make a change to a html file, it should change accordingly on the content domain.
+- the piece de resistance is to implement some kind of internal traffic monitor such that if we notice the server is taking a lot of load, we start to issue max-age=86400 (24hr), stale-while-revalidate for assets and max-age=500 (5min), stale-while-revalidate for html files. But how to monitor server traffic in a performant way?
 
 TODO:
 Post updated (1 file regenerated in XXms). Regenerate post list? [ Regenerate List ]
