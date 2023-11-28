@@ -872,7 +872,7 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 							}},
 							Content: AtomContent{
 								Type:    "html",
-								Content: strings.ReplaceAll(string(post.Content), "]]>", "]]&gt;"),
+								Content: string(post.Content),
 							},
 						}
 					}
@@ -1518,5 +1518,5 @@ type AtomLink struct {
 
 type AtomContent struct {
 	Type    string `xml:"type,attr"`
-	Content string `xml:",cdata"`
+	Content string `xml:",chardata"`
 }
