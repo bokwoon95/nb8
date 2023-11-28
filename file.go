@@ -204,7 +204,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			last := len(newSegments) - 1
 			newSegments[last] = strings.TrimSuffix(newSegments[last], ".md")
 			response.AssetDir = path.Join(newSegments...)
-			postURL = nbrew.Scheme + nbrew.ContentDomain + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
+			postURL = nbrew.liveContentURL(sitePrefix) + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
 			if err != nil {
 				if !errors.Is(err, fs.ErrNotExist) {

@@ -39,9 +39,6 @@ type ServerConfig struct {
 }
 
 func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
-	if nbrew.Scheme != "http://" && nbrew.Scheme != "https://" {
-		return nil, fmt.Errorf("Scheme must be http:// or https://")
-	}
 	if nbrew.Domain == "" {
 		return nil, fmt.Errorf("Domain cannot be empty")
 	}
@@ -187,7 +184,11 @@ func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
 func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Redirect the www subdomain to the bare domain.
 	if r.Host == "www."+nbrew.Domain {
-		http.Redirect(w, r, nbrew.Scheme+nbrew.Domain+r.URL.RequestURI(), http.StatusMovedPermanently)
+		if nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:") {
+			http.Redirect(w, r, "http://"+nbrew.Domain+r.URL.RequestURI(), http.StatusMovedPermanently)
+			return
+		}
+		http.Redirect(w, r, "https://"+nbrew.Domain+r.URL.RequestURI(), http.StatusMovedPermanently)
 		return
 	}
 
@@ -230,7 +231,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Cross-Origin-Opener-Policy", "same-origin")
 	w.Header().Add("Cross-Origin-Embedder-Policy", "require-corp")
 	w.Header().Add("Cross-Origin-Resource-Policy", "same-origin")
-	if nbrew.Scheme == "https://" {
+	if nbrew.Domain != "localhost" && !strings.HasPrefix(nbrew.Domain, "localhost:") {
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 	}
 

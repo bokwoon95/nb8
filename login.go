@@ -307,7 +307,7 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 				Path:     "/",
 				Name:     "authentication",
 				Value:    response.AuthenticationToken,
-				Secure:   nbrew.Scheme == "https://",
+				Secure:   nbrew.Domain != "localhost" && !strings.HasPrefix(nbrew.Domain, "localhost:"),
 				HttpOnly: true,
 				SameSite: http.SameSiteLaxMode,
 				MaxAge:   int((time.Hour * 24 * 365).Seconds()),
@@ -472,7 +472,7 @@ func (nbrew *Notebrew) login(w http.ResponseWriter, r *http.Request, ip string) 
 				writeResponse(w, r, response)
 				return
 			}
-			if nbrew.Scheme == "https://" {
+			if nbrew.Port == "443" {
 				err = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(60 * time.Second))
 				if err != nil {
 					getLogger(r.Context()).Error(err.Error())

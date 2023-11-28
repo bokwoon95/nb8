@@ -322,7 +322,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 				writeResponse(w, r, response)
 				return
 			}
-			if nbrew.Scheme == "https://" {
+			if nbrew.Port == "443" {
 				err = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(60 * time.Second))
 				if err != nil {
 					getLogger(r.Context()).Error(err.Error())

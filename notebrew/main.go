@@ -127,19 +127,14 @@ func main() {
 			} else {
 				addr = "localhost:" + nbrew.Port
 			}
-			if nbrew.Domain != "" {
-				nbrew.Scheme = "https://"
-			} else {
-				nbrew.Scheme = "http://"
+			if nbrew.Domain == "" {
 				nbrew.Domain = "localhost:" + nbrew.Port
 			}
 		} else {
 			if nbrew.Domain != "" {
 				addr = ":443"
-				nbrew.Scheme = "https://"
 			} else {
 				addr = "localhost:6444"
-				nbrew.Scheme = "http://"
 				nbrew.Domain = "localhost:6444"
 			}
 		}
@@ -571,7 +566,17 @@ func main() {
 
 		wait := make(chan os.Signal, 1)
 		signal.Notify(wait, syscall.SIGINT, syscall.SIGTERM)
-		if nbrew.Scheme == "https://" {
+		if nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:") {
+			fmt.Printf(startmsg, "http://"+nbrew.Domain+"/files/")
+			go func() {
+				err := server.Serve(listener)
+				if !errors.Is(err, http.ErrServerClosed) {
+					fmt.Println(err)
+					close(wait)
+				}
+			}()
+			open("http://" + nbrew.Domain + "/files/")
+		} else {
 			go http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != "GET" && r.Method != "HEAD" {
 					http.Error(w, "Use HTTPS", http.StatusBadRequest)
@@ -593,16 +598,6 @@ func main() {
 					close(wait)
 				}
 			}()
-		} else {
-			fmt.Printf(startmsg, "http://"+server.Addr+"/files/")
-			go func() {
-				err := server.Serve(listener)
-				if !errors.Is(err, http.ErrServerClosed) {
-					fmt.Println(err)
-					close(wait)
-				}
-			}()
-			open("http://" + server.Addr + "/files/")
 		}
 		<-wait
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

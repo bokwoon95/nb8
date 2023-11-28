@@ -70,8 +70,6 @@ type Notebrew struct {
 	// implementation is provided, ErrorCode should return an empty string.
 	ErrorCode func(error) string
 
-	Scheme string // http:// | https://
-
 	Domain string // localhost:6444, example.com
 
 	ContentDomain string // localhost:6444, example.com
@@ -85,6 +83,16 @@ type Notebrew struct {
 	ProxyForwardedIPHeader map[netip.Addr]string
 
 	Logger *slog.Logger
+}
+
+func (nbrew *Notebrew) xdomain() {
+	// notebrew config domain
+	// notebrew config contentdomain
+	// notebrew config port
+	// if port is 1234 and domain is localhost:1234,
+}
+
+func (nbrew *Notebrew) xcontentdomain() {
 }
 
 type contextKey struct{}
@@ -111,7 +119,7 @@ func (nbrew *Notebrew) setSession(w http.ResponseWriter, r *http.Request, name s
 	cookie := &http.Cookie{
 		Path:     "/",
 		Name:     name,
-		Secure:   nbrew.Scheme == "https://",
+		Secure:   nbrew.Domain != "localhost" && !strings.HasPrefix(nbrew.Domain, "localhost:"),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	}
@@ -202,7 +210,7 @@ func (nbrew *Notebrew) clearSession(w http.ResponseWriter, r *http.Request, name
 		Name:     name,
 		Value:    "0",
 		MaxAge:   -1,
-		Secure:   nbrew.Scheme == "https://",
+		Secure:   nbrew.Domain != "localhost" && !strings.HasPrefix(nbrew.Domain, "localhost:"),
 		HttpOnly: true,
 	})
 	if nbrew.DB == nil {
@@ -639,13 +647,14 @@ func (nbrew *Notebrew) liveContentURL(sitePrefix string) string {
 	if strings.Contains(sitePrefix, ".") {
 		return "https://" + sitePrefix
 	}
+	localhost := nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:")
 	if sitePrefix != "" {
-		if nbrew.Port != "80" && nbrew.Port != "443" {
+		if localhost {
 			return "http://" + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.Domain
 		}
 		return "https://" + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.ContentDomain
 	}
-	if nbrew.Port != "80" && nbrew.Port != "443" {
+	if localhost {
 		return "http://" + nbrew.Domain
 	}
 	return "https://" + nbrew.ContentDomain
