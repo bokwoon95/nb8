@@ -138,19 +138,19 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		var pageURL, postURL string
 		switch segments[0] {
 		case "pages":
-			// (page) pages/index.html   => (assetDir) output
-			// (page) pages/foo.html     => (assetDir) output/foo
-			// (page) pages/foo/bar.html => (assetDir) output/foo/bar
 			if len(segments) == 2 && segments[1] == "index.html" {
+				// (page) pages/index.html   => (assetDir) output
 				response.AssetDir = "output"
-				pageURL = nbrew.Scheme + nbrew.ContentDomain
+				pageURL = nbrew.liveContentURL(sitePrefix)
 			} else {
+				// (page) pages/foo.html     => (assetDir) output/foo
+				// (page) pages/foo/bar.html => (assetDir) output/foo/bar
 				newSegments := slices.Clone(segments)
 				newSegments[0] = "output"
 				last := len(newSegments) - 1
 				newSegments[last] = strings.TrimSuffix(newSegments[last], ".html")
 				response.AssetDir = path.Join(newSegments...)
-				pageURL = nbrew.Scheme + nbrew.ContentDomain + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
+				pageURL = nbrew.liveContentURL(sitePrefix) + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
 			}
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
 			if err != nil {
