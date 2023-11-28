@@ -13,6 +13,7 @@ resetpassword.go
 server.go
 notebrew/main.go
 
+TODO: we might be able to lift (*Notebrew).NewServer out of server.go entirely and into main.go, since we're only ever going to call it once there and never again. So a *Notebrew struct by itself doesn't have to concern itself with how to implement automatic TLS, people importing notebrew don't automatically get certmagic as a dependency even if they're going to use their own certificates. *Notebrew only contains Domain and ContentDomain as a contract, Domain means the domain we are serving the CMS on and ContentDomain is the domain we are serving the site content on. We can replace the Port field with UseHTTPS instead, which determines whether cookies are secure and is set by the external code in main. We no longer have any way to detect if there are any read or write timeouts, which is a little troubling.
 TODO: regenerate site/regenerate folder/regenerate list
 TODO: folder.go: rework all posts without a timestamp prefix to be ignored. This means posts will always be guaranteed to have a CreatedAt field.
 TODO: folder.go: remove the title + preview from *all* notes and posts (I noticed I barely look at the summaries when I select in entry in Apple Notes). Keep things simple at first, we can introduce it again later.
