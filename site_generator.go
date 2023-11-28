@@ -66,13 +66,13 @@ type Site struct {
 }
 
 type SiteGeneratorConfig struct {
+	ContentDomain        string
 	FS                   FS
 	SitePrefix           string
 	Title                string
 	Favicon              string
 	Lang                 string
 	CodeStyle            string
-	ContentDomain        string
 	GzipGeneratedContent bool
 }
 

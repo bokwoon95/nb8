@@ -396,8 +396,9 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		switch head {
 		case "pages":
 			siteGen, err := NewSiteGenerator(SiteGeneratorConfig{
-				FS:         nbrew.FS,
-				SitePrefix: sitePrefix,
+				ContentDomain: nbrew.ContentDomain,
+				FS:            nbrew.FS,
+				SitePrefix:    sitePrefix,
 			})
 			if err != nil {
 				getLogger(r.Context()).Error(err.Error())
@@ -412,8 +413,9 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			}
 		case "posts":
 			siteGen, err := NewSiteGenerator(SiteGeneratorConfig{
-				FS:         nbrew.FS,
-				SitePrefix: sitePrefix,
+				ContentDomain: nbrew.ContentDomain,
+				FS:            nbrew.FS,
+				SitePrefix:    sitePrefix,
 			})
 			if err != nil {
 				getLogger(r.Context()).Error(err.Error())
