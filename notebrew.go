@@ -298,17 +298,17 @@ func stripMarkdownStyles(src []byte) string {
 	// Manually escape backslashes (goldmark may be able to do this,
 	// investigate).
 	var b strings.Builder
-	str := buf.String()
-	// Jump to the location of each backslash found in the string.
-	for i := strings.IndexByte(str, '\\'); i >= 0; i = strings.IndexByte(str, '\\') {
-		b.WriteString(str[:i])
-		char, width := utf8.DecodeRuneInString(str[i+1:])
-		str = str[i+1+width:]
+	output := buf.Bytes()
+	// Jump to the location of each backslash found in the output.
+	for i := bytes.IndexByte(output, '\\'); i >= 0; i = bytes.IndexByte(output, '\\') {
+		b.Write(output[:i])
+		char, width := utf8.DecodeRune(output[i+1:])
 		if char != utf8.RuneError {
 			b.WriteRune(char)
 		}
+		output = output[i+1+width:]
 	}
-	b.WriteString(str)
+	b.Write(output)
 	return b.String()
 }
 

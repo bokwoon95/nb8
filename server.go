@@ -454,12 +454,32 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var modTime time.Time
 	// fileSrc may be an fs.File or a bufio.Reader.
 	var fileSrc io.Reader
-	if ext == "" {
-		// If the URL has no extension, we serve index.html.
-		fileType.Ext = ".html"
-		fileType.ContentType = "text/html; charset=utf-8"
-		fileType.IsGzippable = true
-		file, err := nbrew.FS.Open(path.Join(sitePrefix, "output", urlPath, "index.html"))
+	basename := path.Base(urlPath)
+	if ext == "" || basename == "atom.xml" {
+		var name string
+		if basename == "atom.xml" {
+			name = path.Join(sitePrefix, "output", urlPath)
+			fileType.Ext = ".xml"
+			// Despite atom's Content-Type technically being
+			// application/atom+xml, I'm using application/xml here otherwise
+			// iOS Safari "helpfully" prompts the user to install an RSS reader
+			// from the App Store and *refuses* to display the Atom feed
+			// contents in the browser. I'm annoyed by that. Atom feeds are
+			// just plain text, let me view in the the browser. Every RSS
+			// reader worth its salt can handle an incorrect Content-Type so
+			// I'll rather use an incorrect Content-Type and force Safari to
+			// render the atom feed in plain text than prevent the feed from
+			// being viewed in the browser for the sake of "technical purity".
+			fileType.ContentType = "application/xml; charset=utf-8"
+			fileType.IsGzippable = true
+		} else {
+			// If the URL has no extension, we serve index.html.
+			name = path.Join(sitePrefix, "output", urlPath, "index.html")
+			fileType.Ext = ".html"
+			fileType.ContentType = "text/html; charset=utf-8"
+			fileType.IsGzippable = true
+		}
+		file, err := nbrew.FS.Open(name)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				nbrew.site404(w, r, sitePrefix)
@@ -480,8 +500,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			nbrew.site404(w, r, sitePrefix)
 			return
 		}
-		// index.html may be a gzipped file (to save space). Peek the first 512
-		// bytes and check if it is gzipped.
+		// The file may be gzipped (to save space). Peek the first 512 bytes
+		// and check if it is gzipped.
 		reader := readerPool.Get().(*bufio.Reader)
 		reader.Reset(file)
 		defer readerPool.Put(reader)

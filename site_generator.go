@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"text/template/parse"
 	"time"
@@ -602,191 +601,13 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 	return nil
 }
 
-type Pagination struct {
-	First    string
-	Previous string
-	Current  string
-	Next     string
-	Last     string
-	Numbers  []string
-}
-
-func NewPagination(currentPage, lastPage, visiblePages int) Pagination {
-	const numConsecutiveNeighbours = 2
-	if visiblePages%2 == 0 {
-		panic("even number of visiblePages")
-	}
-	minVisiblePages := (numConsecutiveNeighbours * 2) + 1
-	if visiblePages < minVisiblePages {
-		panic("visiblePages cannot be lower than " + strconv.Itoa(minVisiblePages))
-	}
-	pagination := Pagination{
-		First:   "1",
-		Current: strconv.Itoa(currentPage),
-		Last:    strconv.Itoa(lastPage),
-	}
-	previous := currentPage - 1
-	if previous >= 1 {
-		pagination.Previous = strconv.Itoa(previous)
-	}
-	next := currentPage + 1
-	if next <= lastPage {
-		pagination.Next = strconv.Itoa(next)
-	}
-	// If there are fewer pages than visible pages, iterate through all the
-	// page numbers.
-	if lastPage <= visiblePages {
-		pagination.Numbers = make([]string, 0, lastPage)
-		for page := 1; page <= lastPage; page++ {
-			pagination.Numbers = append(pagination.Numbers, strconv.Itoa(page))
-		}
-		return pagination
-	}
-	// Slots corresponds to the available slots in pagination.Numbers, storing
-	// the page numbers as integers. They will be converted to strings later.
-	slots := make([]int, visiblePages)
-	// A unit is a tenth of the maximum number of pages. The rationale is that
-	// users have to paginate at most 10 such units to get from start to end,
-	// no matter how many pages there are.
-	unit := lastPage / 10
-	if currentPage-1 < len(slots)>>1 {
-		// If there are fewer pages on the left than half of the slots, the
-		// current page will skew more towards the left. We fill in consecutive
-		// page numbers from left to right, then fill in the remaining slots.
-		numConsecutive := (currentPage - 1) + 1 + numConsecutiveNeighbours
-		consecutiveStart := 0
-		consecutiveEnd := numConsecutive - 1
-		page := 1
-		for i := consecutiveStart; i <= consecutiveEnd; i++ {
-			slots[i] = page
-			page += 1
-		}
-		// The last slot is always the last page.
-		slots[len(slots)-1] = lastPage
-		// Fill in the remaining slots with either an exponentially changing or
-		// linearly changing number depending on which is more appropriate.
-		remainingSlots := slots[consecutiveEnd+1 : len(slots)-1]
-		delta := numConsecutiveNeighbours + len(remainingSlots)
-		shift := 0
-		for i := len(slots) - 2; i >= consecutiveEnd+1; i-- {
-			exponentialNum := currentPage + unit>>shift
-			linearNum := currentPage + delta
-			if exponentialNum > linearNum && exponentialNum < lastPage {
-				slots[i] = exponentialNum
-			} else {
-				slots[i] = linearNum
-			}
-			shift += 1
-			delta -= 1
-		}
-	} else if lastPage-currentPage < len(slots)>>1 {
-		// If there are fewer pages on the right than half of the slots, the
-		// current page will skew more towards the right. We fill in
-		// consecutive page numbers from the right to left, then fill in the
-		// remaining slots.
-		numConsecutive := (lastPage - currentPage) + 1 + numConsecutiveNeighbours
-		consecutiveStart := len(slots) - 1
-		consecutiveEnd := len(slots) - numConsecutive
-		page := lastPage
-		for i := consecutiveStart; i >= consecutiveEnd; i-- {
-			slots[i] = page
-			page -= 1
-		}
-		// The first slot is always the first page.
-		slots[0] = 1
-		// Fill in the remaining slots with either an exponentially changing or
-		// linearly changing number depending on which is more appropriate.
-		remainingSlots := slots[1:consecutiveEnd]
-		delta := numConsecutiveNeighbours + len(remainingSlots)
-		shift := 0
-		for i := 1; i < consecutiveEnd; i++ {
-			exponentialNum := currentPage - unit>>shift
-			linearNum := currentPage - delta
-			if exponentialNum < linearNum && exponentialNum > 1 {
-				slots[i] = exponentialNum
-			} else {
-				slots[i] = linearNum
-			}
-			shift += 1
-			delta -= 1
-		}
-	} else {
-		// If we reach here, it means the current page is directly in the
-		// center the slots. Fill in the consecutive band of numbers around the
-		// center, then fill in the remaining slots to the left and to the
-		// right.
-		consecutiveStart := len(slots)>>1 - numConsecutiveNeighbours
-		consecutiveEnd := len(slots)>>1 + numConsecutiveNeighbours
-		page := currentPage - numConsecutiveNeighbours
-		for i := consecutiveStart; i <= consecutiveEnd; i++ {
-			slots[i] = page
-			page += 1
-		}
-		// The first slot is always the first page.
-		slots[0] = 1
-		// The last slot is always the last page.
-		slots[len(slots)-1] = lastPage
-		// Fill in the remaining slots on the left with either an exponentially
-		// changing or linearly changing number depending on which is more
-		// appropriate.
-		remainingSlots := slots[1:consecutiveStart]
-		delta := numConsecutiveNeighbours + len(remainingSlots)
-		shift := 0
-		for i := 1; i < consecutiveStart; i++ {
-			exponentialNum := currentPage - unit>>shift
-			linearNum := currentPage - delta
-			if exponentialNum < linearNum && exponentialNum > 1 {
-				slots[i] = exponentialNum
-			} else {
-				slots[i] = linearNum
-			}
-			shift += 1
-			delta -= 1
-		}
-		// Fill in the remaining slots on the right with either an exponentially
-		// changing or linearly changing number depending on which is more
-		// appropriate.
-		remainingSlots = slots[consecutiveEnd+1 : len(slots)-1]
-		delta = numConsecutiveNeighbours + len(remainingSlots)
-		shift = 0
-		for i := len(slots) - 2; i >= consecutiveEnd+1; i-- {
-			exponentialNum := currentPage + unit>>shift
-			linearNum := currentPage + delta
-			if exponentialNum > linearNum && exponentialNum < lastPage {
-				slots[i] = exponentialNum
-			} else {
-				slots[i] = linearNum
-			}
-			shift += 1
-			delta -= 1
-		}
-	}
-	// Convert the page numbers in the slots to strings.
-	pagination.Numbers = make([]string, len(slots))
-	for i, num := range slots {
-		pagination.Numbers[i] = strconv.Itoa(num)
-	}
-	return pagination
-}
-
-func (p Pagination) All() []string {
-	lastPage, err := strconv.Atoi(p.Last)
-	if err != nil {
-		return nil
-	}
-	numbers := make([]string, 0, lastPage)
-	for page := 1; page <= lastPage; page++ {
-		numbers = append(numbers, strconv.Itoa(page))
-	}
-	return numbers
-}
-
 type Post struct {
 	// /{{ join "posts" $.Category $.Name }}/
 	Category         string
 	Name             string
 	Title            string
 	Preview          string
+	Content          template.HTML
 	CreationTime     time.Time
 	ModificationTime time.Time
 }
@@ -797,7 +618,7 @@ type PostListData struct {
 	Site       Site
 	Category   string
 	Pagination Pagination
-	PostList   []Post
+	Posts      []Post
 }
 
 func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category string) error {
@@ -858,7 +679,7 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 	//
 	// ID: tag:bokwoon.nbrew.io,yyyy-mm-dd:1jjdz28
 	postsPerPage := siteGen.postsPerPage[category]
-	if postsPerPage < 1 {
+	if postsPerPage <= 0 {
 		postsPerPage = 100
 	}
 
@@ -889,57 +710,236 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 	}
 	dirFiles = dirFiles[:n]
 
-	var counter atomic.Int32
-	lastPage := int(math.Ceil(float64(len(dirFiles)) / float64(postsPerPage)))
 	g1, ctx1 := errgroup.WithContext(ctx)
+	lastPage := int(math.Ceil(float64(len(dirFiles)) / float64(postsPerPage)))
 	for page := 1; page <= lastPage; page++ {
+		currentPage := page
+		g1.Go(func() error {
+			err := ctx1.Err()
+			if err != nil {
+				return err
+			}
+			start := (currentPage - 1) * postsPerPage
+			end := (currentPage * postsPerPage) - 1
+			if currentPage == lastPage {
+				end = len(dirFiles)
+			}
+			postListData := PostListData{
+				Site:       siteGen.site,
+				Category:   category,
+				Pagination: NewPagination(currentPage, lastPage, 9),
+				Posts:      make([]Post, (end-start)+1),
+			}
+			g2A, ctx2A := errgroup.WithContext(ctx1)
+			for i, dirFile := range dirFiles[start:end] {
+				i, dirFile := i, dirFile
+				g2A.Go(func() error {
+					err := ctx2A.Err()
+					if err != nil {
+						return err
+					}
+					file, err := dirFile.Open()
+					if err != nil {
+						return err
+					}
+					defer file.Close()
+					fileInfo, err := file.Stat()
+					if err != nil {
+						return err
+					}
+					post := Post{
+						Category:         postListData.Category,
+						Name:             strings.TrimSuffix(fileInfo.Name(), ".md"),
+						CreationTime:     creationTimes[start+i],
+						ModificationTime: fileInfo.ModTime(),
+					}
+					if currentPage == 1 {
+						buf := bufPool.Get().(*bytes.Buffer)
+						buf.Reset()
+						defer bufPool.Put(buf)
+						_, err := buf.ReadFrom(file)
+						if err != nil {
+							return err
+						}
+						var line []byte
+						remainder := buf.Bytes()
+						for len(remainder) > 0 {
+							line, remainder, _ = bytes.Cut(remainder, []byte("\n"))
+							line = bytes.TrimSpace(line)
+							if len(line) == 0 {
+								continue
+							}
+							if post.Title == "" {
+								post.Title = stripMarkdownStyles(line)
+								continue
+							}
+							if post.Preview == "" {
+								post.Preview = stripMarkdownStyles(line)
+								continue
+							}
+							break
+						}
+						var b strings.Builder
+						err = siteGen.markdown.Convert(buf.Bytes(), &b)
+						if err != nil {
+							return err
+						}
+						post.Content = template.HTML(b.String())
+					} else {
+						reader := readerPool.Get().(*bufio.Reader)
+						reader.Reset(file)
+						defer readerPool.Put(reader)
+						done := false
+						for !done {
+							line, err := reader.ReadSlice('\n')
+							if err != nil {
+								if err != io.EOF {
+									return err
+								}
+								done = true
+							}
+							line = bytes.TrimSpace(line)
+							if len(line) == 0 {
+								continue
+							}
+							if post.Title == "" {
+								post.Title = stripMarkdownStyles(line)
+								continue
+							}
+							if post.Preview == "" {
+								post.Preview = stripMarkdownStyles(line)
+								continue
+							}
+							break
+						}
+					}
+					postListData.Posts[i] = post
+					return nil
+				})
+			}
+			err = g2A.Wait()
+			if err != nil {
+				return err
+			}
+			g2B, ctx2B := errgroup.WithContext(ctx1)
+			if currentPage == 1 {
+				outputDir := path.Join(siteGen.sitePrefix, "output/posts", postListData.Category)
+				g2B.Go(func() error {
+					// TODO: render the Atom feed.
+					writer, err := siteGen.fsys.WithContext(ctx2B).OpenWriter(path.Join(outputDir, "atom.xml"), 0644)
+					if err != nil {
+						if !errors.Is(err, fs.ErrNotExist) {
+							return err
+						}
+						err := MkdirAll(siteGen.fsys.WithContext(ctx2B), outputDir, 0755)
+						if err != nil {
+							return err
+						}
+						writer, err = siteGen.fsys.WithContext(ctx2B).OpenWriter(path.Join(outputDir, "atom.xml"), 0644)
+						if err != nil {
+							return err
+						}
+					}
+					defer writer.Close()
+					return nil
+				})
+				g2B.Go(func() error {
+					// TODO: render the base page.
+					writer, err := siteGen.fsys.WithContext(ctx2B).OpenWriter(path.Join(outputDir, "index.html"), 0644)
+					if err != nil {
+						if !errors.Is(err, fs.ErrNotExist) {
+							return err
+						}
+						err := MkdirAll(siteGen.fsys.WithContext(ctx2B), outputDir, 0755)
+						if err != nil {
+							return err
+						}
+						writer, err = siteGen.fsys.WithContext(ctx2B).OpenWriter(path.Join(outputDir, "index.html"), 0644)
+						if err != nil {
+							return err
+						}
+					}
+					defer writer.Close()
+					if siteGen.gzipGeneratedContent {
+						gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
+						gzipWriter.Reset(writer)
+						defer gzipWriterPool.Put(gzipWriter)
+						err = siteGen.postList.Execute(gzipWriter, &postListData)
+						if err != nil {
+							return err
+						}
+						err = gzipWriter.Close()
+						if err != nil {
+							return err
+						}
+					} else {
+						err = siteGen.postList.Execute(writer, &postListData)
+						if err != nil {
+							return err
+						}
+					}
+					err = writer.Close()
+					if err != nil {
+						return err
+					}
+					return nil
+				})
+			}
+			if lastPage > 1 {
+				g2B.Go(func() error {
+					// TODO: render the postList template.
+					outputDir := path.Join(siteGen.sitePrefix, "output/posts", postListData.Category, strconv.Itoa(currentPage))
+					writer, err := siteGen.fsys.WithContext(ctx2B).OpenWriter(path.Join(outputDir, "index.html"), 0644)
+					if err != nil {
+						if !errors.Is(err, fs.ErrNotExist) {
+							return err
+						}
+						err := MkdirAll(siteGen.fsys.WithContext(ctx2B), outputDir, 0755)
+						if err != nil {
+							return err
+						}
+						writer, err = siteGen.fsys.WithContext(ctx2B).OpenWriter(path.Join(outputDir, "index.html"), 0644)
+						if err != nil {
+							return err
+						}
+					}
+					defer writer.Close()
+					if siteGen.gzipGeneratedContent {
+						gzipWriter := gzipWriterPool.Get().(*gzip.Writer)
+						gzipWriter.Reset(writer)
+						defer gzipWriterPool.Put(gzipWriter)
+						err = siteGen.postList.Execute(gzipWriter, &postListData)
+						if err != nil {
+							return err
+						}
+						err = gzipWriter.Close()
+						if err != nil {
+							return err
+						}
+					} else {
+						err = siteGen.postList.Execute(writer, &postListData)
+						if err != nil {
+							return err
+						}
+					}
+					err = writer.Close()
+					if err != nil {
+						return err
+					}
+					return nil
+				})
+			}
+			err = g2B.Wait()
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 	}
-
-	batch := make([]DirFile, 0, postsPerPage)
-	for _, dirFile := range dirFiles {
-		name := dirFile.Name()
-		prefix, _, ok := strings.Cut(name, "-")
-		if !ok || prefix == "" || len(prefix) > 8 {
-			continue
-		}
-		b, _ := base32Encoding.DecodeString(fmt.Sprintf("%08s", prefix))
-		if len(b) != 5 {
-			continue
-		}
-		var timestamp [8]byte
-		copy(timestamp[len(timestamp)-5:], b)
-		batch = append(batch, dirFile)
-		creationTimes = append(creationTimes, time.Unix(int64(binary.BigEndian.Uint64(timestamp[:])), 0))
-		if len(batch) >= postsPerPage {
-			currentPage := int(counter.Add(1))
-			g1.Go(func() error {
-				return siteGen.generatePostList(ctx1, currentPage, lastPage, batch, creationTimes)
-			})
-		}
+	err = g1.Wait()
+	if err != nil {
+		return err
 	}
-	// for len(remainder) > 0 {
-	// 	var batch []DirFile
-	// 	if len(remainder) >= postsPerPage {
-	// 		batch, remainder = remainder[:postsPerPage], remainder[postsPerPage:]
-	// 	} else {
-	// 		batch, remainder = remainder, remainder[:0]
-	// 	}
-	// 	currentPage := int(counter.Add(1))
-	// 	g1.Go(func() error {
-	// 		postListData := PostListData{
-	// 			Site:       siteGen.site,
-	// 			Category:   category,
-	// 			Pagination: NewPagination(currentPage, lastPage, 9),
-	// 		}
-	// 		for _, dirFile := range batch {
-	// 		}
-	// 		return nil
-	// 	})
-	// }
-	return nil
-}
-
-func (siteGen *SiteGenerator) generatePostList(ctx context.Context, currentPage, lastPage int, batch []DirFile, creationTimes []time.Time) error {
 	return nil
 }
 
@@ -1231,4 +1231,183 @@ type TemplateErrors map[string][]string
 func (e TemplateErrors) Error() string {
 	b, _ := json.MarshalIndent(e, "", "  ")
 	return fmt.Sprintf("the following templates have errors: %s", string(b))
+}
+
+type Pagination struct {
+	First    string
+	Previous string
+	Current  string
+	Next     string
+	Last     string
+	Numbers  []string
+}
+
+func NewPagination(currentPage, lastPage, visiblePages int) Pagination {
+	const numConsecutiveNeighbours = 2
+	if visiblePages%2 == 0 {
+		panic("even number of visiblePages")
+	}
+	minVisiblePages := (numConsecutiveNeighbours * 2) + 1
+	if visiblePages < minVisiblePages {
+		panic("visiblePages cannot be lower than " + strconv.Itoa(minVisiblePages))
+	}
+	pagination := Pagination{
+		First:   "1",
+		Current: strconv.Itoa(currentPage),
+		Last:    strconv.Itoa(lastPage),
+	}
+	previous := currentPage - 1
+	if previous >= 1 {
+		pagination.Previous = strconv.Itoa(previous)
+	}
+	next := currentPage + 1
+	if next <= lastPage {
+		pagination.Next = strconv.Itoa(next)
+	}
+	// If there are fewer pages than visible pages, iterate through all the
+	// page numbers.
+	if lastPage <= visiblePages {
+		pagination.Numbers = make([]string, 0, lastPage)
+		for page := 1; page <= lastPage; page++ {
+			pagination.Numbers = append(pagination.Numbers, strconv.Itoa(page))
+		}
+		return pagination
+	}
+	// Slots corresponds to the available slots in pagination.Numbers, storing
+	// the page numbers as integers. They will be converted to strings later.
+	slots := make([]int, visiblePages)
+	// A unit is a tenth of the maximum number of pages. The rationale is that
+	// users have to paginate at most 10 such units to get from start to end,
+	// no matter how many pages there are.
+	unit := lastPage / 10
+	if currentPage-1 < len(slots)>>1 {
+		// If there are fewer pages on the left than half of the slots, the
+		// current page will skew more towards the left. We fill in consecutive
+		// page numbers from left to right, then fill in the remaining slots.
+		numConsecutive := (currentPage - 1) + 1 + numConsecutiveNeighbours
+		consecutiveStart := 0
+		consecutiveEnd := numConsecutive - 1
+		page := 1
+		for i := consecutiveStart; i <= consecutiveEnd; i++ {
+			slots[i] = page
+			page += 1
+		}
+		// The last slot is always the last page.
+		slots[len(slots)-1] = lastPage
+		// Fill in the remaining slots with either an exponentially changing or
+		// linearly changing number depending on which is more appropriate.
+		remainingSlots := slots[consecutiveEnd+1 : len(slots)-1]
+		delta := numConsecutiveNeighbours + len(remainingSlots)
+		shift := 0
+		for i := len(slots) - 2; i >= consecutiveEnd+1; i-- {
+			exponentialNum := currentPage + unit>>shift
+			linearNum := currentPage + delta
+			if exponentialNum > linearNum && exponentialNum < lastPage {
+				slots[i] = exponentialNum
+			} else {
+				slots[i] = linearNum
+			}
+			shift += 1
+			delta -= 1
+		}
+	} else if lastPage-currentPage < len(slots)>>1 {
+		// If there are fewer pages on the right than half of the slots, the
+		// current page will skew more towards the right. We fill in
+		// consecutive page numbers from the right to left, then fill in the
+		// remaining slots.
+		numConsecutive := (lastPage - currentPage) + 1 + numConsecutiveNeighbours
+		consecutiveStart := len(slots) - 1
+		consecutiveEnd := len(slots) - numConsecutive
+		page := lastPage
+		for i := consecutiveStart; i >= consecutiveEnd; i-- {
+			slots[i] = page
+			page -= 1
+		}
+		// The first slot is always the first page.
+		slots[0] = 1
+		// Fill in the remaining slots with either an exponentially changing or
+		// linearly changing number depending on which is more appropriate.
+		remainingSlots := slots[1:consecutiveEnd]
+		delta := numConsecutiveNeighbours + len(remainingSlots)
+		shift := 0
+		for i := 1; i < consecutiveEnd; i++ {
+			exponentialNum := currentPage - unit>>shift
+			linearNum := currentPage - delta
+			if exponentialNum < linearNum && exponentialNum > 1 {
+				slots[i] = exponentialNum
+			} else {
+				slots[i] = linearNum
+			}
+			shift += 1
+			delta -= 1
+		}
+	} else {
+		// If we reach here, it means the current page is directly in the
+		// center the slots. Fill in the consecutive band of numbers around the
+		// center, then fill in the remaining slots to the left and to the
+		// right.
+		consecutiveStart := len(slots)>>1 - numConsecutiveNeighbours
+		consecutiveEnd := len(slots)>>1 + numConsecutiveNeighbours
+		page := currentPage - numConsecutiveNeighbours
+		for i := consecutiveStart; i <= consecutiveEnd; i++ {
+			slots[i] = page
+			page += 1
+		}
+		// The first slot is always the first page.
+		slots[0] = 1
+		// The last slot is always the last page.
+		slots[len(slots)-1] = lastPage
+		// Fill in the remaining slots on the left with either an exponentially
+		// changing or linearly changing number depending on which is more
+		// appropriate.
+		remainingSlots := slots[1:consecutiveStart]
+		delta := numConsecutiveNeighbours + len(remainingSlots)
+		shift := 0
+		for i := 1; i < consecutiveStart; i++ {
+			exponentialNum := currentPage - unit>>shift
+			linearNum := currentPage - delta
+			if exponentialNum < linearNum && exponentialNum > 1 {
+				slots[i] = exponentialNum
+			} else {
+				slots[i] = linearNum
+			}
+			shift += 1
+			delta -= 1
+		}
+		// Fill in the remaining slots on the right with either an exponentially
+		// changing or linearly changing number depending on which is more
+		// appropriate.
+		remainingSlots = slots[consecutiveEnd+1 : len(slots)-1]
+		delta = numConsecutiveNeighbours + len(remainingSlots)
+		shift = 0
+		for i := len(slots) - 2; i >= consecutiveEnd+1; i-- {
+			exponentialNum := currentPage + unit>>shift
+			linearNum := currentPage + delta
+			if exponentialNum > linearNum && exponentialNum < lastPage {
+				slots[i] = exponentialNum
+			} else {
+				slots[i] = linearNum
+			}
+			shift += 1
+			delta -= 1
+		}
+	}
+	// Convert the page numbers in the slots to strings.
+	pagination.Numbers = make([]string, len(slots))
+	for i, num := range slots {
+		pagination.Numbers[i] = strconv.Itoa(num)
+	}
+	return pagination
+}
+
+func (p Pagination) All() []string {
+	lastPage, err := strconv.Atoi(p.Last)
+	if err != nil {
+		return nil
+	}
+	numbers := make([]string, 0, lastPage)
+	for page := 1; page <= lastPage; page++ {
+		numbers = append(numbers, strconv.Itoa(page))
+	}
+	return numbers
 }
