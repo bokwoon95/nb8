@@ -23,6 +23,7 @@ https://simonhearne.com/2022/caching-header-best-practices/#irregular-updates-to
 - all dynamic html in /files/* is no-cache, must-revalidate (but with ETag)
 - all html files served on ContentDomain is also no-cache, must-revalidate because we want a nice editing experience for users on mobile. If you make a change to a html file, it should change accordingly on the content domain.
 - the piece de resistance is to implement some kind of internal traffic monitor such that if we notice the server is taking a lot of load, we start to issue max-age=86400 (24hr), stale-while-revalidate for assets and max-age=500 (5min), stale-while-revalidate for html files. But how to monitor server traffic in a performant way?
+TODO: instead of continuously monitoring a 503.html in configFS, just set it as an atomic boolean and have SIGHUP reload all config (means we need some kind of reload function we can call in main).
 
 TODO:
 Post updated (1 file regenerated in XXms). Regenerate post list? [ Regenerate List ]
