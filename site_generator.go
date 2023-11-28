@@ -54,7 +54,7 @@ type SiteGenerator struct {
 	postListOnce         sync.Once
 	gzipGeneratedContent bool
 	// TODO: eventually make these configurable
-	postsPerPage map[string]int // default 1000
+	postsPerPage map[string]int // default 100
 }
 
 type Site struct {
@@ -820,7 +820,7 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 		defer file.Close()
 		fileInfo, err := file.Stat()
 		if err != nil {
-			siteGen.postErr = err
+			siteGen.postListErr = err
 			return
 		}
 		if fileInfo.IsDir() {
@@ -890,10 +890,10 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 	dirFiles = dirFiles[:n]
 
 	var counter atomic.Int32
-	remainder := dirFiles
-	_ = remainder
 	lastPage := int(math.Ceil(float64(len(dirFiles)) / float64(postsPerPage)))
 	g1, ctx1 := errgroup.WithContext(ctx)
+	for page := 1; page <= lastPage; page++ {
+	}
 
 	batch := make([]DirFile, 0, postsPerPage)
 	for _, dirFile := range dirFiles {
