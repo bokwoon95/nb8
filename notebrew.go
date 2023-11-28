@@ -74,7 +74,9 @@ type Notebrew struct {
 
 	ContentDomain string // localhost:6444, example.com
 
-	Port string // 6444, 443
+	IsHTTPS bool
+
+	Port string // TODO: remove
 
 	GzipGeneratedContent atomic.Bool
 
