@@ -139,7 +139,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		switch segments[0] {
 		case "pages":
 			if len(segments) == 2 && segments[1] == "index.html" {
-				// (page) pages/index.html   => (assetDir) output
+				// (page) pages/index.html => (assetDir) output
 				response.AssetDir = "output"
 				pageURL = nbrew.liveContentURL(sitePrefix)
 			} else {
