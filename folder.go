@@ -264,16 +264,18 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		return
 	}
 
+	contentURL := nbrew.contentURL(sitePrefix)
 	funcMap := map[string]any{
 		"join":                  path.Join,
 		"base":                  path.Base,
 		"ext":                   path.Ext,
+		"hasPrefix":             strings.HasPrefix,
 		"trimPrefix":            strings.TrimPrefix,
 		"contains":              strings.Contains,
-		"liveContentURL":        nbrew.liveContentURL,
 		"fileSizeToString":      fileSizeToString,
 		"stylesCSS":             func() template.CSS { return template.CSS(stylesCSS) },
 		"folderJS":              func() template.JS { return template.JS(folderJS) },
+		"contentURL":            func() string { return contentURL },
 		"hasDatabase":           func() bool { return nbrew.DB != nil },
 		"referer":               func() string { return r.Referer() },
 		"safeHTML":              func(s string) template.HTML { return template.HTML(s) },

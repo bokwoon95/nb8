@@ -643,19 +643,20 @@ var fileTypes = map[string]FileType{
 	".xml":   {Ext: ".xml", ContentType: "application/xml", IsGzippable: true},
 }
 
-func (nbrew *Notebrew) liveContentURL(sitePrefix string) string {
+func (nbrew *Notebrew) contentURL(sitePrefix string) string {
 	if strings.Contains(sitePrefix, ".") {
 		return "https://" + sitePrefix
 	}
-	localhost := nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:")
-	if sitePrefix != "" {
-		if localhost {
+	// NOTE: if we're proxying localhost to the outside world, our domain *is
+	// not* localhost. It is whichever domain we are hosting the CMS on.
+	if nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:") {
+		if sitePrefix != "" {
 			return "http://" + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.Domain
 		}
-		return "https://" + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.ContentDomain
-	}
-	if localhost {
 		return "http://" + nbrew.Domain
+	}
+	if sitePrefix != "" {
+		return "https://" + strings.TrimPrefix(sitePrefix, "@") + "." + nbrew.ContentDomain
 	}
 	return "https://" + nbrew.ContentDomain
 }

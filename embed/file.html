@@ -13,7 +13,7 @@
 <nav class='mv2 bg-dark-cyan white flex flex-wrap items-center'>
   <a href='/files/' class='ma2 white'>🖋️☕ notebrew</a>
   &bull;
-  <a href='{{ liveContentURL $.SitePrefix }}' class='ma2 white'>{{ if contains $.SitePrefix "." }}{{ $.SitePrefix }}{{ else if $.SitePrefix }}{{ trimPrefix $.SitePrefix "@" }}.{{ $.ContentDomain }}{{ else }}{{ $.ContentDomain }}{{ end }}</a>
+  <a href='{{ contentURL }}' class='ma2 white'>{{ if hasPrefix contentURL "https://" }}{{ trimPrefix contentURL "https://" }}{{ else }}{{ trimPrefix contentURL "http://" }}{{ end }}</a>
   <span class='flex-grow-1'></span>
   {{- if hasDatabase }}
   <a href='' class='ma2'>{{ if $.Username }}@{{ $.Username }}{{ else }}user{{ end }}</a>

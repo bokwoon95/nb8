@@ -136,12 +136,13 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			response.Content = b.String()
 		}
 		var pageURL, postURL string
+		contentURL := nbrew.contentURL(sitePrefix)
 		switch segments[0] {
 		case "pages":
 			if len(segments) == 2 && segments[1] == "index.html" {
 				// (page) pages/index.html => (assetDir) output
 				response.AssetDir = "output"
-				pageURL = nbrew.liveContentURL(sitePrefix)
+				pageURL = contentURL
 			} else {
 				// (page) pages/foo.html     => (assetDir) output/foo
 				// (page) pages/foo/bar.html => (assetDir) output/foo/bar
@@ -150,7 +151,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				last := len(newSegments) - 1
 				newSegments[last] = strings.TrimSuffix(newSegments[last], ".html")
 				response.AssetDir = path.Join(newSegments...)
-				pageURL = nbrew.liveContentURL(sitePrefix) + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
+				pageURL = contentURL + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
 			}
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
 			if err != nil {
@@ -204,7 +205,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			last := len(newSegments) - 1
 			newSegments[last] = strings.TrimSuffix(newSegments[last], ".md")
 			response.AssetDir = path.Join(newSegments...)
-			postURL = nbrew.liveContentURL(sitePrefix) + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
+			postURL = contentURL + "/" + strings.TrimPrefix(response.AssetDir, "output/") + "/"
 			dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, response.AssetDir))
 			if err != nil {
 				if !errors.Is(err, fs.ErrNotExist) {
@@ -275,10 +276,10 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 			"hasPrefix":        strings.HasPrefix,
 			"trimPrefix":       strings.TrimPrefix,
 			"contains":         strings.Contains,
-			"liveContentURL":   nbrew.liveContentURL,
 			"fileSizeToString": fileSizeToString,
 			"stylesCSS":        func() template.CSS { return template.CSS(stylesCSS) },
 			"baselineJS":       func() template.JS { return template.JS(baselineJS) },
+			"contentURL":       func() string { return contentURL },
 			"hasDatabase":      func() bool { return nbrew.DB != nil },
 			"referer":          func() string { return r.Referer() },
 			"safeHTML":         func(s string) template.HTML { return template.HTML(s) },
