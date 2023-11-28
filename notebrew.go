@@ -526,6 +526,12 @@ var bytesPool = sync.Pool{
 	},
 }
 
+var readerPool = sync.Pool{
+	New: func() any {
+		return bufio.NewReaderSize(nil, 512)
+	},
+}
+
 func executeTemplate(w http.ResponseWriter, r *http.Request, modtime time.Time, tmpl *template.Template, data any) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()

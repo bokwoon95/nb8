@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/bokwoon95/sq"
@@ -25,12 +24,6 @@ import (
 	"github.com/klauspost/cpuid/v2"
 	"github.com/mholt/acmez"
 )
-
-var readerPool = sync.Pool{
-	New: func() any {
-		return bufio.NewReaderSize(nil, 512)
-	},
-}
 
 type ServerConfig struct {
 	Addr        string
