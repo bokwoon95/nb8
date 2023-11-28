@@ -13,7 +13,6 @@ resetpassword.go
 server.go
 notebrew/main.go
 
-TODO: file.go pageURL function should stop using nbrew.ContentDomain and use liveContentURL instead
 TODO: regenerate site/regenerate folder/regenerate list
 TODO: rework/add contentDomain template function to all admin pages which either displays the real content domain (if the domain is a non-localhost domain) or just the empty string (if the domain is localhost or has the prefix localhost:)
 TODO: folder.go: rework all posts without a timestamp prefix to be ignored. This means posts will always be guaranteed to have a CreatedAt field.
