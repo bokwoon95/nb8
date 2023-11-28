@@ -40,26 +40,39 @@
 {{- end }}
 <div class='dashed-border mv2 pa2 br2 flex items-center'>
   <div class='flex-grow-1 truncate'><a href=''>5 items copied</a>: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div>
-  <div class='ml2'><button type='button' class='button ba br2 pv2 ph4 w-100'>Paste</button></div>
-  <div class='ml2'><button type='button' class='button-danger ba br2 b--dark-red pv2 ph4 w-100'>Clear</button></div>
+  <div class='ml2'><button type='button' class='button ba br2 pv2 ph2'>Paste</button></div>
+  <div class='ml2'><button type='button' class='button-danger ba br2 b--dark-red pv2 ph2'>Clear</button></div>
 </div>
 <div class='mv2 flex flex-wrap items-center'>
   <div class='flex-grow-1'></div>
   <div class='flex items-center'>
     <details class='relative ml2' data-autoclose-details>
       <summary role='button' title='Misc' class='pointer flex items-center button ba br2 b--black ph2 h2 hide-marker' data-disable-click-selection>
-        {{ template "heroicons-ellipsis-horizontal" }}
+        {{ template "octicons-gear" }}
         {{ template "octicons-triangle-down" }}
       </summary>
       <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
         <div class='ma2 tr'><a href='' class='nowrap'>Settings</a></div>
         {{- if eq (head $.Path) "posts" }}
         <div class='ma2 tr'><a href='' class='nowrap'>View</a></div>
-        <div class='ma2 tr'><button type='button' class='button ba br2 pv2 ph4 nowrap'>Regenerate</button></div>
+        <div class='ma2 tr'><button type='button' class='button ba br2 pa2'>Regenerate</button></div>
         {{- end }}
       </div>
     </details>
   </div>
+  {{- if not $.Path }}
+  <div class='flex items-center'>
+    <details class='relative ml2' data-autoclose-details>
+      <summary role='button' title='Misc' class='pointer flex items-center button ba br2 b--black ph2 h2 hide-marker' data-disable-click-selection>
+        {{ template "octicons-sync" }}
+        {{ template "octicons-triangle-down" }}
+      </summary>
+      <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
+        <div class='ma2 tr'><button type='button' class='button ba br2 pa2 nowrap'>Regenerate Site</button></div>
+      </div>
+    </details>
+  </div>
+  {{- end }}
   {{- if and $.Path (ne (head $.Path) "output") }}
   <div class='flex items-center'>
     <details class='relative ml2' data-autoclose-details>
@@ -287,9 +300,9 @@
           </summary>
           <div class='absolute bg-white br2' style='top: calc(2rem + 4px); right: 0px; z-index: 1000; border: 1px solid black;'>
             <div class='ma2 tc'><a href=''>Rename</a></div>
-            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pv2 ph4 w-100'>Cut</button></div>
-            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pv2 ph4 w-100'>Copy</button></div>
-            <div class='ma2'><button type='submit' formaction='/{{ join "files" $.SitePrefix "delete" }}/' name='name' value='{{ $fileEntry.Name }}' class='button-danger ba br2 b--dark-red pv2 ph4 w-100'>Delete</button></div>
+            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Cut</button></div>
+            <div class='ma2'><button type='submit' name='name' value='{{ $fileEntry.Name }}' class='button ba br2 pa2 w-100'>Copy</button></div>
+            <div class='ma2'><button type='submit' formaction='/{{ join "files" $.SitePrefix "delete" }}/' name='name' value='{{ $fileEntry.Name }}' class='button-danger ba br2 b--dark-red pa2 w-100'>Delete</button></div>
           </div>
         </details>
         {{- end }}
