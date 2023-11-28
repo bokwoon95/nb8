@@ -473,7 +473,7 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 		}
 
 		// Prepare the post template.
-		post, err := siteGen.parseTemplate(ctx, "/themes/post.html", b.String(), nil)
+		post, err := siteGen.parseTemplate(ctx, "/themes/post.html", b.String(), []string{"/themes/post.html"})
 		if err != nil {
 			siteGen.postErr = err
 			return
@@ -679,7 +679,7 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 		}
 
 		// Prepare the postList list template.
-		postList, err := siteGen.parseTemplate(ctx, "/themes/post-list.html", b.String(), nil)
+		postList, err := siteGen.parseTemplate(ctx, "/themes/post-list.html", b.String(), []string{"/themes/post-list.html"})
 		if err != nil {
 			siteGen.postListErr = err
 			return
