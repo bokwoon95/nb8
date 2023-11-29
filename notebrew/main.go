@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bokwoon95/nb8"
+	"github.com/bokwoon95/nb8/notebrewcli"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -387,6 +388,11 @@ func main() {
 			}
 		}
 
+		// TODO:
+		// go install github.com/notebrew/notebrew/notebrew
+		// irm github.com/notebrew/notebrew/install.cmd | iex
+		// curl github.com/notebrew/notebrew/install.sh | sh
+
 		args := flagset.Args()
 		if len(args) > 0 {
 			command, args := args[0], args[1:]
@@ -398,7 +404,7 @@ func main() {
 			}
 		}
 
-		server, err := NewServer(nbrew, configfolder, addr)
+		server, err := notebrewcli.NewServer(nbrew, configfolder, addr)
 		if err != nil {
 			return err
 		}
