@@ -705,20 +705,22 @@ func main() {
 			}()
 			open("http://" + nbrew.Domain + "/files/")
 		} else {
-			go http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != "GET" && r.Method != "HEAD" {
-					http.Error(w, "Use HTTPS", http.StatusBadRequest)
-					return
-				}
-				host, _, err := net.SplitHostPort(r.Host)
-				if err != nil {
-					host = r.Host
-				} else {
-					host = net.JoinHostPort(host, "443")
-				}
-				http.Redirect(w, r, "https://"+host+r.URL.RequestURI(), http.StatusFound)
-			}))
 			fmt.Printf(startmsg, server.Addr)
+			if server.Addr == ":443" {
+				go http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.Method != "GET" && r.Method != "HEAD" {
+						http.Error(w, "Use HTTPS", http.StatusBadRequest)
+						return
+					}
+					host, _, err := net.SplitHostPort(r.Host)
+					if err != nil {
+						host = r.Host
+					} else {
+						host = net.JoinHostPort(host, "443")
+					}
+					http.Redirect(w, r, "https://"+host+r.URL.RequestURI(), http.StatusFound)
+				}))
+			}
 			go func() {
 				err := server.ServeTLS(listener, "", "")
 				if !errors.Is(err, http.ErrServerClosed) {

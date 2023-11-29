@@ -246,7 +246,3 @@ func (parser *TemplateParser) parse(templateName, templateText string, callers [
 	}
 	return finalTemplate.Lookup(templateName), nil
 }
-
-func (nbrew *Notebrew) Regenerate(ctx context.Context, sitePrefix string, dir string, names ...string) error {
-	return nil
-}
