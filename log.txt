@@ -19,15 +19,6 @@ TODO: we might be able to lift (*Notebrew).NewServer out of server.go entirely a
     NOTE: what is considered reloadable? We can bypass adding atomic bools to *Notebrew by checking if a specific file exists in ConfigFS instead. That we we always get reloadable behaviour by simply placing and removing a file from the directory. Only users visiting the /files/* and /users/* subpath will be affected by this 503.html file lookup, static files are always served as usual. And we read GzipGeneratedContent from another file as well gzipgeneratedcontent.txt?
 
 TODO: regenerate site/regenerate folder/regenerate list
-TODO: folder.go: rework all posts without a timestamp prefix to be ignored. This means posts will always be guaranteed to have a CreatedAt field.
-
-TODO: we can cache certain assets more aggressively than others.
-https://simonhearne.com/2022/caching-header-best-practices/#irregular-updates-to-unversioned-assets
-- everything in static can be cached for like, a month
-- all dynamic html in /files/* is no-cache, must-revalidate (but with ETag)
-- all html files served on ContentDomain is also no-cache, must-revalidate because we want a nice editing experience for users on mobile. If you make a change to a html file, it should change accordingly on the content domain.
-- the piece de resistance is to implement some kind of internal traffic monitor such that if we notice the server is taking a lot of load, we start to issue max-age=86400 (24hr), stale-while-revalidate for assets and max-age=500 (5min), stale-while-revalidate for html files. But how to monitor server traffic in a performant way?
-TODO: instead of continuously monitoring a 503.html in configFS, just set it as an atomic boolean and have SIGHUP reload all config (means we need some kind of reload function we can call in main).
 
 TODO:
 Post updated (1 file regenerated in XXms). Regenerate post list? [ Regenerate List ]

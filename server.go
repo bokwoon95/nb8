@@ -233,9 +233,11 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Host == nbrew.Domain {
 		switch strings.Trim(r.URL.Path, "/") {
 		case "app.webmanifest":
+			w.Header().Add("Cache-Control", "max-age: 2592000, stale-while-revalidate" /* 1 month */)
 			serveFile(w, r, rootFS, "static/app.webmanifest")
 			return
 		case "apple-touch-icon.png":
+			w.Header().Add("Cache-Control", "max-age: 2592000, stale-while-revalidate" /* 1 month */)
 			serveFile(w, r, rootFS, "static/icons/apple-touch-icon.png")
 			return
 		}
@@ -602,6 +604,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Encoding", "gzip")
 	}
 	w.Header().Set("Content-Type", fileType.ContentType)
+	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 	w.Header().Set("ETag", `"`+hex.EncodeToString(hasher.Sum(*b))+`"`)
 	http.ServeContent(w, r, "", modTime, bytes.NewReader(buf.Bytes()))
 }
