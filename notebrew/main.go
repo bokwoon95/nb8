@@ -502,33 +502,7 @@ func main() {
 
 		wait := make(chan os.Signal, 1)
 		signal.Notify(wait, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-		if nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:") {
-			fmt.Printf(startmsg, "http://"+nbrew.Domain+"/files/")
-			go func() {
-				err := server.Serve(listener)
-				if !errors.Is(err, http.ErrServerClosed) {
-					fmt.Println(err)
-					close(wait)
-				}
-			}()
-			open("http://" + nbrew.Domain + "/files/")
-		} else {
-			fmt.Printf(startmsg, server.Addr)
-			if server.Addr == ":443" {
-				go http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					if r.Method != "GET" && r.Method != "HEAD" {
-						http.Error(w, "Use HTTPS", http.StatusBadRequest)
-						return
-					}
-					host, _, err := net.SplitHostPort(r.Host)
-					if err != nil {
-						host = r.Host
-					} else {
-						host = net.JoinHostPort(host, "443")
-					}
-					http.Redirect(w, r, "https://"+host+r.URL.RequestURI(), http.StatusFound)
-				}))
-			}
+		if server.Addr == ":443" {
 			go func() {
 				err := server.ServeTLS(listener, "", "")
 				if !errors.Is(err, http.ErrServerClosed) {
@@ -536,6 +510,32 @@ func main() {
 					close(wait)
 				}
 			}()
+			go http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != "GET" && r.Method != "HEAD" {
+					http.Error(w, "Use HTTPS", http.StatusBadRequest)
+					return
+				}
+				host, _, err := net.SplitHostPort(r.Host)
+				if err != nil {
+					host = r.Host
+				} else {
+					host = net.JoinHostPort(host, "443")
+				}
+				http.Redirect(w, r, "https://"+host+r.URL.RequestURI(), http.StatusFound)
+			}))
+			fmt.Printf(startmsg, server.Addr)
+		} else {
+			go func() {
+				err := server.Serve(listener)
+				if !errors.Is(err, http.ErrServerClosed) {
+					fmt.Println(err)
+					close(wait)
+				}
+			}()
+			if nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:") {
+				fmt.Printf(startmsg, "http://"+nbrew.Domain+"/files/")
+				open("http://" + nbrew.Domain + "/files/")
+			}
 		}
 		<-wait
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
