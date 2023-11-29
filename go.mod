@@ -10,6 +10,7 @@ require (
 	github.com/bokwoon95/sq v0.4.4
 	github.com/bokwoon95/sqddl v0.4.6
 	github.com/caddyserver/certmagic v0.19.2
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/jackc/pgconn v1.14.0
 	github.com/jackc/pgx/v5 v5.4.3

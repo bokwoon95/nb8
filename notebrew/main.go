@@ -29,6 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bokwoon95/nb8"
 	"github.com/bokwoon95/nb8/notebrewcli"
+	"github.com/fsnotify/fsnotify"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -388,6 +389,63 @@ func main() {
 			}
 		}
 
+		reloadOnChange := map[string]func(nbrew *nb8.Notebrew, configfolder string) error{
+			"gzipgeneratedcontent.txt": func(nbrew *nb8.Notebrew, configfolder string) error {
+				b, err := os.ReadFile(filepath.Join(configfolder, "gzipgeneratedcontent.txt"))
+				if err != nil {
+					if errors.Is(err, fs.ErrNotExist) {
+						return nil
+					}
+					return fmt.Errorf("%s: %w", filepath.Join(configfolder, "files.txt"), err)
+				}
+				gzipGeneratedContent, err := strconv.ParseBool(string(b))
+				if err != nil {
+					return err
+				}
+				nbrew.GzipGeneratedContent.Store(gzipGeneratedContent)
+				return nil
+			},
+		}
+		for name, reload := range reloadOnChange {
+			err := reload(nbrew, configfolder)
+			if err != nil {
+				return fmt.Errorf("%s: %w", filepath.Join(configfolder, name), err)
+			}
+		}
+
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			return err
+		}
+		defer watcher.Close()
+		err = watcher.Add(configfolder)
+		if err != nil {
+			return err
+		}
+		timer := time.NewTimer(0)
+		timer.Stop()
+		go func() {
+			for {
+				select {
+				case err := <-watcher.Errors:
+					fmt.Println(err)
+				case event := <-watcher.Events:
+					if event.Op == fsnotify.Chmod {
+						continue
+					}
+					timer.Reset(500 * time.Millisecond)
+				case <-timer.C:
+					timestamp := time.Now().UTC().Format("2006-01-02 15:04:05Z")
+					for name, reload := range reloadOnChange {
+						err := reload(nbrew, configfolder)
+						if err != nil {
+							fmt.Printf("%s: error reloading %s: %s", timestamp, filepath.Join(configfolder, name), err)
+						}
+					}
+				}
+			}
+		}()
+
 		// TODO:
 		// go install github.com/notebrew/notebrew/notebrew
 		// irm github.com/notebrew/notebrew/install.cmd | iex
@@ -423,8 +481,8 @@ func main() {
 			// To avoid importing an entire 3rd party library just to use a constant.
 			const WSAEADDRINUSE = syscall.Errno(10048)
 			if errno == syscall.EADDRINUSE || runtime.GOOS == "windows" && errno == WSAEADDRINUSE {
-				if server.Addr == "localhost" || strings.HasPrefix(server.Addr, "localhost:") {
-					fmt.Println("notebrew is already running on http://" + server.Addr + "/files/")
+				if nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:") {
+					fmt.Println("notebrew is already running on http://" + nbrew.Domain + "/files/")
 					open("http://" + server.Addr + "/files/")
 					return nil
 				}
@@ -437,16 +495,16 @@ func main() {
 		// Swallow SIGHUP so that we can keep running even when the (SSH)
 		// session ends (the user should use `notebrew stop` to stop the
 		// process).
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGHUP)
-		go func() {
-			for {
-				<-ch
-			}
-		}()
+		// ch := make(chan os.Signal, 1)
+		// signal.Notify(ch, syscall.SIGHUP)
+		// go func() {
+		// 	for {
+		// 		<-ch
+		// 	}
+		// }()
 
 		wait := make(chan os.Signal, 1)
-		signal.Notify(wait, syscall.SIGINT, syscall.SIGTERM)
+		signal.Notify(wait, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 		if nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:") {
 			fmt.Printf(startmsg, "http://"+nbrew.Domain+"/files/")
 			go func() {
