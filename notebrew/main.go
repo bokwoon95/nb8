@@ -104,6 +104,10 @@ func main() {
 				return err
 			}
 		}
+		configfolder, err = filepath.Abs(filepath.FromSlash(configfolder))
+		if err != nil {
+			return err
+		}
 		nbrew := &nb8.Notebrew{}
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{AddSource: true}))
 		nbrew.Logger.Store(&logger)
@@ -283,6 +287,12 @@ func main() {
 			if err != nil {
 				return err
 			}
+			defer func() {
+				if nbrew.Dialect == "sqlite" {
+					nbrew.DB.Exec("PRAGMA analysis_limit(400); PRAGMA optimize;")
+				}
+				nbrew.DB.Close()
+			}()
 		}
 
 		b, err = os.ReadFile(filepath.Join(configfolder, "files.txt"))
@@ -387,7 +397,6 @@ func main() {
 			}
 		}
 
-		defer nbrew.Close()
 		args := flagset.Args()
 		if len(args) > 0 {
 			command, args := args[0], args[1:]

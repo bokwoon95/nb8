@@ -220,16 +220,6 @@ func (nbrew *Notebrew) clearSession(w http.ResponseWriter, r *http.Request, name
 	}
 }
 
-func (nbrew *Notebrew) Close() error {
-	if nbrew.DB == nil {
-		return nil
-	}
-	if nbrew.Dialect == "sqlite" {
-		nbrew.DB.Exec("PRAGMA analysis_limit(400); PRAGMA optimize;")
-	}
-	return nbrew.DB.Close()
-}
-
 func getAuthenticationTokenHash(r *http.Request) []byte {
 	var str string
 	header := r.Header.Get("Authorization")
