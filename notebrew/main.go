@@ -478,8 +478,8 @@ func main() {
 			// To avoid importing an entire 3rd party library just to use a constant.
 			const WSAEADDRINUSE = syscall.Errno(10048)
 			if errno == syscall.EADDRINUSE || runtime.GOOS == "windows" && errno == WSAEADDRINUSE {
-				if nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:") {
-					fmt.Println("notebrew is already running on http://" + nbrew.Domain + "/files/")
+				if server.Addr == "localhost" || strings.HasPrefix(server.Addr, "localhost:") {
+					fmt.Println("notebrew is already running on http://" + server.Addr + "/files/")
 					open("http://" + server.Addr + "/files/")
 					return nil
 				}
