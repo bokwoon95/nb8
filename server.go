@@ -268,7 +268,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		urlPath := tail
 		head, tail, _ := strings.Cut(urlPath, "/")
 		if head == "static" {
-			w.Header().Add("Cache-Control", "max-age: 2592000, stale-while-revalidate" /* 1 month */)
+			w.Header().Add("Cache-Control", "max-age: 31536000, stale-while-revalidate" /* 1 year */)
 			serveFile(w, r, rootFS, urlPath)
 			return
 		}
