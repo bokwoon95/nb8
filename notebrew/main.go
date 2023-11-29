@@ -398,10 +398,7 @@ func main() {
 					}
 					return err
 				}
-				gzipGeneratedContent, err := strconv.ParseBool(string(b))
-				if err != nil {
-					return err
-				}
+				gzipGeneratedContent, _ := strconv.ParseBool(string(b))
 				nbrew.GzipGeneratedContent.Store(gzipGeneratedContent)
 				return nil
 			},
