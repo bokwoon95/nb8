@@ -396,7 +396,7 @@ func main() {
 					if errors.Is(err, fs.ErrNotExist) {
 						return nil
 					}
-					return fmt.Errorf("%s: %w", filepath.Join(configfolder, "files.txt"), err)
+					return err
 				}
 				gzipGeneratedContent, err := strconv.ParseBool(string(b))
 				if err != nil {
