@@ -419,9 +419,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer hashPool.Put(hasher)
 
 	// NOTE: we may eventually encounter clients that don't understand gzip,
-	// e.g. RSS client applications that cannot unzip the gzipped atom feed. Do
-	// we care about them? All browsers accept gzip so gzipped index.html files
-	// should be fine.
+	// e.g. RSS client applications that cannot read a gzipped atom.xml. Do we
+	// care about them? All browsers accept gzip so index.html should be fine.
 
 	// Gzip the file data into a buffer and hasher to calulate its ETag hash.
 	// If the file cannot be gzipped or is already gzipped, skip the gzipping
