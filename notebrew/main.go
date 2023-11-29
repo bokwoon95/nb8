@@ -483,6 +483,7 @@ func main() {
 					open("http://" + server.Addr + "/files/")
 					return nil
 				}
+				// TODO: don't assume notebrew is already running, in this path SIGHUP will end the process so the server is unlikely to be running
 				fmt.Println("notebrew is already running (run `notebrew stop` to stop the process)")
 				return nil
 			}
