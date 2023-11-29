@@ -105,8 +105,6 @@ func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
 	} else {
 		domain = config.ContentDomain
 	}
-	if config.SitePrefix != "" {
-	}
 	siteGen := &SiteGenerator{
 		domain:     domain,
 		fsys:       config.FS,
