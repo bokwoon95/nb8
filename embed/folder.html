@@ -280,10 +280,6 @@
             <span class='ma1 f6 mid-gray'>{{ fileSizeToString $fileEntry.Size }}</span>
             {{- end }}
           </div>
-          {{- if and (not $fileEntry.IsDir) (or (eq (head $.Path) "notes") (eq (head $.Path) "posts")) }}
-          <div class='mh1 b'>{{ if $fileEntry.Title }}{{ $fileEntry.Title }}{{ else }}Untitled{{ end }}</div>
-          <div class='ma1 mid-gray truncate f6'>{{ if $fileEntry.Preview }}{{ $fileEntry.Preview }}{{ else }}No additional text{{ end }}</div>
-          {{- end }}
         </div>
         <div class='flex-grow-1'></div>
         {{- if not $readOnly }}

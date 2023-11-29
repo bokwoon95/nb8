@@ -1,8 +1,6 @@
 package nb8
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"html/template"
@@ -25,8 +23,6 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		IsDir   bool      `json:"isDir,omitempty"`
 		IsSite  bool      `json:"isSite,omitempty"`
 		IsUser  bool      `json:"isUser,omitempty"`
-		Title   string    `json:"title,omitempty"`
-		Preview string    `json:"preview,omitempty"`
 		Size    int64     `json:"size,omitempty"`
 		ModTime time.Time `json:"modTime,omitempty"`
 	}
@@ -175,7 +171,12 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 			}
 		}
 	} else {
-		dirEntries, err := nbrew.FS.ReadDir(path.Join(".", sitePrefix, folderPath))
+		head, _, _ := strings.Cut(folderPath, "/")
+		if head != "notes" && head != "pages" && head != "posts" && head != "output" {
+			notFound(w, r)
+			return
+		}
+		dirEntries, err := nbrew.FS.ReadDir(path.Join(sitePrefix, folderPath))
 		if err != nil {
 			getLogger(r.Context()).Error(err.Error())
 			internalServerError(w, r, err)
@@ -194,60 +195,38 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 				Size:    fileInfo.Size(),
 				ModTime: fileInfo.ModTime(),
 			}
-			if fileEntry.IsDir {
-				response.FileEntries = append(response.FileEntries, fileEntry)
-				continue
-			}
 			ext := path.Ext(fileEntry.Name)
-			head, _, _ := strings.Cut(folderPath, "/")
-			// TODO: we're being more judicial here. notes and themes and
-			// output can show whatever is inside as long as it's a directory
-			// or a permitted file type, whereas pages can only show .html
-			// files and posts can only show .md files.
 			switch head {
-			case "notes", "posts":
-				if ext != ".md" && ext != ".txt" {
+			case "notes", "output":
+				if fileEntry.IsDir {
 					response.FileEntries = append(response.FileEntries, fileEntry)
 					continue
 				}
-				file, err := nbrew.FS.Open(path.Join(sitePrefix, folderPath, fileEntry.Name))
-				if err != nil {
-					getLogger(r.Context()).Error(err.Error(), slog.String("name", fileEntry.Name))
-					internalServerError(w, r, err)
-					return
-				}
-				reader := bufio.NewReader(file)
-				done := false
-				for {
-					if done {
-						break
-					}
-					line, err := reader.ReadBytes('\n')
-					if err != nil {
-						done = true
-					}
-					line = bytes.TrimSpace(line)
-					if len(line) == 0 {
-						continue
-					}
-					if fileEntry.Title == "" {
-						fileEntry.Title = stripMarkdownStyles(line)
-						continue
-					}
-					if fileEntry.Preview == "" {
-						fileEntry.Preview = stripMarkdownStyles(line)
-						continue
-					}
-					break
+				fileType := fileTypes[ext]
+				if !strings.HasPrefix(fileType.ContentType, "text") && !strings.HasPrefix(fileType.ContentType, "image") {
+					continue
 				}
 				response.FileEntries = append(response.FileEntries, fileEntry)
-				err = file.Close()
-				if err != nil {
-					getLogger(r.Context()).Error(err.Error(), slog.String("name", fileEntry.Name))
-					internalServerError(w, r, err)
-					return
+			case "pages":
+				if fileEntry.IsDir {
+					response.FileEntries = append(response.FileEntries, fileEntry)
+					continue
 				}
-			default:
+				if ext != ".html" {
+					continue
+				}
+				response.FileEntries = append(response.FileEntries, fileEntry)
+			case "posts":
+				if fileEntry.IsDir {
+					if strings.Contains(folderPath, "/") {
+						continue
+					}
+					response.FileEntries = append(response.FileEntries, fileEntry)
+					continue
+				}
+				if ext != ".md" {
+					continue
+				}
 				response.FileEntries = append(response.FileEntries, fileEntry)
 			}
 		}
@@ -317,6 +296,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		internalServerError(w, r, err)
 		return
 	}
+	// https://cdn.{{ $.ContentDomain }}/{{ join $.SitePrefix $.Parent $.Name }}
 	contentSecurityPolicy(w, "", false)
 	executeTemplate(w, r, fileInfo.ModTime(), tmpl, &response)
 }
