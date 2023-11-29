@@ -5,11 +5,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"hash"
 	"io"
 	"io/fs"
@@ -21,158 +19,7 @@ import (
 
 	"github.com/bokwoon95/sq"
 	"github.com/caddyserver/certmagic"
-	"github.com/klauspost/cpuid/v2"
-	"github.com/mholt/acmez"
 )
-
-type ServerConfig struct {
-	Addr        string
-	DNS01Solver acmez.Solver
-	CertStorage certmagic.Storage
-}
-
-func (nbrew *Notebrew) NewServer(config *ServerConfig) (*http.Server, error) {
-	if nbrew.Domain == "" {
-		return nil, fmt.Errorf("Domain cannot be empty")
-	}
-	if nbrew.ContentDomain == "" {
-		return nil, fmt.Errorf("ContentDomain cannot be empty")
-	}
-	server := &http.Server{
-		Addr:    config.Addr,
-		Handler: nbrew,
-	}
-	if config.Addr != ":443" {
-		return server, nil
-	}
-	server.ReadTimeout = 60 * time.Second
-	server.WriteTimeout = 60 * time.Second
-	server.IdleTimeout = 120 * time.Second
-	var domains []string
-	if nbrew.Domain == nbrew.ContentDomain {
-		domains = []string{
-			nbrew.Domain,
-			"www." + nbrew.Domain,
-			"cdn." + nbrew.Domain,
-			"assets." + nbrew.Domain, // TODO: still need assets subdomain?
-		}
-	} else {
-		domains = []string{
-			nbrew.Domain,
-			nbrew.ContentDomain,
-			"www." + nbrew.Domain,
-			"www." + nbrew.ContentDomain,
-			"cdn." + nbrew.ContentDomain,
-			"assets." + nbrew.ContentDomain, // TODO: still need assets subdomain?
-		}
-	}
-	if config.DNS01Solver != nil {
-		domains = append(domains, "*."+nbrew.ContentDomain)
-	}
-	// staticCertConfig manages the certificate for the main domain, content domain
-	// and wildcard subdomain.
-	staticCertConfig := certmagic.NewDefault()
-	staticCertConfig.Storage = config.CertStorage
-	staticCertConfig.Issuers = []certmagic.Issuer{
-		// Create a new ACME issuer with the dns01Solver because this cert
-		// config potentially has to issue wildcard certificates which only the
-		// DNS-01 challenge solver is capable of.
-		certmagic.NewACMEIssuer(staticCertConfig, certmagic.ACMEIssuer{
-			CA:          certmagic.DefaultACME.CA,
-			TestCA:      certmagic.DefaultACME.TestCA,
-			Logger:      certmagic.DefaultACME.Logger,
-			HTTPProxy:   certmagic.DefaultACME.HTTPProxy,
-			DNS01Solver: config.DNS01Solver,
-		}),
-	}
-	fmt.Printf("notebrew static domains: %v\n", strings.Join(domains, ", "))
-	err := staticCertConfig.ManageSync(context.Background(), domains)
-	if err != nil {
-		return nil, err
-	}
-	// dynamicCertConfig manages the certificates for custom domains.
-	//
-	// If dns01Solver hasn't been configured, dynamicCertConfig will also be
-	// responsible for getting the certificates for subdomains. This approach
-	// will not scale and may end up getting rate limited Let's Encrypt (50
-	// certificates per week, a certificate lasts for 3 months). The safest way
-	// to avoid being rate limited is to configure dns01Solver so that the
-	// wildcard certificate is available.
-	dynamicCertConfig := certmagic.NewDefault()
-	dynamicCertConfig.Storage = config.CertStorage
-	dynamicCertConfig.OnDemand = &certmagic.OnDemandConfig{
-		DecisionFunc: func(name string) error {
-			if certmagic.MatchWildcard(name, "*."+nbrew.ContentDomain) {
-				return nil
-			}
-			fileInfo, err := fs.Stat(nbrew.FS, name)
-			if err != nil {
-				return err
-			}
-			if !fileInfo.IsDir() {
-				return fmt.Errorf("%q is not a directory", name)
-			}
-			if nbrew.DB == nil {
-				return fmt.Errorf("database is nil")
-			}
-			exists, err := sq.FetchExists(nbrew.DB, sq.CustomQuery{
-				Dialect: nbrew.Dialect,
-				Format:  "SELECT 1 FROM site WHERE site_name = {name}",
-				Values: []any{
-					sq.StringParam("name", name),
-				},
-			})
-			if err != nil {
-				return err
-			}
-			if !exists {
-				return fmt.Errorf("%q does not exist in site table", name)
-			}
-			return nil
-		},
-	}
-	// Copied from (*certmagic.Config).TLSConfig(). I don't know what any of
-	// this means.
-	server.TLSConfig = &tls.Config{
-		NextProtos: []string{"h2", "http/1.1", "acme-tls/1"},
-		GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			if clientHello.ServerName == "" {
-				return nil, fmt.Errorf("clientHello.ServerName is empty")
-			}
-			for _, domain := range domains {
-				if certmagic.MatchWildcard(clientHello.ServerName, domain) {
-					return staticCertConfig.GetCertificate(clientHello)
-				}
-			}
-			return dynamicCertConfig.GetCertificate(clientHello)
-		},
-		MinVersion: tls.VersionTLS12,
-		CurvePreferences: []tls.CurveID{
-			tls.X25519,
-			tls.CurveP256,
-		},
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		},
-		PreferServerCipherSuites: true,
-	}
-	if cpuid.CPU.Supports(cpuid.AESNI) {
-		server.TLSConfig.CipherSuites = []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-		}
-	}
-	return server, nil
-}
 
 func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Redirect the www subdomain to the bare domain.
@@ -346,9 +193,13 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 				// If the current sitePrefix is empty, the user needs access to
 				// the following URL paths unconditionally:
-				// - "" (needed to switch between their sites)
-				// - createsite (needed to create a new site)
-				// - deletesite (needed to delete their sites)
+				//
+				// 1. <empty> (needed to switch between their sites)
+				//
+				// 2. createsite (needed to create a new site)
+				//
+				// 3. deletesite (needed to delete their sites)
+				//
 				// If not any of the three, then notAuthorized.
 				if urlPath != "" && urlPath != "createsite" && urlPath != "deletesite" {
 					notAuthorized(w, r)
@@ -497,8 +348,8 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			nbrew.site404(w, r, sitePrefix)
 			return
 		}
-		// The file may be gzipped (to save space). Peek the first 512 bytes
-		// and check if it is gzipped.
+		// The file may have been gzipped (to save space). Peek the first 512
+		// bytes and check if it is gzipped.
 		reader := readerPool.Get().(*bufio.Reader)
 		reader.Reset(file)
 		defer readerPool.Put(reader)
