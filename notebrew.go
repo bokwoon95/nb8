@@ -69,13 +69,13 @@ type Notebrew struct {
 
 	ContentDomain string // localhost:6444, example.com
 
-	GzipGeneratedContent atomic.Bool
-
-	Proxies map[netip.Addr]struct{}
-
-	ProxyForwardedIPHeader map[netip.Addr]string
-
 	Logger *slog.Logger
+
+	Proxies map[netip.Addr]struct{} // TODO: fill it in in main
+
+	ProxyForwardedIPHeader map[netip.Addr]string // TODO: fill it in in main
+
+	GzipGeneratedContent atomic.Bool // TODO: fill it in in main, also make it reloadable
 }
 
 func (nbrew *Notebrew) xdomain() {
