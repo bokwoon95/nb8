@@ -101,11 +101,10 @@ func main() {
 				return err
 			}
 		}
-		nbrew := &nb8.Notebrew{
-			Logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-				AddSource: true,
-			})),
-		}
+		nbrew := &nb8.Notebrew{}
+		nbrew.Logger.Store(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource: true,
+		})))
 
 		b, err := os.ReadFile(filepath.Join(configfolder, "port.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {

@@ -200,7 +200,7 @@ func (nbrew *Notebrew) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add request method, url and ip to the logger.
-	logger := nbrew.Logger
+	logger := nbrew.Logger.Load()
 	if logger == nil {
 		logger = slog.Default()
 	}

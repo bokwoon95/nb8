@@ -49,9 +49,6 @@ var rootFS fs.FS = embedFS
 type Notebrew struct {
 	// FS is the file system associated with the notebrew instance.
 	FS FS
-	// NOTE: now that we no longer have a New() function, it is up to the
-	// callers to prep the initial folders: notes, output, output/images,
-	// output/themes, pages, posts.
 
 	// DB is the DB associated with the notebrew instance.
 	DB *sql.DB
@@ -69,23 +66,13 @@ type Notebrew struct {
 
 	ContentDomain string // localhost:6444, example.com
 
-	Logger *slog.Logger
-
 	Proxies map[netip.Addr]struct{} // TODO: fill it in in main
 
 	ProxyForwardedIPHeader map[netip.Addr]string // TODO: fill it in in main
 
+	Logger atomic.Pointer[slog.Logger] // TODO: make it reloadable?
+
 	GzipGeneratedContent atomic.Bool // TODO: fill it in in main, also make it reloadable
-}
-
-func (nbrew *Notebrew) xdomain() {
-	// notebrew config domain
-	// notebrew config contentdomain
-	// notebrew config port
-	// if port is 1234 and domain is localhost:1234,
-}
-
-func (nbrew *Notebrew) xcontentdomain() {
 }
 
 type contextKey struct{}
