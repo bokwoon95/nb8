@@ -432,6 +432,18 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 	if strings.Contains(postData.Category, "/") {
 		return fmt.Errorf("%s is not a valid post (too deep inside a directory, maximum 1 level)", name)
 	}
+	// Obtain the creation time from the timestamp prefix.
+	prefix, _, ok := strings.Cut(name, "-")
+	if !ok || len(prefix) == 0 || len(prefix) > 8 {
+		return fmt.Errorf("%s is not a valid post, missing timestamp prefix", name)
+	}
+	b, _ := base32Encoding.DecodeString(fmt.Sprintf("%08s", prefix))
+	if len(b) != 5 {
+		return fmt.Errorf("%s is not a valid post, %s is not a timestamp prefix", name, prefix)
+	}
+	var timestamp [8]byte
+	copy(timestamp[len(timestamp)-5:], b)
+	postData.CreationTime = time.Unix(int64(binary.BigEndian.Uint64(timestamp[:])), 0)
 
 	siteGen.postOnce.Do(func() {
 		// Open the post template file and read its contents.
@@ -540,16 +552,6 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 		}
 		// ModificationTime
 		postData.ModificationTime = fileInfo.ModTime()
-		// CreationTime
-		prefix, _, ok := strings.Cut(name, "-")
-		if ok && len(prefix) > 0 && len(prefix) <= 8 {
-			b, _ := base32Encoding.DecodeString(fmt.Sprintf("%08s", prefix))
-			if len(b) == 5 {
-				var timestamp [8]byte
-				copy(timestamp[len(timestamp)-5:], b)
-				postData.CreationTime = time.Unix(int64(binary.BigEndian.Uint64(timestamp[:])), 0)
-			}
-		}
 		// Title
 		var line []byte
 		remainder := buf.Bytes()

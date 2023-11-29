@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -29,10 +30,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bokwoon95/nb8"
+	"github.com/bokwoon95/sq"
 	"github.com/caddyserver/certmagic"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/klauspost/cpuid/v2"
 	"github.com/libdns/cloudflare"
 	"github.com/libdns/godaddy"
 	"github.com/libdns/namecheap"
@@ -102,9 +105,8 @@ func main() {
 			}
 		}
 		nbrew := &nb8.Notebrew{}
-		nbrew.Logger.Store(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-			AddSource: true,
-		})))
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{AddSource: true}))
+		nbrew.Logger.Store(&logger)
 
 		b, err := os.ReadFile(filepath.Join(configfolder, "port.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -397,133 +399,261 @@ func main() {
 			}
 		}
 
-		var dns01Solver acmez.Solver
-		b, err = os.ReadFile(filepath.Join(configfolder, "dns.json"))
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configfolder, "dns.json"), err)
+		// Create a new server (this step will provision the HTTPS
+		// certificates, if it fails an error will be returned).
+		var server *http.Server
+		server, err = nbrew.NewServer(&nb8.ServerConfig{Addr: addr})
+		if err != nil {
+			return err
 		}
-		b = bytes.TrimSpace(b)
-		if len(b) > 0 {
-			var dnsConfig struct {
-				Provider  string `json:"provider,omitempty"`
-				Username  string `json:"username,omitempty"`
-				APIKey    string `json:"apiKey,omitempty"`
-				APIToken  string `json:"apiToken,omitempty"`
-				SecretKey string `json:"secretKey,omitempty"`
+		server = &http.Server{
+			Addr:    addr,
+			Handler: nbrew,
+		}
+		if server.Addr == ":443" {
+			server.ReadTimeout = 60 * time.Second
+			server.WriteTimeout = 60 * time.Second
+			server.IdleTimeout = 120 * time.Second
+			var domains []string
+			if nbrew.Domain == nbrew.ContentDomain {
+				domains = []string{
+					nbrew.Domain,
+					"www." + nbrew.Domain,
+					"cdn." + nbrew.Domain,
+				}
+			} else {
+				domains = []string{
+					nbrew.Domain,
+					nbrew.ContentDomain,
+					"www." + nbrew.Domain,
+					"www." + nbrew.ContentDomain,
+					"cdn." + nbrew.ContentDomain,
+				}
 			}
-			decoder := json.NewDecoder(bytes.NewReader(b))
-			decoder.DisallowUnknownFields()
-			err := decoder.Decode(&dnsConfig)
-			if err != nil {
+
+			var dns01Solver acmez.Solver
+			b, err = os.ReadFile(filepath.Join(configfolder, "dns.json"))
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return fmt.Errorf("%s: %w", filepath.Join(configfolder, "dns.json"), err)
 			}
-			switch dnsConfig.Provider {
-			case "namecheap":
-				if dnsConfig.Username == "" {
-					return fmt.Errorf("%s: namecheap: missing username field", filepath.Join(configfolder, "dns.json"))
+			b = bytes.TrimSpace(b)
+			if len(b) > 0 {
+				var dnsConfig struct {
+					Provider  string `json:"provider,omitempty"`
+					Username  string `json:"username,omitempty"`
+					APIKey    string `json:"apiKey,omitempty"`
+					APIToken  string `json:"apiToken,omitempty"`
+					SecretKey string `json:"secretKey,omitempty"`
 				}
-				if dnsConfig.APIKey == "" {
-					return fmt.Errorf("%s: namecheap: missing apiKey field", filepath.Join(configfolder, "dns.json"))
-				}
-				resp, err := http.Get("https://ipv4.icanhazip.com")
+				decoder := json.NewDecoder(bytes.NewReader(b))
+				decoder.DisallowUnknownFields()
+				err := decoder.Decode(&dnsConfig)
 				if err != nil {
-					return fmt.Errorf("determining the IP address of this machine by calling https://ipv4.icanhazip.com: %w", err)
+					return fmt.Errorf("%s: %w", filepath.Join(configfolder, "dns.json"), err)
 				}
-				defer resp.Body.Close()
-				var b strings.Builder
-				_, err = io.Copy(&b, resp.Body)
-				if err != nil {
-					return fmt.Errorf("https://ipv4.icanhazip.com: reading response body: %w", err)
+				switch dnsConfig.Provider {
+				case "namecheap":
+					if dnsConfig.Username == "" {
+						return fmt.Errorf("%s: namecheap: missing username field", filepath.Join(configfolder, "dns.json"))
+					}
+					if dnsConfig.APIKey == "" {
+						return fmt.Errorf("%s: namecheap: missing apiKey field", filepath.Join(configfolder, "dns.json"))
+					}
+					resp, err := http.Get("https://ipv4.icanhazip.com")
+					if err != nil {
+						return fmt.Errorf("determining the IP address of this machine by calling https://ipv4.icanhazip.com: %w", err)
+					}
+					defer resp.Body.Close()
+					var b strings.Builder
+					_, err = io.Copy(&b, resp.Body)
+					if err != nil {
+						return fmt.Errorf("https://ipv4.icanhazip.com: reading response body: %w", err)
+					}
+					err = resp.Body.Close()
+					if err != nil {
+						return err
+					}
+					clientIP := strings.TrimSpace(b.String())
+					ip, err := netip.ParseAddr(clientIP)
+					if err != nil {
+						return fmt.Errorf("could not determine IP address of the current machine: https://ipv4.icanhazip.com returned %q which is not an IP address", clientIP)
+					}
+					if !ip.Is4() {
+						return fmt.Errorf("the current machine's IP address (%s) is not IPv4: an IPv4 address is needed to integrate with namecheap's API", clientIP)
+					}
+					dns01Solver = &certmagic.DNS01Solver{
+						DNSProvider: &namecheap.Provider{
+							APIKey:      dnsConfig.APIKey,
+							User:        dnsConfig.Username,
+							APIEndpoint: "https://api.namecheap.com/xml.response",
+							ClientIP:    clientIP,
+						},
+					}
+				case "cloudflare":
+					if dnsConfig.APIToken == "" {
+						return fmt.Errorf("%s: cloudflare: missing apiToken field", filepath.Join(configfolder, "dns.json"))
+					}
+					dns01Solver = &certmagic.DNS01Solver{
+						DNSProvider: &cloudflare.Provider{
+							APIToken: dnsConfig.APIToken,
+						},
+					}
+				case "porkbun":
+					if dnsConfig.APIKey == "" {
+						return fmt.Errorf("%s: porkbun: missing apiKey field", filepath.Join(configfolder, "dns.json"))
+					}
+					if dnsConfig.SecretKey == "" {
+						return fmt.Errorf("%s: porkbun: missing secretKey field", filepath.Join(configfolder, "dns.json"))
+					}
+					dns01Solver = &certmagic.DNS01Solver{
+						DNSProvider: &porkbun.Provider{
+							APIKey:       dnsConfig.APIKey,
+							APISecretKey: dnsConfig.SecretKey,
+						},
+					}
+				case "godaddy":
+					if dnsConfig.APIToken == "" {
+						return fmt.Errorf("%s: godaddy: missing apiToken field", filepath.Join(configfolder, "dns.json"))
+					}
+					dns01Solver = &certmagic.DNS01Solver{
+						DNSProvider: &godaddy.Provider{
+							APIToken: dnsConfig.APIToken,
+						},
+					}
+				case "":
+					return fmt.Errorf("%s: missing provider field", filepath.Join(configfolder, "dns.json"))
+				default:
+					return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configfolder, "dns.json"), dnsConfig.Provider)
 				}
-				err = resp.Body.Close()
+			}
+
+			b, err = os.ReadFile(filepath.Join(configfolder, "certmagic.txt"))
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return fmt.Errorf("%s: %w", filepath.Join(configfolder, "certmagic.txt"), err)
+			}
+			certfolder := string(bytes.TrimSpace(b))
+			if certfolder == "" {
+				certfolder = filepath.Join(configfolder, "certmagic")
+				err := os.MkdirAll(certfolder, 0755)
 				if err != nil {
 					return err
 				}
-				clientIP := strings.TrimSpace(b.String())
-				ip, err := netip.ParseAddr(clientIP)
+			} else {
+				certfolder = filepath.Clean(certfolder)
+				_, err := os.Stat(certfolder)
 				if err != nil {
-					return fmt.Errorf("could not determine IP address of the current machine: https://ipv4.icanhazip.com returned %q which is not an IP address", clientIP)
+					return err
 				}
-				if !ip.Is4() {
-					return fmt.Errorf("the current machine's IP address (%s) is not IPv4: an IPv4 address is needed to integrate with namecheap's API", clientIP)
-				}
-				dns01Solver = &certmagic.DNS01Solver{
-					DNSProvider: &namecheap.Provider{
-						APIKey:      dnsConfig.APIKey,
-						User:        dnsConfig.Username,
-						APIEndpoint: "https://api.namecheap.com/xml.response",
-						ClientIP:    clientIP,
-					},
-				}
-			case "cloudflare":
-				if dnsConfig.APIToken == "" {
-					return fmt.Errorf("%s: cloudflare: missing apiToken field", filepath.Join(configfolder, "dns.json"))
-				}
-				dns01Solver = &certmagic.DNS01Solver{
-					DNSProvider: &cloudflare.Provider{
-						APIToken: dnsConfig.APIToken,
-					},
-				}
-			case "porkbun":
-				if dnsConfig.APIKey == "" {
-					return fmt.Errorf("%s: porkbun: missing apiKey field", filepath.Join(configfolder, "dns.json"))
-				}
-				if dnsConfig.SecretKey == "" {
-					return fmt.Errorf("%s: porkbun: missing secretKey field", filepath.Join(configfolder, "dns.json"))
-				}
-				dns01Solver = &certmagic.DNS01Solver{
-					DNSProvider: &porkbun.Provider{
-						APIKey:       dnsConfig.APIKey,
-						APISecretKey: dnsConfig.SecretKey,
-					},
-				}
-			case "godaddy":
-				if dnsConfig.APIToken == "" {
-					return fmt.Errorf("%s: godaddy: missing apiToken field", filepath.Join(configfolder, "dns.json"))
-				}
-				dns01Solver = &certmagic.DNS01Solver{
-					DNSProvider: &godaddy.Provider{
-						APIToken: dnsConfig.APIToken,
-					},
-				}
-			case "":
-				return fmt.Errorf("%s: missing provider field", filepath.Join(configfolder, "dns.json"))
-			default:
-				return fmt.Errorf("%s: unsupported provider %q (possible values: namecheap, cloudflare, porkbun, godaddy)", filepath.Join(configfolder, "dns.json"), dnsConfig.Provider)
 			}
-		}
+			certStorage := &certmagic.FileStorage{
+				Path: certfolder,
+			}
 
-		b, err = os.ReadFile(filepath.Join(configfolder, "certmagic.txt"))
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("%s: %w", filepath.Join(configfolder, "certmagic.txt"), err)
-		}
-		certfolder := string(bytes.TrimSpace(b))
-		if certfolder == "" {
-			certfolder = filepath.Join(configfolder, "certmagic")
-			err := os.MkdirAll(certfolder, 0755)
+			// staticCertConfig manages the certificate for the main domain, content domain
+			// and wildcard subdomain.
+			staticCertConfig := certmagic.NewDefault()
+			staticCertConfig.Storage = certStorage
+			staticCertConfig.Issuers = []certmagic.Issuer{
+				// Create a new ACME issuer with the dns01Solver because this cert
+				// config potentially has to issue wildcard certificates which only the
+				// DNS-01 challenge solver is capable of.
+				certmagic.NewACMEIssuer(staticCertConfig, certmagic.ACMEIssuer{
+					CA:          certmagic.DefaultACME.CA,
+					TestCA:      certmagic.DefaultACME.TestCA,
+					Logger:      certmagic.DefaultACME.Logger,
+					HTTPProxy:   certmagic.DefaultACME.HTTPProxy,
+					DNS01Solver: dns01Solver,
+				}),
+			}
+			if dns01Solver != nil {
+				domains = append(domains, "*."+nbrew.ContentDomain)
+			}
+			fmt.Printf("notebrew static domains: %v\n", strings.Join(domains, ", "))
+			err := staticCertConfig.ManageSync(context.Background(), domains)
 			if err != nil {
 				return err
 			}
-		} else {
-			certfolder = filepath.Clean(certfolder)
-			_, err := os.Stat(certfolder)
-			if err != nil {
-				return err
-			}
-		}
-		certStorage := &certmagic.FileStorage{
-			Path: certfolder,
-		}
 
-		// Create a new server (this step will provision the HTTPS
-		// certificates, if it fails an error will be returned).
-		server, err := nbrew.NewServer(&nb8.ServerConfig{
-			Addr:        addr,
-			DNS01Solver: dns01Solver,
-			CertStorage: certStorage,
-		})
-		if err != nil {
-			return err
+			// dynamicCertConfig manages the certificates for custom domains.
+			//
+			// If dns01Solver hasn't been configured, dynamicCertConfig will
+			// also be responsible for getting the certificates for subdomains.
+			// This approach will not scale and might end up getting rate
+			// limited by Let's Encrypt (50 certificates per week). The safest
+			// way to avoid being rate limited is to configure dns01Solver so
+			// that the wildcard certificate is available.
+			dynamicCertConfig := certmagic.NewDefault()
+			dynamicCertConfig.Storage = certStorage
+			dynamicCertConfig.OnDemand = &certmagic.OnDemandConfig{
+				DecisionFunc: func(name string) error {
+					if certmagic.MatchWildcard(name, "*."+nbrew.ContentDomain) {
+						return nil
+					}
+					fileInfo, err := fs.Stat(nbrew.FS, name)
+					if err != nil {
+						return err
+					}
+					if !fileInfo.IsDir() {
+						return fmt.Errorf("%q is not a directory", name)
+					}
+					if nbrew.DB == nil {
+						return fmt.Errorf("database is nil")
+					}
+					exists, err := sq.FetchExists(nbrew.DB, sq.CustomQuery{
+						Dialect: nbrew.Dialect,
+						Format:  "SELECT 1 FROM site WHERE site_name = {name}",
+						Values: []any{
+							sq.StringParam("name", name),
+						},
+					})
+					if err != nil {
+						return err
+					}
+					if !exists {
+						return fmt.Errorf("%q does not exist in site table", name)
+					}
+					return nil
+				},
+			}
+
+			server.TLSConfig = &tls.Config{
+				NextProtos: []string{"h2", "http/1.1", "acme-tls/1"},
+				GetCertificate: func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+					if clientHello.ServerName == "" {
+						return nil, fmt.Errorf("clientHello.ServerName is empty")
+					}
+					for _, domain := range domains {
+						if certmagic.MatchWildcard(clientHello.ServerName, domain) {
+							return staticCertConfig.GetCertificate(clientHello)
+						}
+					}
+					return dynamicCertConfig.GetCertificate(clientHello)
+				},
+				MinVersion: tls.VersionTLS12,
+				CurvePreferences: []tls.CurveID{
+					tls.X25519,
+					tls.CurveP256,
+				},
+				CipherSuites: []uint16{
+					tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				},
+				PreferServerCipherSuites: true,
+			}
+			if cpuid.CPU.Supports(cpuid.AESNI) {
+				server.TLSConfig.CipherSuites = []uint16{
+					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				}
+			}
 		}
 
 		// Manually acquire a listener instead of using the more convenient

@@ -23,7 +23,6 @@ require (
 	github.com/yuin/goldmark v1.4.13
 	github.com/yuin/goldmark-highlighting v0.0.0-20220208100518-594be1970594
 	golang.org/x/crypto v0.10.0
-	golang.org/x/net v0.11.0
 	golang.org/x/sync v0.3.0
 	modernc.org/sqlite v1.27.0
 )
@@ -56,6 +55,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/mod v0.11.0 // indirect
+	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
 	golang.org/x/tools v0.10.0 // indirect

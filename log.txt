@@ -13,9 +13,11 @@ resetpassword.go
 server.go
 notebrew/main.go
 
+TODO: I need to reorg main such that I can spin off a server in both `notebrew` and `notebrew start`.
 TODO: we might be able to lift (*Notebrew).NewServer out of server.go entirely and into main.go, since we're only ever going to call it once there and never again. So a *Notebrew struct by itself doesn't have to concern itself with how to implement automatic TLS, people importing notebrew don't automatically get certmagic as a dependency even if they're going to use their own certificates. *Notebrew only contains Domain and ContentDomain as a contract, Domain means the domain we are serving the CMS on and ContentDomain is the domain we are serving the site content on. We can replace the Port field with UseHTTPS instead, which determines whether cookies are secure and is set by the external code in main. We no longer have any way to detect if there are any read or write timeouts, which is a little troubling.
     TODO: we might be able to make a `notebrew` and a `notebrew start` command, the first of which respects SIGHUP and the second ignores SIGHUP (so it persists in the background and can be stopped with `notebrew stop`). Users on desktops will almost always use notebrew and the lifetime of the server is tightly coupled with the lifetime of the terminal window, which is what we want. Users on Linux servers should use `notebrew start` instead, which is not that hard to invoke.
     NOTE: what is considered reloadable? We can bypass adding atomic bools to *Notebrew by checking if a specific file exists in ConfigFS instead. That we we always get reloadable behaviour by simply placing and removing a file from the directory. Only users visiting the /files/* and /users/* subpath will be affected by this 503.html file lookup, static files are always served as usual. And we read GzipGeneratedContent from another file as well gzipgeneratedcontent.txt?
+
 TODO: regenerate site/regenerate folder/regenerate list
 TODO: folder.go: rework all posts without a timestamp prefix to be ignored. This means posts will always be guaranteed to have a CreatedAt field.
 TODO: folder.go: remove the title + preview from *all* notes and posts (I noticed I barely look at the summaries when I select in entry in Apple Notes). Keep things simple at first, we can introduce it again later.
