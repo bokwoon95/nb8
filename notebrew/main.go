@@ -102,18 +102,16 @@ func main() {
 			}
 		}
 		nbrew := &nb8.Notebrew{
-			ConfigFS: os.DirFS(configfolder),
 			Logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 				AddSource: true,
 			})),
 		}
 
-		var addr string
 		b, err := os.ReadFile(filepath.Join(configfolder, "port.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("%s: %w", filepath.Join(configfolder, "port.txt"), err)
 		}
-		nbrew.Port = string(bytes.TrimSpace(b))
+		port := string(bytes.TrimSpace(b))
 
 		b, err = os.ReadFile(filepath.Join(configfolder, "domain.txt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -121,21 +119,22 @@ func main() {
 		}
 		nbrew.Domain = string(bytes.TrimSpace(b))
 
-		if nbrew.Port != "" {
-			if nbrew.Port == "443" || nbrew.Port == "80" {
-				addr = ":" + nbrew.Port
-			} else {
-				addr = "localhost:" + nbrew.Port
-			}
+		var addr string
+		if port != "" {
 			if nbrew.Domain == "" {
-				nbrew.Domain = "localhost:" + nbrew.Port
+				nbrew.Domain = "localhost:" + port
+			}
+			if port == "443" || port == "80" {
+				addr = ":" + port
+			} else {
+				addr = "localhost:" + port
 			}
 		} else {
-			if nbrew.Domain != "" {
-				addr = ":443"
-			} else {
-				addr = "localhost:6444"
+			if nbrew.Domain == "" {
 				nbrew.Domain = "localhost:6444"
+				addr = "localhost:6444"
+			} else {
+				addr = ":443"
 			}
 		}
 

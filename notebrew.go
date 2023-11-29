@@ -45,13 +45,8 @@ var embedFS embed.FS
 
 var rootFS fs.FS = embedFS
 
-// trusted-proxies.txt: "", "", ""
-
 // Notebrew represents a notebrew instance.
 type Notebrew struct {
-	// ConfigFS is the where the configuration files are stored.
-	ConfigFS fs.FS
-
 	// FS is the file system associated with the notebrew instance.
 	FS FS
 	// NOTE: now that we no longer have a New() function, it is up to the
@@ -73,10 +68,6 @@ type Notebrew struct {
 	Domain string // localhost:6444, example.com
 
 	ContentDomain string // localhost:6444, example.com
-
-	IsHTTPS bool
-
-	Port string // TODO: remove
 
 	GzipGeneratedContent atomic.Bool
 
