@@ -94,7 +94,7 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 15<<20 /* 15MB */)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20 /* 1MB */)
 	switch r.Method {
 	case "GET":
 		err := r.ParseForm()

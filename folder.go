@@ -3,6 +3,7 @@ package nb8
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"log/slog"
@@ -41,7 +42,7 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 		methodNotAllowed(w, r)
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 2<<20 /* 2MB */)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20 /* 1MB */)
 	err := r.ParseForm()
 	if err != nil {
 		badRequest(w, r, err)
@@ -225,6 +226,14 @@ func (nbrew *Notebrew) folder(w http.ResponseWriter, r *http.Request, username, 
 					continue
 				}
 				if ext != ".md" {
+					continue
+				}
+				prefix, _, ok := strings.Cut(fileEntry.Name, "-")
+				if !ok || prefix == "" || len(prefix) > 8 {
+					continue
+				}
+				b, _ := base32Encoding.DecodeString(fmt.Sprintf("%08s", prefix))
+				if len(b) != 5 {
 					continue
 				}
 				response.FileEntries = append(response.FileEntries, fileEntry)

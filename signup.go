@@ -120,7 +120,7 @@ func (nbrew *Notebrew) signup(w http.ResponseWriter, r *http.Request, ip string)
 		return signupTokenHash, nil
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 2<<20 /* 2MB */)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20 /* 1MB */)
 	switch r.Method {
 	case "GET":
 		writeResponse := func(w http.ResponseWriter, r *http.Request, response Response) {
