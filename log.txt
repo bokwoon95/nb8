@@ -13,8 +13,6 @@ resetpassword.go
 server.go
 notebrew/main.go
 
-NOTE: what is considered reloadable? We can bypass adding atomic bools to *Notebrew by checking if a specific file exists in ConfigFS instead. That we we always get reloadable behaviour by simply placing and removing a file from the directory. Only users visiting the /files/* and /users/* subpath will be affected by this 503.html file lookup, static files are always served as usual. And we read GzipGeneratedContent from another file as well gzipgeneratedcontent.txt?
-
 TODO: regenerate site/regenerate folder/regenerate list
 
 TODO:
