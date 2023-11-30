@@ -1,4 +1,4 @@
-package notebrewcli
+package main
 
 type RegenerateCmd struct {
 }

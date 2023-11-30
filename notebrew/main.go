@@ -28,7 +28,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bokwoon95/nb8"
-	"github.com/bokwoon95/nb8/notebrewcli"
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgconn"
@@ -451,7 +450,6 @@ func main() {
 		args := flagset.Args()
 		if len(args) > 0 {
 			command, args := args[0], args[1:]
-			// TODO: cmd, err := notebrewcli.Command(args[0], args[1]...); err := cmd.Run()
 			_ = args
 			switch command {
 			default:
@@ -459,7 +457,7 @@ func main() {
 			}
 		}
 
-		server, err := notebrewcli.NewServer(nbrew, configfolder, addr)
+		server, err := NewServer(nbrew, configfolder, addr)
 		if err != nil {
 			return err
 		}
