@@ -161,6 +161,7 @@ type PageData struct {
 	ModificationTime time.Time
 }
 
+// TODO: GeneratePage(ctx context.Context, name string, content io.Reader, size int64, modificationTime time.Time)
 func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) error {
 	ext := path.Ext(name)
 	pageData := PageData{
@@ -177,6 +178,8 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 	// Open the page source file and read its contents.
 	file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "pages", name))
 	if err != nil {
+		// TODO: move this special case out of this function because it is now
+		// the caller's responsibility to provide the content.
 		// Special case: fall back to our built-in index.html if the user's
 		// index.html doesn't exist. For any other file name, we return the
 		// error as usual without falling back.
@@ -409,6 +412,7 @@ type PostData struct {
 	ModificationTime time.Time
 }
 
+// TODO: GeneratePost(ctx context.Context, source io.Reader, size int64, creationTime, modificationTime time.Time)
 func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) error {
 	ext := path.Ext(name)
 	postData := PostData{
@@ -632,6 +636,7 @@ type PostListData struct {
 	Posts      []Post
 }
 
+// TODO: GeneratePostList(ctx context.Context, category string, dirFiles []DirFile /* what to call this? TreeFile? FileEntry? "FileEntry is a unification of the fs.File interface and the fs.DirEntry interface" */)
 func (siteGen *SiteGenerator) GeneratePostList(ctx context.Context, category string) error {
 	// Chris Coyier OPML: https://chriscoyier.net/files/personal-developer-blogs.xml
 	siteGen.postListOnce.Do(func() {
