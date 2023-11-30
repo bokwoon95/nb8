@@ -638,7 +638,8 @@ type PostListData struct {
 	Posts      []Post
 }
 
-func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category string) error {
+func (siteGen *SiteGenerator) GeneratePostList(ctx context.Context, category string) error {
+	// Chris Coyier OPML: https://chriscoyier.net/files/personal-developer-blogs.xml
 	siteGen.postListOnce.Do(func() {
 		// Open the post list template file and read its contents.
 		file, err := siteGen.fsys.WithContext(ctx).Open(path.Join(siteGen.sitePrefix, "output/themes/post-list.html"))
@@ -689,11 +690,6 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 	if siteGen.postListErr != nil {
 		return siteGen.postListErr
 	}
-	// Chris Coyier OPML: https://chriscoyier.net/files/personal-developer-blogs.xml
-	// Everytime we generate the post list, we also generate feed.xml
-	// (Content-Type application/xml). feed.xml itself follows the same
-	// compression settings as index.html.
-	//
 	postsPerPage := siteGen.postsPerPage[category]
 	if postsPerPage <= 0 {
 		postsPerPage = 100
@@ -841,7 +837,6 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 			if currentPage == 1 {
 				outputDir := path.Join(siteGen.sitePrefix, "output/posts", postListData.Category)
 				g2B.Go(func() error {
-					// TODO: render the Atom feed.
 					feed := AtomFeed{
 						Xmlns:   "http://www.w3.org/2005/Atom",
 						ID:      "https://" + siteGen.domain,
@@ -924,7 +919,6 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 					return nil
 				})
 				g2B.Go(func() error {
-					// TODO: render the base page.
 					writer, err := siteGen.fsys.WithContext(ctx2B).OpenWriter(path.Join(outputDir, "index.html"), 0644)
 					if err != nil {
 						if !errors.Is(err, fs.ErrNotExist) {
@@ -967,7 +961,6 @@ func (siteGen *SiteGenerator) GeneratePostLists(ctx context.Context, category st
 			}
 			if lastPage > 1 {
 				g2B.Go(func() error {
-					// TODO: render the postList template.
 					outputDir := path.Join(siteGen.sitePrefix, "output/posts", postListData.Category, strconv.Itoa(currentPage))
 					writer, err := siteGen.fsys.WithContext(ctx2B).OpenWriter(path.Join(outputDir, "index.html"), 0644)
 					if err != nil {
@@ -1203,7 +1196,7 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 		}
 	}
 
-	mergedErrs := make(map[string][]string)
+	mergedErrs := make(TemplateErrors)
 	for i, err := range externalTemplateErrs {
 		switch err := err.(type) {
 		case nil:
@@ -1231,7 +1224,7 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 		mergedErrs[name] = append(mergedErrs[name], fmt.Sprintf("the following templates have errors: %s", strings.Join(nilTemplateNames, ", ")))
 	}
 	if len(mergedErrs) > 0 {
-		return nil, TemplateErrors(mergedErrs)
+		return nil, mergedErrs
 	}
 
 	finalTemplate := template.New(name).Funcs(funcMap)
