@@ -1115,22 +1115,22 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 				return nil
 			}
 
-			// We unconditionally put the cachedTemplate pointer into the
-			// templateCache first. This is to indicate that we have already
-			// seen this template. If parsing succeeds, we simply populate the
-			// template pointer (faster than writing to the templateCache map
-			// again). If we fail, the cachedTemplate pointer stays nil and
-			// should be treated as a signal by other goroutines that parsing
-			// this template has errors. Other goroutines are blocked from
-			// accessing the cachedTemplate pointer until the wait channel is
-			// closed by the defer function below (once this goroutine exits).
+			// We put a nil pointer into the templateCache first. This is to
+			// indicate that we have already seen this template. If parsing
+			// succeeds, we simply overwrite the cachedTemplate entry. If we
+			// fail, the cachedTemplate pointer stays nil and should be treated
+			// as a signal by other goroutines that parsing this template has
+			// errors. Other goroutines are blocked from accessing the
+			// cachedTemplate pointer until the wait channel is closed by the
+			// defer function below (once this goroutine exits).
 			wait = make(chan struct{})
 			siteGen.mu.Lock()
+			siteGen.templateCache[externalName] = nil
 			siteGen.templateInProgress[externalName] = wait
-			siteGen.templateCache[externalName] = cachedTemplate
 			siteGen.mu.Unlock()
 			defer func() {
 				siteGen.mu.Lock()
+				siteGen.templateCache[externalName] = cachedTemplate
 				delete(siteGen.templateInProgress, externalName)
 				close(wait)
 				siteGen.mu.Unlock()
@@ -1182,7 +1182,7 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 				return nil
 			}
 			externalTemplates[i] = externalTemplate
-			*cachedTemplate = *externalTemplate
+			cachedTemplate = externalTemplate
 			return nil
 		})
 	}
