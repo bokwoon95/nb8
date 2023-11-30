@@ -533,9 +533,9 @@ func main() {
 					close(wait)
 				}
 			}()
-			if nbrew.Domain == "localhost" || strings.HasPrefix(nbrew.Domain, "localhost:") {
-				fmt.Printf(startmsg, "http://"+nbrew.Domain+"/files/")
-				open("http://" + nbrew.Domain + "/files/")
+			if server.Addr == "localhost" || strings.HasPrefix(server.Addr, "localhost:") {
+				fmt.Printf(startmsg, "http://"+server.Addr+"/files/")
+				open("http://" + server.Addr + "/files/")
 			}
 		}
 		<-wait

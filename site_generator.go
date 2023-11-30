@@ -74,6 +74,7 @@ type SiteGeneratorConfig struct {
 	Lang                 string
 	CodeStyle            string
 	GzipGeneratedContent bool
+	PostPerPage          map[string]int
 }
 
 func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
