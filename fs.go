@@ -585,11 +585,6 @@ type RemoteFileWriter struct {
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
-	// Trying to make modTime more predictable by making it the very first
-	// thing we calculate after OpenWriter and truncating it to the nearest
-	// second. Anyone who calls time.Now() right before OpenWriter() will
-	// hopefully get the same time...?
-	modTime := time.Now().UTC().Truncate(time.Second)
 	err := fsys.ctx.Err()
 	if err != nil {
 		return nil, err
@@ -607,7 +602,7 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 		storage:  fsys.storage,
 		filePath: name,
 		perm:     perm,
-		modTime:  modTime,
+		modTime:  time.Now().UTC().Truncate(time.Second),
 	}
 	filePaths := []string{file.filePath}
 	parentDir := path.Dir(file.filePath)
@@ -899,7 +894,6 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 }
 
 func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
-	modTime := time.Now().UTC().Truncate(time.Second)
 	err := fsys.ctx.Err()
 	if err != nil {
 		return err
@@ -910,6 +904,7 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 	if name == "." {
 		return nil
 	}
+	modTime := time.Now().UTC().Truncate(time.Second)
 	parentDir := path.Dir(name)
 	if parentDir == "." {
 		_, err := sq.ExecContext(fsys.ctx, fsys.db, sq.CustomQuery{
@@ -963,7 +958,6 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 }
 
 func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
-	modTime := time.Now().UTC().Truncate(time.Second)
 	err := fsys.ctx.Err()
 	if err != nil {
 		return err
@@ -980,6 +974,7 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 	}
 	defer conn.Close()
 	// Insert the top level directory (no parent), ignoring duplicates.
+	modTime := time.Now().UTC().Truncate(time.Second)
 	segments := strings.Split(name, "/")
 	query := sq.CustomQuery{
 		Dialect: fsys.dialect,
@@ -1154,7 +1149,6 @@ func (fsys *RemoteFS) RemoveAll(name string) error {
 }
 
 func (fsys *RemoteFS) Rename(oldname, newname string) error {
-	modTime := sq.NewTimestamp(time.Now().UTC().Truncate(time.Second))
 	err := fsys.ctx.Err()
 	if err != nil {
 		return err
@@ -1165,6 +1159,7 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 	if !fs.ValidPath(newname) || strings.Contains(newname, "\\") {
 		return &fs.PathError{Op: "rename", Path: newname, Err: fs.ErrInvalid}
 	}
+	modTime := sq.NewTimestamp(time.Now().UTC().Truncate(time.Second))
 	tx, err := fsys.db.Begin()
 	if err != nil {
 		return err
