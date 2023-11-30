@@ -431,6 +431,9 @@ func (nbrew *Notebrew) file(w http.ResponseWriter, r *http.Request, username, si
 				internalServerError(w, r, err)
 				return
 			}
+			// ReadDir
+			// ReadTree
+			// ReadTreeFiles
 		}
 		response.Status = UpdateSuccess
 		writeResponse(w, r, response)

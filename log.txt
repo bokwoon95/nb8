@@ -13,6 +13,8 @@ resetpassword.go
 server.go
 notebrew/main.go
 
+go install github.com/bokwoon95/notebrew/notebrew
+
 TODO: regenerate site/regenerate folder/regenerate list
 
 TODO:

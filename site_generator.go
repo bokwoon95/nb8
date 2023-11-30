@@ -141,20 +141,17 @@ func NewSiteGenerator(config SiteGeneratorConfig) (*SiteGenerator, error) {
 }
 
 type Page struct {
-	// /{{ join $.Parent $.Name }}/
 	Parent string
 	Name   string
 	Title  string
 }
 
 type Image struct {
-	// /{{ join $.Parent $.Name }}/
 	Parent string
 	Name   string
 }
 
 type PageData struct {
-	// /{{ join $.Parent $.Name }}/
 	Site             Site
 	Parent           string
 	Name             string
@@ -402,7 +399,6 @@ func (siteGen *SiteGenerator) GeneratePage(ctx context.Context, name string) err
 }
 
 type PostData struct {
-	// /{{ join "posts" $.Category $.Name }}/
 	Site             Site
 	Category         string
 	Name             string
@@ -620,7 +616,6 @@ func (siteGen *SiteGenerator) GeneratePost(ctx context.Context, name string) err
 }
 
 type Post struct {
-	// /{{ join "posts" $.Category $.Name }}/
 	Category         string
 	Name             string
 	Title            string
@@ -631,8 +626,6 @@ type Post struct {
 }
 
 type PostListData struct {
-	// /{{ join "posts" $.Category }}/
-	// /{{ join "posts" $.Category $number }}/
 	Site       Site
 	Category   string
 	Pagination Pagination

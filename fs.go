@@ -577,6 +577,7 @@ type RemoteFileWriter struct {
 	filePath       string
 	perm           fs.FileMode
 	buf            *bytes.Buffer
+	modTime        time.Time
 	storageWriter  *io.PipeWriter
 	storageWritten int
 	storageResult  chan error
@@ -584,6 +585,11 @@ type RemoteFileWriter struct {
 }
 
 func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser, error) {
+	// Trying to make modTime more predictable by making it the very first
+	// thing we calculate after OpenWriter and truncating it to the nearest
+	// second. Anyone who calls time.Now() right before OpenWriter() will
+	// hopefully get the same time...?
+	modTime := time.Now().UTC().Truncate(time.Second)
 	err := fsys.ctx.Err()
 	if err != nil {
 		return nil, err
@@ -601,6 +607,7 @@ func (fsys *RemoteFS) OpenWriter(name string, perm fs.FileMode) (io.WriteCloser,
 		storage:  fsys.storage,
 		filePath: name,
 		perm:     perm,
+		modTime:  modTime,
 	}
 	filePaths := []string{file.filePath}
 	parentDir := path.Dir(file.filePath)
@@ -703,7 +710,7 @@ func (file *RemoteFileWriter) Close() error {
 					Format:  "UPDATE files SET text = {text}, data = NULL, size = NULL, mod_time = {modTime} WHERE file_id = {fileID}",
 					Values: []any{
 						sq.BytesParam("text", file.buf.Bytes()),
-						sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+						sq.Param("modTime", sq.NewTimestamp(file.modTime)),
 						sq.UUIDParam("fileID", file.fileID),
 					},
 				})
@@ -716,7 +723,7 @@ func (file *RemoteFileWriter) Close() error {
 					Format:  "UPDATE files SET text = NULL, data = {data}, size = NULL, mod_time = {modTime} WHERE file_id = {fileID}",
 					Values: []any{
 						sq.BytesParam("data", file.buf.Bytes()),
-						sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+						sq.Param("modTime", sq.NewTimestamp(file.modTime)),
 						sq.UUIDParam("fileID", file.fileID),
 					},
 				})
@@ -730,7 +737,7 @@ func (file *RemoteFileWriter) Close() error {
 				Format:  "UPDATE files SET text = NULL, data = NULL, size = {size}, mod_time = {modTime} WHERE file_id = {fileID}",
 				Values: []any{
 					sq.IntParam("size", file.storageWritten),
-					sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+					sq.Param("modTime", sq.NewTimestamp(file.modTime)),
 					sq.UUIDParam("fileID", file.fileID),
 				},
 			})
@@ -755,7 +762,7 @@ func (file *RemoteFileWriter) Close() error {
 					sq.StringParam("filePath", file.filePath),
 					sq.BoolParam("isDir", false),
 					sq.BytesParam("text", file.buf.Bytes()),
-					sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+					sq.Param("modTime", sq.NewTimestamp(file.modTime)),
 					sq.Param("perm", file.perm),
 				},
 			})
@@ -773,7 +780,7 @@ func (file *RemoteFileWriter) Close() error {
 					sq.StringParam("filePath", file.filePath),
 					sq.BoolParam("isDir", false),
 					sq.BytesParam("data", file.buf.Bytes()),
-					sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+					sq.Param("modTime", sq.NewTimestamp(file.modTime)),
 					sq.Param("perm", file.perm),
 				},
 			})
@@ -792,7 +799,7 @@ func (file *RemoteFileWriter) Close() error {
 				sq.StringParam("filePath", file.filePath),
 				sq.BoolParam("isDir", false),
 				sq.IntParam("size", file.storageWritten),
-				sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+				sq.Param("modTime", sq.NewTimestamp(file.modTime)),
 				sq.Param("perm", file.perm),
 			},
 		})
@@ -892,6 +899,7 @@ func (fsys *RemoteFS) ReadDir(name string) ([]fs.DirEntry, error) {
 }
 
 func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
+	modTime := time.Now().UTC().Truncate(time.Second)
 	err := fsys.ctx.Err()
 	if err != nil {
 		return err
@@ -912,7 +920,7 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 				sq.UUIDParam("fileID", NewID()),
 				sq.StringParam("filePath", name),
 				sq.BoolParam("isDir", true),
-				sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+				sq.Param("modTime", sq.NewTimestamp(modTime)),
 				sq.Param("perm", perm),
 			},
 		})
@@ -936,7 +944,7 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 				sq.StringParam("parentDir", parentDir),
 				sq.StringParam("filePath", name),
 				sq.BoolParam("isDir", true),
-				sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+				sq.Param("modTime", sq.NewTimestamp(modTime)),
 				sq.Param("perm", perm),
 			},
 		})
@@ -955,6 +963,7 @@ func (fsys *RemoteFS) Mkdir(name string, perm fs.FileMode) error {
 }
 
 func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
+	modTime := time.Now().UTC().Truncate(time.Second)
 	err := fsys.ctx.Err()
 	if err != nil {
 		return err
@@ -980,7 +989,7 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 			sq.UUIDParam("fileID", NewID()),
 			sq.StringParam("filePath", segments[0]),
 			sq.BoolParam("isDir", true),
-			sq.Param("modTime", sq.NewTimestamp(time.Now().UTC())),
+			sq.Param("modTime", sq.NewTimestamp(modTime)),
 			sq.Param("perm", perm),
 		},
 	}
@@ -1026,7 +1035,7 @@ func (fsys *RemoteFS) MkdirAll(name string, perm fs.FileMode) error {
 				"parentDir": path.Join(segments[:i]...),
 				"filePath":  path.Join(segments[:i+1]...),
 				"isDir":     true,
-				"modTime":   sq.NewTimestamp(time.Now().UTC()),
+				"modTime":   sq.NewTimestamp(modTime),
 				"perm":      perm,
 			})
 			if err != nil {
@@ -1145,6 +1154,7 @@ func (fsys *RemoteFS) RemoveAll(name string) error {
 }
 
 func (fsys *RemoteFS) Rename(oldname, newname string) error {
+	modTime := sq.NewTimestamp(time.Now().UTC().Truncate(time.Second))
 	err := fsys.ctx.Err()
 	if err != nil {
 		return err
@@ -1210,7 +1220,6 @@ func (fsys *RemoteFS) Rename(oldname, newname string) error {
 			}
 		}
 	}
-	modTime := sq.NewTimestamp(time.Now().UTC())
 	_, err = sq.ExecContext(fsys.ctx, tx, sq.CustomQuery{
 		Dialect: fsys.dialect,
 		Format:  "UPDATE files SET file_path = {newname}, mod_time = {modTime}{updateTextOrData} WHERE file_path = {oldname}",
