@@ -13,7 +13,43 @@ resetpassword.go
 server.go
 notebrew/main.go
 
-go install github.com/bokwoon95/notebrew/notebrew
+regen per page
+regen per post
+regen post list
+    get me everything in a directory order by name descending, you can fetch in batches or fetch everything under the hood as long as you give me something that can open into a file
+regen page folder
+    get me all everything in a tree order by name ascending, you can fetch in batches or fetch everything under the hood as long as you give me something that can open into a file
+regen site
+    walk posts list
+    walk pages tree
+save page
+save post
+regen post list
+regen page folder
+
+time for nb9 to completely rework the filesystem interfaces...
+Count() (int64, error)
+WalkList()
+WalkTree()
+type FileEntry interface{
+    fs.DirEntry
+    Open() (fs.File, error)
+}
+
+Open() fs.File
+file, ok := file.(notebrew.File)
+file.WalkChildren
+file.WalkDescendents
+
+for {
+    file, err := WalkList()
+    if err != nil {
+        if err == io.EOF {
+            break
+        }
+        return err
+    }
+}
 
 TODO: regenerate site/regenerate folder/regenerate list
 
