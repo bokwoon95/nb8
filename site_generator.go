@@ -1181,7 +1181,16 @@ func (siteGen *SiteGenerator) parseTemplate(ctx context.Context, name, text stri
 				externalTemplateErrs[i] = err
 				return nil
 			}
-			externalTemplates[i] = externalTemplate
+			// NOTE: Before we execute any template it must be cloned. This is
+			// because once a template has been executed it is no longer
+			// pristine i.e. it cannot be added to another template using
+			// AddParseTree (this is a html/template requirement, in order for
+			// its contextually auto-escaped HTML feature to work).
+			externalTemplates[i], err = externalTemplate.Clone()
+			if err != nil {
+				externalTemplateErrs[i] = err
+				return nil
+			}
 			cachedTemplate = externalTemplate
 			return nil
 		})
