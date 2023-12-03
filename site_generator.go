@@ -864,7 +864,11 @@ func (siteGen *SiteGenerator) GeneratePostList(ctx context.Context, category str
 								Href: "https://" + siteGen.domain + "/" + path.Join("posts", post.Category, post.Name) + "/",
 								Rel:  "alternate",
 							}},
-							Content: AtomContent{
+							Summary: AtomText{
+								Type:    "text",
+								Content: string(post.Preview),
+							},
+							Content: AtomText{
 								Type:    "html",
 								Content: string(post.Content),
 							},
@@ -1499,17 +1503,18 @@ type AtomFeed struct {
 	ID      string      `xml:"id"`
 	Title   string      `xml:"title"`
 	Updated string      `xml:"updated"`
-	Link    []AtomLink  `xml:"link"` // rel=self, rel=alternate
+	Link    []AtomLink  `xml:"link"`
 	Entry   []AtomEntry `xml:"entry"`
 }
 
 type AtomEntry struct {
-	ID        string      `xml:"id"`
-	Title     string      `xml:"title"`
-	Published string      `xml:"published"`
-	Updated   string      `xml:"updated"`
-	Link      []AtomLink  `xml:"link"` // rel=alternate
-	Content   AtomContent `xml:"content"`
+	ID        string     `xml:"id"`
+	Title     string     `xml:"title"`
+	Published string     `xml:"published"`
+	Updated   string     `xml:"updated"`
+	Link      []AtomLink `xml:"link"`
+	Summary   AtomText   `xml:"summary"`
+	Content   AtomText   `xml:"content"`
 }
 
 type AtomLink struct {
@@ -1517,7 +1522,7 @@ type AtomLink struct {
 	Rel  string `xml:"rel,attr"`
 }
 
-type AtomContent struct {
+type AtomText struct {
 	Type    string `xml:"type,attr"`
 	Content string `xml:",chardata"`
 }
