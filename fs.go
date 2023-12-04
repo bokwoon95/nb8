@@ -1715,7 +1715,10 @@ func (storage *FileStorage) Get(ctx context.Context, key string) (io.ReadCloser,
 	if err != nil {
 		return nil, err
 	}
-	file, err := os.Open(filepath.Join(storage.rootDir, key))
+	if len(key) < 4 {
+		return nil, &fs.PathError{Op: "get", Path: key, Err: fs.ErrInvalid}
+	}
+	file, err := os.Open(filepath.Join(storage.rootDir, key[:4], key))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, &fs.PathError{Op: "open", Path: key, Err: fs.ErrNotExist}
@@ -1730,8 +1733,11 @@ func (storage *FileStorage) Put(ctx context.Context, key string, reader io.Reade
 	if err != nil {
 		return err
 	}
+	if len(key) < 4 {
+		return &fs.PathError{Op: "put", Path: key, Err: fs.ErrInvalid}
+	}
 	if runtime.GOOS == "windows" {
-		file, err := os.OpenFile(filepath.Join(storage.rootDir, key), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		file, err := os.OpenFile(filepath.Join(storage.rootDir, key[:4], key), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
 			return err
 		}
@@ -1754,7 +1760,7 @@ func (storage *FileStorage) Put(ctx context.Context, key string, reader io.Reade
 		return err
 	}
 	tempFilePath := filepath.Join(tempDir, fileInfo.Name())
-	destFilePath := filepath.Join(storage.rootDir, key)
+	destFilePath := filepath.Join(storage.rootDir, key[:4], key)
 	defer os.Remove(tempFilePath)
 	defer tempFile.Close()
 	_, err = io.Copy(tempFile, reader)
@@ -1767,7 +1773,17 @@ func (storage *FileStorage) Put(ctx context.Context, key string, reader io.Reade
 	}
 	err = os.Rename(tempFilePath, destFilePath)
 	if err != nil {
-		return err
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		err := os.Mkdir(filepath.Join(storage.rootDir, key[:4]), 0755)
+		if err != nil && !errors.Is(err, fs.ErrExist) {
+			return err
+		}
+		err = os.Rename(tempFilePath, destFilePath)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1777,7 +1793,10 @@ func (storage *FileStorage) Delete(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	err = os.Remove(filepath.Join(storage.rootDir, key))
+	if len(key) < 4 {
+		return &fs.PathError{Op: "put", Path: key, Err: fs.ErrInvalid}
+	}
+	err = os.Remove(filepath.Join(storage.rootDir, key[:4], key))
 	if err != nil {
 		return err
 	}
