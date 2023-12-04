@@ -536,7 +536,7 @@ func (fsys *RemoteFS) Open(name string) (fs.File, error) {
 				file.fileInfo.size = int64(len(result.data))
 			}
 		} else {
-			file.readCloser, err = fsys.storage.Get(context.Background(), file.fileInfo.filePath)
+			file.readCloser, err = fsys.storage.Get(context.Background(), hex.EncodeToString(result.fileID[:])+path.Ext(result.filePath))
 			if err != nil {
 				return nil, err
 			}
