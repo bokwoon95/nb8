@@ -435,7 +435,7 @@ func main() {
 					for name, reload := range reloadOnChange {
 						err := reload(nbrew, configfolder)
 						if err != nil {
-							fmt.Printf("%s: error reloading %s: %s", timestamp, filepath.Join(configfolder, name), err)
+							fmt.Printf("%s: reloading %s: %s", timestamp, filepath.Join(configfolder, name), err)
 						}
 					}
 				}
